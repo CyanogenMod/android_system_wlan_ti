@@ -1,0 +1,9 @@
+*.o
+*.a
+*.ko
+*.cmd
+*~
+Module.symvers
+modules.order
+.tmp_versions
+wlan.mod.c
