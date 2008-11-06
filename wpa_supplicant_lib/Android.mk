@@ -2,7 +2,7 @@ LOCAL_PATH := $(call my-dir)
 WPA_BUILD_SUPPLICANT_LIB := false
 ifeq ($(HAVE_CUSTOM_WIFI_DRIVER_2),true)
 WPA_BUILD_SUPPLICANT_LIB := true
-STA_DK_ROOT = $(LOCAL_PATH)/../..
+STA_DK_ROOT = $(LOCAL_PATH)/../sta_dk_4_0_4_32
 endif
 
 DK_ROOT = $(STA_DK_ROOT)
