@@ -107,7 +107,7 @@ ifneq ($(KERNELRELEASE),)
 	# Intermediate object name - this should be converted to the appropriate library file
 	# after the kernel makefile finishes its work.
 	#
-	obj-$(CONFIG_TIWLAN1251) += wlan.o
+	obj-m += wlan.o
 	
 	#
 	# List of object files the kernel makefile needs to compile.

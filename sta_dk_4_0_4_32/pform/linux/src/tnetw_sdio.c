@@ -25,12 +25,17 @@
 #include "esta_drv.h"
 #include "mmc_omap_api.h"
 #include "osApi.h"
+#define DM_DMA_WORKAROUND
 /*-------------------------------------------------------------------*/
 extern int tiwlan_sdio_init(struct sdio_func *func);
 extern int sdio_reset_comm(struct mmc_card *card);
 /*-------------------------------------------------------------------*/
 static struct sdio_func *tiwlan_func = NULL;
 static int sdio_reset_flag = 0;
+#ifdef DM_DMA_WORKAROUND
+#define DMA_THRESHOLD_SIZE  64
+static void *sdio_dma_ptr = NULL;
+#endif
 /*-------------------------------------------------------------------*/
 void SDIO_SetFunc( struct sdio_func *func )
 {
@@ -53,12 +58,25 @@ SDIO_Status SDIO_Init(SDIO_ConfigParams *ConfigParams, SDIO_Handle *Handle)
 		printk(KERN_ERR "Error: SDIO_Init() called before SDIO probe completed!\n");
 		return SDIO_FAILURE;
 	}
+#ifdef DM_DMA_WORKAROUND
+    if( !sdio_dma_ptr ) {
+        sdio_dma_ptr = kmalloc( PAGE_SIZE, GFP_KERNEL );
+        if( !sdio_dma_ptr )
+            return SDIO_FAILURE;
+    }
+#endif
 	return SDIO_SUCCESS;
 }
 
 SDIO_Status SDIO_Shutdown(SDIO_Handle Handle)
 {
 	/* printk("%s:\n", __FUNCTION__); */
+#ifdef DM_DMA_WORKAROUND
+    if( sdio_dma_ptr ) {
+        kfree( sdio_dma_ptr );
+        sdio_dma_ptr = NULL;
+    }
+#endif
 	return SDIO_SUCCESS;
 }
 
@@ -128,8 +146,7 @@ static int write_direct(struct sdio_func *func, unsigned long addr,
 SDIO_Status SDIO_SyncRead(SDIO_Handle Handle, SDIO_Request_t *Req)
 {
 	struct sdio_func *func = (struct sdio_func *)Handle;
-	int rc;
-	int retries = 5;
+	int rc, retries = 5;
 
 #if 0
 	printk("%s: p_addr = 0x%.8lx, sz = %d\n",
@@ -140,7 +157,17 @@ SDIO_Status SDIO_SyncRead(SDIO_Handle Handle, SDIO_Request_t *Req)
 
 	while(retries) {
         if( retries > 2 )
+#ifdef DM_DMA_WORKAROUND
+            if( Req->buffer_len < DMA_THRESHOLD_SIZE ) {
+                rc = sdio_memcpy_fromio(func, Req->buffer, Req->peripheral_addr, Req->buffer_len);
+            }
+            else {
+                rc = sdio_memcpy_fromio(func, sdio_dma_ptr, Req->peripheral_addr, Req->buffer_len);
+                memcpy( Req->buffer, sdio_dma_ptr, Req->buffer_len );
+            }
+#else
             rc = sdio_memcpy_fromio(func, Req->buffer, Req->peripheral_addr, Req->buffer_len);
+#endif
         else
             rc = read_direct(func, Req->buffer, Req->peripheral_addr, Req->buffer_len);
 
@@ -161,8 +188,10 @@ SDIO_Status SDIO_SyncRead(SDIO_Handle Handle, SDIO_Request_t *Req)
 SDIO_Status SDIO_SyncWrite(SDIO_Handle Handle, SDIO_Request_t *Req)
 {
 	struct sdio_func *func = (struct sdio_func *)Handle;
-	int rc;
-	int retries = 5;
+	int rc, retries = 5;
+#ifdef DM_DMA_WORKAROUND
+    void *dma_ptr;
+#endif
 
 #if 0
 	printk("%s: p_addr = 0x%.8lx, sz = %d\n",
@@ -173,7 +202,18 @@ SDIO_Status SDIO_SyncWrite(SDIO_Handle Handle, SDIO_Request_t *Req)
 
 	while(retries) {
         if( retries > 2 ) {
+#ifdef DM_DMA_WORKAROUND
+            if( Req->buffer_len < DMA_THRESHOLD_SIZE ) {
+                dma_ptr = Req->buffer;
+            }
+            else {
+                dma_ptr = sdio_dma_ptr;
+                memcpy( dma_ptr, Req->buffer, Req->buffer_len );
+            }
+            rc = sdio_memcpy_toio(func, Req->peripheral_addr, dma_ptr, Req->buffer_len);
+#else
             rc = sdio_memcpy_toio(func, Req->peripheral_addr, Req->buffer, Req->buffer_len);
+#endif
         }
         else
             rc = write_direct(func, Req->peripheral_addr, Req->buffer, Req->buffer_len);

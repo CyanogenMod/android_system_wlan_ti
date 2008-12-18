@@ -1,12 +1,32 @@
+#
+# Copyright (C) 2008 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 LOCAL_PATH := $(call my-dir)
-WPA_BUILD_SUPPLICANT_LIB := false
-ifeq ($(HAVE_CUSTOM_WIFI_DRIVER_2),true)
-WPA_BUILD_SUPPLICANT_LIB := true
 STA_DK_ROOT = $(LOCAL_PATH)/../..
+
+# This makefile is only included if BOARD_WLAN_TI_STA_DK_ROOT is set,
+# and if we're not building for the simulator.
+ifndef BOARD_WLAN_TI_STA_DK_ROOT
+  $(error BOARD_WLAN_TI_STA_DK_ROOT must be defined when including this makefile)
+endif
+ifeq ($(TARGET_SIMULATOR),true)
+  $(error This makefile must not be included when building the simulator)
 endif
 
-DK_ROOT = $(STA_DK_ROOT)
-OS_ROOT = $(STA_DK_ROOT)/pform
+DK_ROOT = $(BOARD_WLAN_TI_STA_DK_ROOT)
+OS_ROOT = $(BOARD_WLAN_TI_STA_DK_ROOT)/pform
 COMMON  = $(DK_ROOT)/common
 COMSRC  = $(COMMON)/src
 CUDK_ROOT = $(DK_ROOT)/CUDK
@@ -108,7 +128,7 @@ INCLUDES = $(COMMON)/inc \
 	external/wpa_supplicant
   
 L_CFLAGS += -DCONFIG_DRIVER_CUSTOM -DHOST_COMPILE
-ifeq ($(HAVE_CUSTOM_WIFI_DRIVER_0),true) 
+ifeq ($(notdir $(BOARD_WLAN_TI_STA_DK_ROOT)),sta_dk_5_0_0_94)
 L_CFLAGS += -DSTA_DK_VER_5_0_0_94 
 endif
 OBJS = driver_ti.c
@@ -125,21 +145,15 @@ ifdef CONFIG_IEEE8021X_EAPOL
 L_CFLAGS += -DIEEE8021X_EAPOL
 endif
 
-ifneq ($(TARGET_SIMULATOR),true)
-ifeq ($(WPA_BUILD_SUPPLICANT_LIB),true)
-
 ########################
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libCustomWifi
 LOCAL_STATIC_LIBRARIES := libWifiApi
-LOCAL_SHARED_LIBRARIES := libc
+LOCAL_SHARED_LIBRARIES := libc libcutils
 LOCAL_CFLAGS := $(L_CFLAGS)
 LOCAL_SRC_FILES := $(OBJS)
 LOCAL_C_INCLUDES := $(INCLUDES)
 include $(BUILD_STATIC_LIBRARY)
 
 ########################
-
-endif # ifeq ($(WPA_BUILD_SUPPLICANT_LIB),true)
-endif # ifneq ($(TARGET_SIMULATOR),true)

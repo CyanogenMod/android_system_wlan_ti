@@ -59,6 +59,8 @@ typedef enum _TIWLAN_KEY_FLAGS
 #endif
 
 #define NUMBER_SCAN_CHANNELS_FCC	11
+#define NUMBER_SCAN_CHANNELS_ETSI	13
+#define NUMBER_SCAN_CHANNELS_MKK1	14
 
 #ifndef ETHERNET_HDR_LEN
 #define ETHERNET_HDR_LEN        14
@@ -86,6 +88,7 @@ struct wpa_driver_ti_data {
     int scan_channels;                 /* Number of allowed scan channels */
     unsigned link_speed;               /* Link Speed */
     unsigned btcoex_mode;              /* BtCoex Mode */
+    unsigned rts_threshold;            /* RTS Threshold */
     int driverEventsSocket;
     int block_disassoc_events;
     int block_disassoc_prev;

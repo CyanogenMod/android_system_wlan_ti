@@ -74,7 +74,7 @@ TI_HANDLE wlan_memMngrInit(TI_HANDLE hOs)
     /* structures for initialization of Memory manager */
     pMemMngrInit.numOfPools = DEF_NUMBER_OF_BUF_POOLS;
     pMemMngrInit.bufPoolInit[0].buffersSize = DEF_BUFFER_LENGTH_POOL_1;
-    pMemMngrInit.bufPoolInit[0].numOfbuffers = DEF_NUMBER_OF_BUFFERS_IN_POOL_1 ;
+    pMemMngrInit.bufPoolInit[0].numOfbuffers = DEF_NUMBER_OF_BUFFERS_IN_POOL_1;
     pMemMngrInit.bufPoolInit[1].buffersSize = DEF_BUFFER_LENGTH_POOL_2;
     pMemMngrInit.bufPoolInit[1].numOfbuffers = DEF_NUMBER_OF_BUFFERS_IN_POOL_2;
     pMemMngrInit.bufPoolInit[2].buffersSize = DEF_BUFFER_LENGTH_POOL_3;

@@ -46,6 +46,7 @@
 #include "rx.h"
 #include "osApi.h"
 #include "DataCtrl_Api.h"
+#include "Ctrl.h"
 #include "802_11Defs.h"
 #include "Ethernet.h"
 #include "report.h"
@@ -376,7 +377,7 @@ TI_STATUS rxData_stop(TI_HANDLE hRxData)
 ****************************************************************************
 * DESCRIPTION:	get a specific parameter
 * 
-* INPUTS:		hTxData - the object
+* INPUTS:		hRxData - the object
 *				
 * OUTPUT:		pParamInfo - structure which include the value of 
 *				the requested parameter
@@ -444,11 +445,11 @@ TI_STATUS rxData_getParam(TI_HANDLE hRxData, paramInfo_t *pParamInfo)
 }
 
 /***************************************************************************
-*							txData_setParam				                   *
+*							rxData_setParam				                   *
 ****************************************************************************
 * DESCRIPTION:	set a specific parameter
 * 
-* INPUTS:		hTxData - the object
+* INPUTS:		hRxData - the object
 *				pParamInfo - structure which include the value to set for 
 *				the requested parameter
 *		
@@ -972,7 +973,7 @@ TI_STATUS rxData_UnRegNotif(TI_HANDLE hRxData,TI_HANDLE RegEventHandle)
 * DESCRIPTION:	this function is called by the GWSI for each received msdu.
 *				It filter and distribute the received msdu. 
 * 
-* INPUTS:		hTxData - the object
+* INPUTS:		hRxData - the object
 *				pMsdu - the received msdu.
 *				pRxAttr - Rx attributes
 *		
@@ -1065,7 +1066,7 @@ void rxData_receiveMsduFromWlan(TI_HANDLE hRxData, mem_MSDU_T *pMsdu, Rx_attr_t*
 *				it dispatches the packet to the approciate function according to 
 *               data packet type and rx port status. 
 * 
-* INPUTS:		hTxData - the object
+* INPUTS:		hRxData - the object
 *				pMsdu - the received msdu.
 *				pRxAttr - Rx attributes
 *		
@@ -1218,7 +1219,7 @@ static void	rxData_discardMsduVlan(TI_HANDLE hRxData, mem_MSDU_T *pMsdu, Rx_attr
 * DESCRIPTION:	this function is called upon receving data Eapol packet type 
 *               while rx port status is "open notify"
 * 
-* INPUTS:		hTxData - the object
+* INPUTS:		hRxData - the object
 *				pMsdu - the received msdu.
 *				pRxAttr - Rx attributes
 *		
@@ -1248,7 +1249,7 @@ static void rxData_rcvMsduInOpenNotify(TI_HANDLE hRxData, mem_MSDU_T *pMsdu, Rx_
 * DESCRIPTION:	this function is called upon receving data Eapol packet type 
 *               while rx port status is "open  eapol"
 * 
-* INPUTS:		hTxData - the object
+* INPUTS:		hRxData - the object
 *				pMsdu - the received msdu.
 *				pRxAttr - Rx attributes
 *		
@@ -1281,7 +1282,7 @@ static void rxData_rcvMsduEapol(TI_HANDLE hRxData, mem_MSDU_T *pMsdu, Rx_attr_t*
 * DESCRIPTION:	this function is called upon receving data "data" packet type 
 *               while rx port status is "open"
 * 
-* INPUTS:		hTxData - the object
+* INPUTS:		hRxData - the object
 *				pMsdu - the received msdu.
 *				pRxAttr - Rx attributes
 *		
@@ -1297,7 +1298,7 @@ static void rxData_rcvMsduData(TI_HANDLE hRxData, mem_MSDU_T *pMsdu, Rx_attr_t* 
 	rxData_t *pRxData = (rxData_t *)hRxData;
 	EthernetHeader_t *pEthernetHeader;
 	UINT16 EventMask = 0;		
-
+	ctrlData_t *pCtrlData;
 
 	WLAN_REPORT_INFORMATION(pRxData->hReport, RX_DATA_MODULE_LOG, 
 	(" rxData_rcvMsduData() : Received DATA frame tranferred to OS\n"));
@@ -1330,6 +1331,21 @@ static void rxData_rcvMsduData(TI_HANDLE hRxData, mem_MSDU_T *pMsdu, Rx_attr_t* 
 			WLAN_REPORT_WARNING(pRxData->hReport, RX_DATA_MODULE_LOG, 
 				(" rxData_receiveMsduFromWlan() : exclude broadcast unencrypted is TRUE & packet encryption is OFF\n"));
 
+			wlan_memMngrFreeMSDU(pRxData->hMemMngr, memMgr_MsduHandle(pMsdu));
+			return;
+		}
+
+		/*
+		 * Discard multicast/broadcast frames that we sent ourselves.
+		 * Per IEEE 802.11-2007 section 9.2.7: "STAs shall filter out
+		 * broadcast/multicast messages that contain their address as
+		 * the source address."
+		 */
+		pCtrlData = (ctrlData_t *)pRxData->hCtrlData;
+		if (IsMacAddressEqual(&pCtrlData->ctrlDataDeviceMacAddress, &pEthernetHeader->SrcAddr))
+		{
+			pRxData->rxDataDbgCounters.excludedFrameCounter++;
+			/* free msdu */
 			wlan_memMngrFreeMSDU(pRxData->hMemMngr, memMgr_MsduHandle(pMsdu));
 			return;
 		}
@@ -1399,7 +1415,7 @@ static void rxData_rcvMsduData(TI_HANDLE hRxData, mem_MSDU_T *pMsdu, Rx_attr_t* 
 * DESCRIPTION:	this function is called upon receving data IAPP packet type 
 *               while rx port status is "open"
 * 
-* INPUTS:		hTxData - the object
+* INPUTS:		hRxData - the object
 *				pMsdu - the received msdu.
 *				pRxAttr - Rx attributes
 *		
@@ -1437,7 +1453,7 @@ static void rxData_rcvMsduIapp(TI_HANDLE hRxData, mem_MSDU_T *pMsdu, Rx_attr_t* 
 * DESCRIPTION:	this function convert the msdu header from 802.11 header 
 *				format to ethernet format
 * 
-* INPUTS:		hTxData - the object
+* INPUTS:		hRxData - the object
 *				pMsdu - msdu in 802.11 format
 *		
 * OUTPUT:		pMsdu - msdu in ethernet format
