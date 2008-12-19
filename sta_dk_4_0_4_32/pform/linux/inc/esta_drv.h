@@ -44,7 +44,15 @@
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
 #include <asm/arch/gpio.h>
 #else
-#include <mach/gpio.h>
+#include <asm/gpio.h>
+#endif
+
+#ifdef CONFIG_TROUT_PWRSINK
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
+#include <asm/arch/trout_pwrsink.h>
+#else
+#include <mach/trout_pwrsink.h>
+#endif
 #endif
 
 #ifdef CONFIG_ANDROID_POWER
@@ -64,9 +72,18 @@
 #define TIWLAN_DRV_NAME_WIRELESS_PROTO "IEEE 802.11-DS"
 
 #ifdef TIWLAN_MSM7000
+#ifdef CONFIG_WIFI_CONTROL_FUNC
+#include <linux/platform_device.h>
+#include <mach/msm_wifi.h>
+int msm_wifi_power(int on);
+int msm_wifi_reset(int on);
+#else
 extern int trout_wifi_power(int on);
 extern void trout_wifi_reset(int on);
 extern void trout_wifi_set_carddetect(int val);
+#define msm_wifi_power(a)	trout_wifi_power(a)
+#define msm_wifi_reset(a)	trout_wifi_reset(a)
+#endif
 #endif
 
 #ifndef TIWLAN_OMAP1610_REGBASE

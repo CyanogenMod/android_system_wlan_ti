@@ -15,5 +15,11 @@
 #
 
 ifneq ($(TARGET_SIMULATOR),true)
-  include $(all-subdir-makefiles)
+  system_wlan_ti_path := $(my-dir)
+  # The board config file for the product must define BOARD_WLAN_TI_STA_DK_ROOT
+  # in order to build the TI wlan components.
+  ifdef BOARD_WLAN_TI_STA_DK_ROOT
+    include $(BOARD_WLAN_TI_STA_DK_ROOT)/Android.mk
+    include $(system_wlan_ti_path)/wpa_supplicant_lib/Android.mk
+  endif
 endif

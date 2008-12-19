@@ -50,9 +50,6 @@
 #include <linux/time.h>
 #include <linux/list.h>
 #include <asm/io.h>
-#ifdef CONFIG_TROUT_PWRSINK
-#include <asm/arch/trout_pwrsink.h>
-#endif
 
 #include "debug_module.h"
 #include "esta_drv.h"
@@ -840,23 +837,23 @@ os_hardResetTnetw( void )
  */
     /* direction out */
 #ifdef TIWLAN_OMAP1610    
-	omap_set_gpio_direction(GPIO_16, GPIO_16_DIRECTION_OUTPUT);
+    omap_set_gpio_direction(GPIO_16, GPIO_16_DIRECTION_OUTPUT);
 	
-	/* clear reset WLAN chip */
-	omap_set_gpio_dataout(GPIO_16, GPIO_16_CLEAR);
+    /* clear reset WLAN chip */
+    omap_set_gpio_dataout(GPIO_16, GPIO_16_CLEAR);
 
-	/* wait for 50msec */
+    /* wait for 50msec */
     mdelay(50);
-	omap_set_gpio_dataout(GPIO_16, GPIO_16_SET);
+    omap_set_gpio_dataout(GPIO_16, GPIO_16_SET);
 
-	/* wait for 50msec */
-	mdelay(50);
+    /* wait for 50msec */
+    mdelay(50);
 #endif /* Dm: */
 #ifdef TIWLAN_MSM7000
-    trout_wifi_reset(1); /* Reset active */
-    trout_wifi_power(0); /* Power disable */
-    trout_wifi_power(1); /* Power enable */
-    trout_wifi_reset(0); /* Reset clear */
+    msm_wifi_reset(1); /* Reset active */
+    msm_wifi_power(0); /* Power disable */
+    msm_wifi_power(1); /* Power enable */
+    msm_wifi_reset(0); /* Reset clear */
 #endif
 }
 

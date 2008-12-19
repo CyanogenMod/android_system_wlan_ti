@@ -42,8 +42,13 @@
 #include "wspVer.h"
 #include "driver_ti.h"
 #include "scanMngrTypes.h"
+#ifdef ANDROID
+#include <cutils/properties.h>
+#endif
 /*-------------------------------------------------------------------*/
 #define TI_DRIVER_MSG_PORT      9000
+#define RX_SELF_FILTER		0
+#define RX_BROADCAST_FILTER	1
 #define TI2WPA_STATUS(s)        (((s) != OK) ? -1 : 0)
 #define TI_CHECK_DRIVER(f,r)    \
     if( !(f) ) { \
@@ -56,6 +61,50 @@
 static int lfp;
 #endif
 /*-------------------------------------------------------------------*/
+#ifdef ANDROID
+typedef struct REG_DOMAIN_STRUCT {
+    char tmzn_name[PROPERTY_VALUE_MAX];
+    int size;
+    int num_of_channels;
+} reg_domain_struct_t;
+
+reg_domain_struct_t reg_domain_str[] = {
+    { "US", 2, NUMBER_SCAN_CHANNELS_FCC },
+    { "AU", 2, NUMBER_SCAN_CHANNELS_FCC },
+    { "SG", 2, NUMBER_SCAN_CHANNELS_FCC },
+    { "CA", 2, NUMBER_SCAN_CHANNELS_FCC },
+    { "GB", 2, NUMBER_SCAN_CHANNELS_ETSI },    
+    { "JP", 2, NUMBER_SCAN_CHANNELS_MKK1 },
+    { "ZZ", 2, NUMBER_SCAN_CHANNELS_FCC }
+};
+#endif
+/*-----------------------------------------------------------------------------
+Routine Name: check_and_get_carrier_channels
+Routine Description: get number of allowed channels according to locale
+as determined by the carrier being used.
+Arguments: None
+Return Value: Number of channels
+-----------------------------------------------------------------------------*/
+static int check_and_get_carrier_channels( void )
+{
+#ifdef ANDROID
+    char prop_status[PROPERTY_VALUE_MAX];
+    char *prop_name = "ro.product.locale.region";
+    int default_channels = NUMBER_SCAN_CHANNELS_ETSI;
+    unsigned i;
+
+    if( !property_get(prop_name, prop_status, NULL) )
+        return default_channels;
+    for(i=0;( i < (sizeof(reg_domain_str)/sizeof(reg_domain_struct_t)) );i++) {
+        if( strncmp(prop_status, reg_domain_str[i].tmzn_name,
+		    reg_domain_str[i].size) == 0 )
+            return reg_domain_str[i].num_of_channels;
+    }
+    return( default_channels );
+#else
+    return( NUMBER_SCAN_CHANNELS_FCC );
+#endif
+}
 
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_event_receive
@@ -1295,13 +1344,16 @@ static void *wpa_driver_tista_init( void *priv, const char *ifname )
     myDrv->scan_type = SCAN_TYPE_NORMAL_ACTIVE;
 
     /* Set default amount of channels */
-    myDrv->scan_channels = NUMBER_SCAN_CHANNELS_FCC;
+    myDrv->scan_channels = check_and_get_carrier_channels();
 
     /* Link Speed will be set by the message from the driver */
     myDrv->link_speed = 0;
 
     /* BtCoex mode is read from tiwlan.ini file */
     myDrv->btcoex_mode = 1; /* SG_DISABLE */
+
+    /* RTS Threshold is read from tiwlan.ini file */
+    myDrv->rts_threshold = HAL_CTRL_RTS_THRESHOLD_MAX;
 
     /* Return pointer to our driver structure */
     return( myDrv );
@@ -1404,6 +1456,51 @@ static int ti_send_eapol( void *priv, const u8 *dest, u16 proto,
     return( TI2WPA_STATUS(ret) );
 }
 
+#ifndef STA_DK_VER_5_0_0_94
+/*-----------------------------------------------------------------------------
+Routine Name: get_filter_mac_addr
+Routine Description: returns mac address according to parameter type
+Arguments: 
+   priv - pointer to private data structure
+   type - type of mac address
+Return Value: pointer to mac address array, or NULL
+-----------------------------------------------------------------------------*/
+static const u8 *get_filter_mac_addr( void *priv, int type )
+{
+    if( type == RX_SELF_FILTER )
+	return( wpa_driver_tista_get_mac_addr(priv) );
+    if( type == RX_BROADCAST_FILTER )
+	return( (const u8 *)"\xFF\xFF\xFF\xFF\xFF\xFF" );
+    return( NULL );
+}
+
+/*-----------------------------------------------------------------------------
+Routine Name: prepare_filter_struct
+Routine Description: fills rx data filter structure according to parameter type
+Arguments: 
+   priv - pointer to private data structure
+   type - type of mac address
+   dfreq_ptr - pointer to TIWLAN_DATA_FILTER_REQUEST structure
+Return Value: 0 - success, -1 - error
+-----------------------------------------------------------------------------*/
+static int prepare_filter_struct( void *priv, int type,
+			          TIWLAN_DATA_FILTER_REQUEST *dfreq_ptr )
+{
+    u8 *macaddr = (u8 *)get_filter_mac_addr( priv, type );
+    int ret = -1;
+
+    if( macaddr != NULL ) {
+	dfreq_ptr->Offset = 0;
+	dfreq_ptr->MaskLength = 1;
+	dfreq_ptr->Mask[0] = 0x3F; /* 6 bytes */
+	dfreq_ptr->PatternLength = MAC_ADDR_LEN;
+	os_memcpy( dfreq_ptr->Pattern, macaddr, MAC_ADDR_LEN );
+	ret = 0;
+    }
+    return( ret );
+}
+#endif
+
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_driver_cmd
 Routine Description: executes driver-specific commands
@@ -1429,6 +1526,7 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
         if( ret == OK ) {
             /* Signal that driver is not loaded yet */
             myDrv->driver_is_loaded = TRUE;
+            myDrv->scan_channels = check_and_get_carrier_channels();
             wpa_msg(myDrv->hWpaSupplicant, MSG_INFO, WPA_EVENT_DRIVER_STATE "STARTED");
         }
 	else
@@ -1456,8 +1554,10 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
         u8 *macaddr = (u8 *)wpa_driver_tista_get_mac_addr(priv);
         wpa_printf(MSG_DEBUG,"Macaddr command");
         wpa_printf(MSG_DEBUG, "   Macaddr = " MACSTR, MAC2STR(macaddr));
-        ret = sprintf(buf, "Macaddr = " MACSTR "\n", MAC2STR(macaddr));
-        return( ret );
+        ret = snprintf(buf, buf_len, "Macaddr = " MACSTR "\n", MAC2STR(macaddr));
+        if (ret < (int)buf_len) {
+            return( ret );
+        }
     }
     else if( os_strcasecmp(cmd, "scan-passive") == 0 ) {
         wpa_printf(MSG_DEBUG,"Scan Passive command");
@@ -1471,18 +1571,31 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
     }
     else if( os_strcasecmp(cmd, "linkspeed") == 0 ) {
         wpa_printf(MSG_DEBUG,"Link Speed command");
-        ret = sprintf(buf,"LinkSpeed %u\n", myDrv->link_speed); 
-        return( ret );
+        ret = snprintf(buf, buf_len, "LinkSpeed %u\n", myDrv->link_speed); 
+        if (ret < (int)buf_len) {
+            return( ret );
+        }
     }
     else if( os_strncasecmp(cmd, "scan-channels", 13) == 0 ) {
         int noOfChan;
+        char *cp = cmd + 13;
+        char *endp;
 
-        noOfChan = atoi(cmd + 13);
-        wpa_printf(MSG_DEBUG,"Scan Channels command = %d", noOfChan);
-        if( (noOfChan > 0) && (noOfChan <= MAX_NUMBER_OF_CHANNELS_PER_SCAN) )
-    	    myDrv->scan_channels = noOfChan;
-        ret = sprintf(buf,"Scan-Channels = %d\n", myDrv->scan_channels); 
-        return( ret );
+        if (*cp != '\0') {
+            noOfChan = strtol(cp, &endp, 0);
+            if (endp != cp) {
+                wpa_printf(MSG_DEBUG,"Scan Channels command = %d", noOfChan);
+                if( (noOfChan > 0) && (noOfChan <= MAX_NUMBER_OF_CHANNELS_PER_SCAN) ) {
+                    myDrv->scan_channels = noOfChan;
+                    ret = 0;
+                }
+            }
+        } else {
+            ret = snprintf(buf, buf_len, "Scan-Channels = %d\n", myDrv->scan_channels); 
+            if (ret < (int)buf_len) {
+                return( ret );
+            }
+        }
     }
     else if( os_strcasecmp(cmd, "rssi") == 0 ) {
 #if 1    
@@ -1494,16 +1607,15 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
 	ret = TI_GetRSSI( myDrv->hDriver, &rssi );
 	if( ret == OK ) {
             len = wpa_driver_tista_get_ssid( priv, (u8 *)ssid );
-	    if( (len > 0) && (len <= MAX_SSID_LEN) ) {
+            if( (len > 0) && (len <= MAX_SSID_LEN) && (len < (int)buf_len)) {
                 os_memcpy( (void *)buf, (void *)ssid, len );
                 ret = len;
-	        ret += sprintf(&buf[ret], " rssi %d\n", rssi);
-		return( ret );
-	    }
-	}
-	else {
-            ret = -1;
-	}
+                ret += snprintf(&buf[ret], buf_len-len, " rssi %d\n", rssi);
+                if (ret < (int)buf_len) {
+                    return( ret );
+                }
+            }
+        }
 #else	
         OS_802_11_BSSID_EX bssidInfo;
 	
@@ -1511,55 +1623,179 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
 	
         ret = TI_GetSelectedBSSIDInfo( myDrv->hDriver, (OS_802_11_BSSID_EX *)&bssidInfo );
         if( ret == OK ) {
-            if( bssidInfo.Ssid.SsidLength != 0 ) {
+            if( bssidInfo.Ssid.SsidLength != 0 && bssidInfo.Ssid.SsidLength < buf_len) {
                 os_memcpy( (void *)buf, (void *)(bssidInfo.Ssid.Ssid), bssidInfo.Ssid.SsidLength );
                 ret = bssidInfo.Ssid.SsidLength;
-                ret += sprintf(&buf[ret]," rssi %d\n", bssidInfo.Rssi);
-                return( ret );
+                ret += snprintf(&buf[ret], buf_len-ret, " rssi %d\n", bssidInfo.Rssi);
+                if (ret < (int)buf_len) {
+                    return( ret );
+                }
             }
             ret = -1;
         }
 #endif	
     }
     else if( os_strncasecmp(cmd, "powermode", 9) == 0 ) {
+        u32 rtsThreshold = myDrv->rts_threshold;
         u32 mode;
-	
-        mode = (u32)atoi(cmd + 9);
-        wpa_printf(MSG_DEBUG,"Power Mode command = %u", mode);
-        if( mode <= OS_POWER_MODE_LONG_DOZE )
-    	    ret = TI_ConfigPowerManagement( myDrv->hDriver, mode );
+        char *cp = cmd + 9;
+        char *endp;
+        
+        if (*cp != '\0') {
+            mode = (u32)strtol(cp, &endp, 0);
+            if (endp != cp) {
+                wpa_printf(MSG_DEBUG,"Power Mode command = %u", mode);
+                if( mode <= OS_POWER_MODE_LONG_DOZE )
+                    ret = TI_ConfigPowerManagement( myDrv->hDriver, mode );
+	        if( mode == OS_POWER_MODE_ACTIVE )
+	            rtsThreshold = 0;
+                if( TI_SetRTSThreshold( myDrv->hDriver, rtsThreshold ) != OK )
+	            wpa_printf(MSG_DEBUG,"Set RTS threshold = %u failed", rtsThreshold);
+            }
+        }
     }
-    else if (os_strncasecmp(cmd, "getpower", 8) == 0 ) {
+    else if( os_strncasecmp(cmd, "getpower", 8) == 0 ) {
         u32 mode;
 
         ret = TI_GetPowerMode( myDrv->hDriver, (OS_802_11_POWER_PROFILE *)&mode);
         if( ret == OK ) {
-            ret = sprintf(buf, "powermode = %u\n", mode);
-            return( ret );
+            ret = snprintf(buf, buf_len, "powermode = %u\n", mode);
+            if (ret < (int)buf_len) {
+                return( ret );
+            }
         }
-        ret = -1;
+    }
+    else if( os_strncasecmp(cmd, "get-rts-threshold", 17) == 0 ) {
+        tiUINT32 rtsThreshold = 0;
+
+        ret = TI_GetRTSThreshold( myDrv->hDriver, &rtsThreshold );
+        wpa_printf(MSG_DEBUG,"Get RTS Threshold command = %d", rtsThreshold);
+        if( ret == OK ) {
+            ret = snprintf(buf, buf_len, "rts-threshold = %u\n", rtsThreshold);
+            if (ret < (int)buf_len) {
+                return( ret );
+            }
+        }
+    }
+    else if( os_strncasecmp(cmd, "set-rts-threshold", 17) == 0 ) {
+        tiUINT32 rtsThreshold = 0;
+        char *cp = cmd + 17;
+        char *endp;
+        
+        if (*cp != '\0') {
+            rtsThreshold = (tiUINT32)strtol(cp, &endp, 0);
+            if (endp != cp) {
+                wpa_printf(MSG_DEBUG,"RTS Threshold command = %d", rtsThreshold);
+                if( rtsThreshold <= HAL_CTRL_RTS_THRESHOLD_MAX ) {
+                    ret = TI_SetRTSThreshold( myDrv->hDriver, rtsThreshold );
+                    if( ret == OK ) {
+                        myDrv->rts_threshold = rtsThreshold;
+                    }
+                }
+            }
+        }
     }
 #ifndef STA_DK_VER_5_0_0_94
+    else if( os_strcasecmp(cmd, "rxfilter-start") == 0 ) {
+        wpa_printf(MSG_DEBUG,"Rx Data Filter Start command");    
+        ret = TI_EnableDisableRxDataFilters( myDrv->hDriver, TRUE );
+    }
+    else if( os_strcasecmp(cmd, "rxfilter-stop") == 0 ) {
+        wpa_printf(MSG_DEBUG,"Rx Data Filter Stop command");    
+        ret = TI_EnableDisableRxDataFilters( myDrv->hDriver, FALSE );
+    }
+    else if( os_strcasecmp(cmd, "rxfilter-statistics") == 0 ) {
+        TIWLAN_DATA_FILTER_STATISTICS stats;
+        int len, i;
+
+        wpa_printf(MSG_DEBUG,"Rx Data Filter Statistics command");    
+        ret = TI_GetRxDataFiltersStatistics( myDrv->hDriver, &stats );
+        if( ret == OK ) {
+            ret = snprintf(buf, buf_len, "RxFilterStat: %u", 
+			    stats.UnmatchedPacketsCount);
+            for(i=0;( i < MAX_NUM_DATA_FILTERS );i++) {
+                ret += snprintf(&buf[ret], buf_len-ret, " %u",
+			    stats.MatchedPacketsCount[i]);
+            }
+            ret += snprintf(&buf[ret], buf_len-ret, "\n"); 	    
+            if (ret < (int)buf_len) {
+                return( ret );
+            }
+        }
+    }
+    else if( os_strncasecmp(cmd, "rxfilter-add", 12) == 0 ) {
+        TIWLAN_DATA_FILTER_REQUEST dfreq;
+        char *cp = cmd + 12;
+        char *endp;
+        int type;
+
+        if (*cp != '\0') {
+            type = (int)strtol(cp, &endp, 0);
+            if (endp != cp) {
+                wpa_printf(MSG_DEBUG,"Rx Data Filter Add [%d] command", type);
+                ret = prepare_filter_struct( priv, type, &dfreq );
+                if( ret == 0 ) {
+                    ret = TI_AddRxDataFilter( myDrv->hDriver, &dfreq );
+                }
+            }
+        }
+    }
+    else if( os_strncasecmp(cmd, "rxfilter-remove",15) == 0 ) {
+        wpa_printf(MSG_DEBUG,"Rx Data Filter Remove command");    
+        TIWLAN_DATA_FILTER_REQUEST dfreq;
+        char *cp = cmd + 15;
+        char *endp;
+        int type;
+
+        if (*cp != '\0') {
+            type = (int)strtol(cp, &endp, 0);
+            if (endp != cp) {
+                wpa_printf(MSG_DEBUG,"Rx Data Filter Remove [%d] command", type);
+                ret = prepare_filter_struct( priv, type, &dfreq );
+                if( ret == 0 ) {
+                    ret = TI_RemoveRxDataFilter( myDrv->hDriver, &dfreq );
+                }
+            }
+        }
+    }
+    else if( os_strcasecmp(cmd, "snr") == 0 ) {
+        u32 snr;
+
+        ret = TI_GetSNR( myDrv->hDriver, &snr );
+        if( ret == OK ) {
+            ret = snprintf(buf, buf_len, "snr = %u\n", snr);
+            if (ret < (int)buf_len) {
+                return( ret );
+            }
+        }
+    }
     else if( os_strncasecmp(cmd, "btcoexmode", 10) == 0 ) {
         u32 mode;
+        char *cp = cmd + 10;
+        char *endp;
 	
-        mode = (u32)atoi(cmd + 10);
-        wpa_printf(MSG_DEBUG,"BtCoex Mode command = %u", mode);
-        ret = TI_SetBtCoeEnable( myDrv->hDriver, mode );
-        if( ret == OK ) {
-            myDrv->btcoex_mode = mode;
+        if (*cp != '\0') {
+            mode = (u32)strtol(cp, &endp, 0);
+            if (endp != cp) {
+                wpa_printf(MSG_DEBUG,"BtCoex Mode command = %u", mode);
+                ret = TI_SetBtCoeEnable( myDrv->hDriver, mode );
+                if( ret == OK ) {
+                    myDrv->btcoex_mode = mode;
+                }
+            }
         }
     }
     else if( os_strcasecmp(cmd, "btcoexstat") == 0 ) {
         u32 status = myDrv->btcoex_mode;
 	
-        wpa_printf(MSG_DEBUG,"BtCoex Status");		
+        wpa_printf(MSG_DEBUG,"BtCoex Status");
         ret = TI_SetBtCoeGetStatus( myDrv->hDriver, (tiUINT32 *)&status );
         if( ret == OK ) {
-            ret = sprintf(buf, "btcoexstatus = 0x%x\n", status);
-            return( ret );
+            ret = snprintf(buf, buf_len, "btcoexstatus = 0x%x\n", status);
+            if (ret < (int)buf_len) {
+                return( ret );
+            }
         }
-        ret = -1;
     }
 #endif
     else {

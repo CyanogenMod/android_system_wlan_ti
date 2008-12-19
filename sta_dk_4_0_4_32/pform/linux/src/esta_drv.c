@@ -107,7 +107,6 @@
 #include "tiwlan_profile.h"
 
 #ifdef CONFIG_TROUT_PWRSINK
-#include <asm/arch/trout_pwrsink.h>
 #define RX_RATE_INTERVAL_SEC 10
 unsigned long num_rx_pkt_new = 0;
 static unsigned long num_rx_pkt_last = 0;
@@ -118,6 +117,9 @@ extern unsigned char *get_wifi_nvs_ram(void);
 extern void SDIO_SetFunc( struct sdio_func * );
 static struct proc_dir_entry *tiwlan_calibration;
 static struct completion sdio_wait;
+#ifdef CONFIG_WIFI_CONTROL_FUNC
+static struct wifi_platform_data *wifi_control_data = NULL;
+#endif
 #endif
 
 /* Drivers list */
@@ -1198,15 +1200,15 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
 #endif/*I_MEM_ALLOC_TRACE*/
     if (!init_table)
     {
-            ti_dprintf(TIWLAN_LOG_ERROR, "Cannot allocate init_table\n");
-            return -ENOMEM;
+        ti_dprintf(TIWLAN_LOG_ERROR, "Cannot allocate init_table\n");
+        return -ENOMEM;
     }
 
     if (init_info)
     {
-          drv->eeprom_image.size = init_info->eeprom_image_length;
+        drv->eeprom_image.size = init_info->eeprom_image_length;
         if (drv->eeprom_image.size)
-            {
+        {
             drv->eeprom_image.va = os_memoryAlloc (drv, drv->eeprom_image.size);
 
 #ifdef TI_MEM_ALLOC_TRACE        
@@ -1219,29 +1221,29 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
                 return -ENOMEM;
             }
             memcpy (drv->eeprom_image.va, &init_info->data[0], drv->eeprom_image.size );
-            }
+        }
         
 #ifdef FIRMWARE_DYNAMIC_LOAD
         drv->firmware_image.size = init_info->firmware_image_length;
-            if (!drv->firmware_image.size)
-            {
+        if (!drv->firmware_image.size)
+        {
             ti_dprintf (TIWLAN_LOG_ERROR, "No firmware image\n");
-                return -EINVAL;
-            }
+            return -EINVAL;
+        }
         drv->firmware_image.va = os_memoryAlloc (drv,drv->firmware_image.size);
 #ifdef TI_MEM_ALLOC_TRACE        
         osPrintf ("MTT:%s:%d ::kmalloc(%lu, %x) : %lu\n", __FUNCTION__, __LINE__, drv->firmware_image.size, GFP_KERNEL, drv->firmware_image.size);
 #endif
         if (!drv->firmware_image.va)
-            {
-                ti_dprintf(TIWLAN_LOG_ERROR, "Cannot allocate buffer for firmware image\n");
-                drv->firmware_image.size = 0;
+        {
+            ti_dprintf(TIWLAN_LOG_ERROR, "Cannot allocate buffer for firmware image\n");
+            drv->firmware_image.size = 0;
             if (drv->eeprom_image.va)
                 os_memoryFree (drv, drv->eeprom_image.va, drv->eeprom_image.size);
-                return -ENOMEM;
-          }
+            return -ENOMEM;
+        }
         memcpy (drv->firmware_image.va,
-                    &init_info->data[init_info->eeprom_image_length],
+                &init_info->data[init_info->eeprom_image_length],
                 drv->firmware_image.size);
 #else
         extern unsigned char tiwlan_fwimage[];
@@ -1256,23 +1258,23 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
                 drv->eeprom_image.va, 
                 drv->eeprom_image.size,
                 drv->firmware_image.va, 
-               drv->firmware_image.size);
+                drv->firmware_image.size);
     
     /* Init defaults */
     if ((rc = osInitTable_IniFile (drv, 
                                    init_table,
-                           (init_info && init_info->init_file_length) ?
-                             &init_info->data[init_info->eeprom_image_length+init_info->firmware_image_length] : NULL,
-                               init_info ? init_info->init_file_length : 0)))
-   {
+                                   (init_info && init_info->init_file_length) ?
+                                   &init_info->data[init_info->eeprom_image_length+init_info->firmware_image_length] : NULL,
+                                   init_info ? init_info->init_file_length : 0)))
+    {
         ti_dprintf (TIWLAN_LOG_ERROR, "osInitTable_IniFile failed :cannot initialize defaults\n");
         os_memoryFree (drv, init_table, sizeof(initTable_t));
         
 #ifdef TI_MEM_ALLOC_TRACE        
         os_printf("MTT:%s:%d ::kfree(0x%p) : %d\n", __FUNCTION__, __LINE__, sizeof(initTable_t), -sizeof(initTable_t));
 #endif
-      return rc;
-   }
+        return rc;
+    }
 
     pWLAN_Images[0] = (void *)drv->firmware_image.va;
     pWLAN_Images[1] = (void *)drv->firmware_image.size;
@@ -1283,6 +1285,16 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
                                                 pWLAN_Images,
                                                 init_table, 
                                                 (macAddress_t *) &drv->adapter.CurrentAddr);
+    if (!(drv->adapter.CoreHalCtx))
+    {
+#ifdef FIRMWARE_DYNAMIC_LOAD
+        os_memoryFree(drv,drv->firmware_image.va, drv->firmware_image.size);
+        os_memoryFree (drv, drv->eeprom_image.va, drv->eeprom_image.size);
+#endif
+        os_memoryFree (drv, init_table, sizeof(initTable_t));
+        ti_dprintf(TIWLAN_LOG_ERROR, "Cannot allocate CoreHalCtx\n");
+        return -ENOMEM;
+    }
 
     drv->interrupt_pending = 0;
     drv->dma_done = 0;
@@ -1815,6 +1827,79 @@ static struct sdio_driver tiwlan_sdio_drv = {
     .name           = "sdio_tiwlan",
     .id_table       = tiwlan_sdio_ids,
 };
+
+#ifdef CONFIG_WIFI_CONTROL_FUNC
+static int wifi_probe( struct platform_device *pdev )
+{
+    struct wifi_platform_data *wifi_ctrl = (struct wifi_platform_data *)(pdev->dev.platform_data);
+
+    printk("%s\n", __FUNCTION__);
+    if( wifi_ctrl ) {
+	wifi_control_data = wifi_ctrl;
+	if( wifi_ctrl->set_power )
+	    wifi_ctrl->set_power(1);		/* Power On */
+	if( wifi_ctrl->set_reset )
+	    wifi_ctrl->set_reset(0);		/* Reset clear */
+	if( wifi_ctrl->set_carddetect )
+	    wifi_ctrl->set_carddetect(1);	/* CardDetect (0->1) */
+    }
+    return 0;
+}
+	
+static int wifi_remove( struct platform_device *pdev )
+{
+    struct wifi_platform_data *wifi_ctrl = (struct wifi_platform_data *)(pdev->dev.platform_data);
+
+    printk("%s\n", __FUNCTION__);
+    if( wifi_ctrl ) {
+	if( wifi_ctrl->set_carddetect )
+	    wifi_ctrl->set_carddetect(0);	/* CardDetect (1->0) */
+	if( wifi_ctrl->set_reset )
+	    wifi_ctrl->set_reset(1);		/* Reset active */
+	if( wifi_ctrl->set_power )
+	    wifi_ctrl->set_power(0);		/* Power Off */
+    }
+    return 0;
+}
+
+static struct platform_driver wifi_device = {
+    .probe          = wifi_probe,
+    .remove         = wifi_remove,
+    .suspend        = NULL,
+    .resume         = NULL,
+    .driver         = {
+        .name   = "msm_wifi",
+    },
+};
+
+static int wifi_add_dev( void )
+{
+    return platform_driver_register( &wifi_device );
+}
+	
+static void wifi_del_dev( void )
+{
+    platform_driver_unregister( &wifi_device );
+}
+
+int msm_wifi_power( int on )
+{
+    printk("%s\n", __FUNCTION__);
+    if( wifi_control_data && wifi_control_data->set_power ) {
+	wifi_control_data->set_power(on);
+    }
+    return 0;
+}
+
+int msm_wifi_reset( int on )
+{
+    printk("%s\n", __FUNCTION__);
+    if( wifi_control_data && wifi_control_data->set_reset ) {
+	wifi_control_data->set_reset(on);
+    }
+    return 0;
+}
+#endif
 #endif /* TIWLAN_MSM7000 */
 
 static int __init tiwlan_module_init(void)
@@ -1848,9 +1933,13 @@ static int __init tiwlan_module_init(void)
     return rc;
 
 #elif defined(TIWLAN_MSM7000)
+#ifdef CONFIG_WIFI_CONTROL_FUNC
+    wifi_add_dev();
+#else
     trout_wifi_power(1);          /* Power On */
     trout_wifi_reset(0);          /* Reset clear */
     trout_wifi_set_carddetect(1); /* CardDetect (0->1) */
+#endif
 
     /* Register ourselves as an SDIO driver */
     rc = sdio_register_driver(&tiwlan_sdio_drv);
@@ -1871,9 +1960,13 @@ static int __init tiwlan_module_init(void)
         printk(KERN_ERR "%s: Timed out waiting for device detect\n", __func__);
         remove_proc_entry("calibration", NULL);
         sdio_unregister_driver(&tiwlan_sdio_drv);
+#ifdef CONFIG_WIFI_CONTROL_FUNC
+		wifi_del_dev();
+#else	
         trout_wifi_set_carddetect(0); /* CardDetect (1->0) */
         trout_wifi_reset(1);          /* Reset active */
         trout_wifi_power(0);          /* Power Off */
+#endif	
         return -ENODEV;
     }
     printk(KERN_INFO "TIWLAN: Driver loaded\n");
@@ -1905,9 +1998,13 @@ static void __exit tiwlan_module_cleanup(void)
 #ifdef TIWLAN_MSM7000
     remove_proc_entry("calibration", NULL);
     sdio_unregister_driver(&tiwlan_sdio_drv);
+#ifdef CONFIG_WIFI_CONTROL_FUNC
+    wifi_del_dev();
+#else    
     trout_wifi_set_carddetect(0); /* CardDetect (1->0) */
     trout_wifi_reset(1);          /* Reset active */
     trout_wifi_power(0);          /* Power Off */
+#endif    
 #endif
     printk(KERN_INFO "TIWLAN: Driver unloaded\n");
 }
