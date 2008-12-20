@@ -170,7 +170,7 @@ TI_HANDLE wlan_memMngrInit(TI_HANDLE hOs)
             return NULL;
         }
 #else
-        if((pMemMngr->buffersPool[count].dataBufPoolPtr = (UINT8 *)os_memoryAlloc(hOs,
+        if((pMemMngr->buffersPool[count].dataBufPoolPtr = (UINT8 *)os_memoryPreAlloc(hOs, count,
             pMemMngr->buffersPool[count].buffersSize * pMemMngr->buffersPool[count].dataBufMaxNumber)) == NULL)
         {
             wlan_memMngrDestroy(pMemMngr);

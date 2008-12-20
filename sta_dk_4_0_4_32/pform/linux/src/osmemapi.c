@@ -137,6 +137,61 @@ os_memoryAlloc(
     return (PVOID)((char *)blk + sizeof(struct os_mem_block));
 }
 
+/****************************************************************************************
+ *                        os_memoryPreFree()                                 
+ ****************************************************************************************
+DESCRIPTION:    Frees preallocated by the kernel memory.
+
+ARGUMENTS:      ptr	- pointer to memory
+*****************************************************************************************/
+void os_memoryPreFree( void *ptr )
+{
+}
+
+/****************************************************************************************
+ *                        os_memoryPreAlloc()                                 
+ ****************************************************************************************
+DESCRIPTION:    Gets system-space memory preallocated by kernel.
+
+ARGUMENTS:      OsContext   - our adapter context.
+                section     - section number
+                Size        - Specifies the size, in bytes, to be allocated.
+
+RETURN:         Pointer to the allocated memory.
+                NULL if there is insufficient memory available.
+*****************************************************************************************/
+PVOID
+os_memoryPreAlloc(
+        TI_HANDLE OsContext,
+        int section,
+        UINT32 Size
+        )
+{
+    struct os_mem_block *blk;
+    __u32 total_size = Size + sizeof(struct os_mem_block) + sizeof(__u32);
+
+#ifdef TI_MEM_ALLOC_TRACE
+    os_printf("MTT:%s:%d ::os_memoryPreAlloc(0x%p, %lu) : %lu\n",__FUNCTION__, __LINE__,OsContext,Size,total_size);
+#endif
+    if( total_size < Size ) { /* Dm: Security fix */
+        return NULL;
+    }
+
+    blk = (struct os_mem_block *)wifi_kernel_prealloc( section, total_size );
+    if( !blk ) {
+        return os_memoryAlloc(OsContext, Size);
+    }
+    blk->f_free = (os_free)os_memoryPreFree;
+
+    os_profile (OsContext, 4, total_size);
+
+    /*list_add(&blk->blk_list, &drv->mem_blocks);*/
+    blk->size = Size;
+    blk->signature = MEM_BLOCK_START;
+    *(__u32 *)((unsigned char *)blk + total_size - sizeof(__u32)) = MEM_BLOCK_END;
+    return (PVOID)((char *)blk + sizeof(struct os_mem_block));
+}
+
 
 /****************************************************************************************
  *                        os_memoryCAlloc()                                 
@@ -158,29 +213,27 @@ os_memoryCAlloc(
         UINT32 Size
         )
 {
-   PVOID pAllocatedMem;
-   ULONG MemSize;
+    PVOID pAllocatedMem;
+    ULONG MemSize;
 
 #ifdef TI_MEM_ALLOC_TRACE
-   os_printf("MTT:%s:%d ::os_memoryCAlloc(0x%p, %lu, %lu) : %lu\n",__FUNCTION__,__LINE__,OsContext,Number,Size,Number*Size);
+    os_printf("MTT:%s:%d ::os_memoryCAlloc(0x%p, %lu, %lu) : %lu\n",__FUNCTION__,__LINE__,OsContext,Number,Size,Number*Size);
 #endif
-   MemSize = Number * Size;
+    MemSize = Number * Size;
 
-   if( (Number > 0) && (Size >= (0xFFFFFFFFUL / Number)) ) { /* Dm: Security fix */
-       return NULL;
-   }
+    if( (Number > 0) && (Size >= (0xFFFFFFFFUL / Number)) ) { /* Dm: Security fix */
+        return NULL;
+    }
 
-   pAllocatedMem = os_memoryAlloc(OsContext, MemSize);
+    pAllocatedMem = os_memoryAlloc(OsContext, MemSize);
 
-   if(!pAllocatedMem)
-      return NULL;
+    if(!pAllocatedMem)
+        return NULL;
 
-   memset(pAllocatedMem,0,MemSize);
+    memset(pAllocatedMem,0,MemSize);
 
-   return pAllocatedMem;
+    return pAllocatedMem;
 }
-
-
 
 /****************************************************************************************
  *                        os_memoryFree()                                 

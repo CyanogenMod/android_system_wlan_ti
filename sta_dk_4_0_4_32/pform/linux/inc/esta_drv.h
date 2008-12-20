@@ -71,16 +71,18 @@
 #define TIWLAN_DRV_IF_NAME TIWLAN_DRV_NAME"%d"
 #define TIWLAN_DRV_NAME_WIRELESS_PROTO "IEEE 802.11-DS"
 
+void *wifi_kernel_prealloc(int section, unsigned long size);
+
 #ifdef TIWLAN_MSM7000
 #ifdef CONFIG_WIFI_CONTROL_FUNC
 #include <linux/platform_device.h>
-#include <mach/msm_wifi.h>
+#include <linux/wifi_tiwlan.h>
 int msm_wifi_power(int on);
 int msm_wifi_reset(int on);
 #else
 extern int trout_wifi_power(int on);
-extern void trout_wifi_reset(int on);
-extern void trout_wifi_set_carddetect(int val);
+extern int trout_wifi_reset(int on);
+extern int trout_wifi_set_carddetect(int val);
 #define msm_wifi_power(a)	trout_wifi_power(a)
 #define msm_wifi_reset(a)	trout_wifi_reset(a)
 #endif
