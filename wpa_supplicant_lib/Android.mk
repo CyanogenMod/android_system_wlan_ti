@@ -125,13 +125,14 @@ INCLUDES = $(COMMON)/inc \
 	$(CUDK_ROOT)/IPC/Linux \
 	$(CUDK_ROOT)/UtilityAdapter \
 	external/openssl/include \
-	external/wpa_supplicant
+	external/wpa_supplicant \
+	system/core/adb
   
 L_CFLAGS += -DCONFIG_DRIVER_CUSTOM -DHOST_COMPILE
 ifeq ($(notdir $(BOARD_WLAN_TI_STA_DK_ROOT)),sta_dk_5_0_0_94)
 L_CFLAGS += -DSTA_DK_VER_5_0_0_94 
 endif
-OBJS = driver_ti.c
+OBJS = driver_ti.c scanmerge.c ../../../core/adb/shlist.c
 
 ifdef CONFIG_NO_STDOUT_DEBUG
 L_CFLAGS += -DCONFIG_NO_STDOUT_DEBUG
@@ -146,7 +147,7 @@ L_CFLAGS += -DIEEE8021X_EAPOL
 endif
 
 ########################
-
+ 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libCustomWifi
 LOCAL_STATIC_LIBRARIES := libWifiApi
