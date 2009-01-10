@@ -1828,6 +1828,16 @@ static struct sdio_driver tiwlan_sdio_drv = {
     .id_table       = tiwlan_sdio_ids,
 };
 
+void *wifi_kernel_prealloc(int section, unsigned long size)
+{
+#ifdef CONFIG_WIFI_CONTROL_FUNC
+    if( wifi_control_data && wifi_control_data->mem_prealloc )
+		return wifi_control_data->mem_prealloc( section, size );
+    else
+#endif
+    return NULL;    
+}
+
 #ifdef CONFIG_WIFI_CONTROL_FUNC
 static int wifi_probe( struct platform_device *pdev )
 {

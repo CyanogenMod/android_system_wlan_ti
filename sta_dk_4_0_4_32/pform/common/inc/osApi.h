@@ -151,6 +151,13 @@ os_memoryAlloc(
     );
 
 PVOID
+os_memoryPreAlloc(
+    TI_HANDLE OsContext,
+    int section,
+    UINT32 Size
+    );
+
+PVOID
 os_memoryCAlloc(
     TI_HANDLE OsContext,
     UINT32 Number,

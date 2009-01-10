@@ -16,7 +16,7 @@
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. 
  * This program has been modified from its original operation by Texas 
  * Instruments Incorporated. These changes are covered under version 2 
- * of the GNU General Public License, dated June 1991. 
+ * of the GNU General Public License, dated June 1991.
  *
  * Copyright © Google Inc (Feb 2008)
 */
@@ -41,14 +41,15 @@
 /*----- STA_DK files -----*/
 #include "wspVer.h"
 #include "driver_ti.h"
+#include "scanmerge.h"
 #include "scanMngrTypes.h"
 #ifdef ANDROID
 #include <cutils/properties.h>
 #endif
 /*-------------------------------------------------------------------*/
 #define TI_DRIVER_MSG_PORT      9000
-#define RX_SELF_FILTER		0
-#define RX_BROADCAST_FILTER	1
+#define RX_SELF_FILTER          0
+#define RX_BROADCAST_FILTER     1
 #define TI2WPA_STATUS(s)        (((s) != OK) ? -1 : 0)
 #define TI_CHECK_DRIVER(f,r)    \
     if( !(f) ) { \
@@ -73,7 +74,7 @@ reg_domain_struct_t reg_domain_str[] = {
     { "AU", 2, NUMBER_SCAN_CHANNELS_FCC },
     { "SG", 2, NUMBER_SCAN_CHANNELS_FCC },
     { "CA", 2, NUMBER_SCAN_CHANNELS_FCC },
-    { "GB", 2, NUMBER_SCAN_CHANNELS_ETSI },    
+    { "GB", 2, NUMBER_SCAN_CHANNELS_ETSI },
     { "JP", 2, NUMBER_SCAN_CHANNELS_MKK1 },
     { "ZZ", 2, NUMBER_SCAN_CHANNELS_FCC }
 };
@@ -97,7 +98,7 @@ static int check_and_get_carrier_channels( void )
         return default_channels;
     for(i=0;( i < (sizeof(reg_domain_str)/sizeof(reg_domain_struct_t)) );i++) {
         if( strncmp(prop_status, reg_domain_str[i].tmzn_name,
-		    reg_domain_str[i].size) == 0 )
+                    reg_domain_str[i].size) == 0 )
             return reg_domain_str[i].num_of_channels;
     }
     return( default_channels );
@@ -109,19 +110,19 @@ static int check_and_get_carrier_channels( void )
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_event_receive
 Routine Description: driver events callback, called from driver IPC
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    pData - pointer to event information
-Return Value: 
+Return Value:
 -----------------------------------------------------------------------------*/
 void wpa_driver_tista_event_receive( IPC_EV_DATA *pData )
 {
     struct wpa_driver_ti_data *mySuppl;
     struct sockaddr_in echoserver;
     int res, msg_size;
- 
-    wpa_printf(MSG_DEBUG,"wpa_driver_tista_event_receive called: %d", 
-		pData->uBufferSize);
+
+    wpa_printf(MSG_DEBUG,"wpa_driver_tista_event_receive called: %d",
+               pData->uBufferSize);
 
     mySuppl = pData->EvParams.hUserParam;
     msg_size = (int)(pData->uBufferSize + offsetof(IPC_EV_DATA, uBuffer));
@@ -137,7 +138,7 @@ void wpa_driver_tista_event_receive( IPC_EV_DATA *pData )
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_register_events
 Routine Description: register to driver events
-Arguments: 
+Arguments:
    ctx - pointer to private data structure
 Return Value: None
 -----------------------------------------------------------------------------*/
@@ -162,7 +163,7 @@ void wpa_driver_tista_register_events( void *ctx )
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_unregister_events
 Routine Description: unregister driver events
-Arguments: 
+Arguments:
    ctx - pointer to private data structure
 Return Value: None
 -----------------------------------------------------------------------------*/
@@ -184,9 +185,9 @@ void wpa_driver_tista_unregister_events( void *ctx )
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_get_bssid
 Routine Description: get current BSSID from driver
-Arguments: 
+Arguments:
    priv - pointer to private data structure
-   bssid - pointer to hold bssid         
+   bssid - pointer to hold bssid
 Return Value: 0 on success, -1 on failure
 -----------------------------------------------------------------------------*/
 static int wpa_driver_tista_get_bssid( void *priv, u8 *bssid )
@@ -213,9 +214,9 @@ static int wpa_driver_tista_get_bssid( void *priv, u8 *bssid )
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_get_ssid
 Routine Description: get current SSID
-Arguments: 
+Arguments:
    priv - pointer to private data structure
-   ssid - pointer to hold current bssid         
+   ssid - pointer to hold current bssid
 Return Value: Length of SSID string
 -----------------------------------------------------------------------------*/
 static int wpa_driver_tista_get_ssid( void *priv, u8 *ssid )
@@ -231,7 +232,7 @@ static int wpa_driver_tista_get_ssid( void *priv, u8 *ssid )
     /* Get current SSID from driver */
     if( TI_GetCurrentSSID(myDrv->hDriver, &myssid) != TI_RESULT_OK )
         return( -1 );
-    
+
     /* Copy to user supplied pointer */
     os_memcpy( (void *)ssid, (void *)&myssid.Ssid, myssid.SsidLength );
 
@@ -242,7 +243,7 @@ static int wpa_driver_tista_get_ssid( void *priv, u8 *ssid )
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_set_ssid
 Routine Description: sets current SSID (Associates)
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    ssid - pointer to ssid
    ssid_len - length of ssid
@@ -276,7 +277,7 @@ static int wpa_driver_tista_set_ssid( void *priv, const u8 *ssid, size_t ssid_le
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_set_wpa
 Routine Description: enable/disable WPA support in driver - not implemented since not supported in driver. also obselete for wpa-suppl core
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    enabled - enable/disable flag
 Return Value: 0 on success, -1 on failure
@@ -292,7 +293,7 @@ static int wpa_driver_tista_set_wpa(void *priv, int enabled)
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_set_proto
 Routine Description: set authentication protocol (WPA/WPA2(RSN))
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    proto - authentication suite
 Return Value: 0 on success, -1 on failure
@@ -310,7 +311,7 @@ static int wpa_driver_tista_set_proto( void *priv, int proto )
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_set_wpa_options
 Routine Description: set wpa_options
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    wpa_options - WPA options (0 - disable, 3 - enable)
 Return Value: 0 on success, -1 on failure
@@ -356,7 +357,7 @@ static int wpa_driver_tista_set_wpa_options( void *priv, int key_mgmt_suite )
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_set_encryption
 Routine Description: set authentication protocol (WPA/WPA2(RSN))
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    proto - authentication suite
 Return Value: 0 on success, -1 on failure
@@ -403,44 +404,44 @@ static int wpa_driver_tista_set_encryption( void *priv, int encryption )
 void wpa_driver_tista_print_auth_mode( OS_802_11_AUTHENTICATION_MODE myAuth )
 {
     char *mode_name = NULL;
-    
+
     switch( myAuth ) {
-	case os802_11AuthModeOpen:
-	    mode_name = "os802_11AuthModeOpen";
-	    break;
-	case os802_11AuthModeShared:
-	    mode_name = "os802_11AuthModeShared";
-	    break;
-	case os802_11AuthModeAutoSwitch:
-	    mode_name = "os802_11AuthModeAutoSwitch";
-	    break;
-	case os802_11AuthModeWPA:
-	    mode_name = "os802_11AuthModeWPA";
-	    break;
-	case os802_11AuthModeWPAPSK:
-	    mode_name = "os802_11AuthModeWPAPSK";
-	    break;
-	case os802_11AuthModeWPANone:
-	    mode_name = "os802_11AuthModeWPANone";
-	    break;
-	case os802_11AuthModeWPA2:
-	    mode_name = "os802_11AuthModeWPA2";
-	    break;
-	case os802_11AuthModeWPA2PSK:
-	    mode_name = "os802_11AuthModeWPA2PSK";
-	    break;
-	case os802_11AuthModeMax:
-	default:
-	    mode_name = "Unknown";
-	    break;
+        case os802_11AuthModeOpen:
+            mode_name = "os802_11AuthModeOpen";
+            break;
+        case os802_11AuthModeShared:
+            mode_name = "os802_11AuthModeShared";
+            break;
+        case os802_11AuthModeAutoSwitch:
+            mode_name = "os802_11AuthModeAutoSwitch";
+            break;
+        case os802_11AuthModeWPA:
+            mode_name = "os802_11AuthModeWPA";
+            break;
+        case os802_11AuthModeWPAPSK:
+            mode_name = "os802_11AuthModeWPAPSK";
+            break;
+        case os802_11AuthModeWPANone:
+            mode_name = "os802_11AuthModeWPANone";
+            break;
+        case os802_11AuthModeWPA2:
+            mode_name = "os802_11AuthModeWPA2";
+            break;
+        case os802_11AuthModeWPA2PSK:
+            mode_name = "os802_11AuthModeWPA2PSK";
+            break;
+        case os802_11AuthModeMax:
+        default:
+            mode_name = "Unknown";
+            break;
     }
     wpa_printf(MSG_DEBUG, "Selected AuthMode: %s", mode_name);
 }
 
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_set_auth_mode
-Routine Description: 
-Arguments: 
+Routine Description:
+Arguments:
    priv - pointer to private data structure
 Return Value: 0 on success, -1 on failure
 -----------------------------------------------------------------------------*/
@@ -464,7 +465,7 @@ static int wpa_driver_tista_set_auth_mode( void *priv )
             case KEY_MGMT_802_1X:
                 if( myDrv->proto & WPA_PROTO_WPA ) {
                     myAuth = os802_11AuthModeWPA;
-                } 
+                }
                 else if( myDrv->proto & WPA_PROTO_RSN ) {
                     myAuth = os802_11AuthModeWPA2;
                 }
@@ -472,7 +473,7 @@ static int wpa_driver_tista_set_auth_mode( void *priv )
             case KEY_MGMT_PSK:
                 if( myDrv->proto & WPA_PROTO_WPA ) {
                     myAuth = os802_11AuthModeWPAPSK;
-                } 
+                }
                 else if( myDrv->proto & WPA_PROTO_RSN ) {
                     myAuth = os802_11AuthModeWPA2PSK;
                 }
@@ -501,7 +502,7 @@ static int wpa_driver_tista_set_auth_mode( void *priv )
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_del_key
 Routine Description: remove key from driver
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    key_idx - key index
    addr - key address (unicast/broadcast)
@@ -533,7 +534,7 @@ static int wpa_driver_tista_del_key(void *priv, int key_idx,
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_set_key
 Routine Description: set key in driver
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    alg - type of key
    addr - key address (unicast/broadcast)
@@ -566,7 +567,7 @@ static int wpa_driver_tista_set_key(void *priv, wpa_alg alg,
     wpa_printf(MSG_DEBUG, "add_key (set_tx): %d", set_tx);
     wpa_hexdump(MSG_DEBUG, "add_key (seq):", seq, seq_len);
     wpa_hexdump(MSG_DEBUG, "add_key (key):", key, key_len);
-   
+
     switch( key_len ) {
         case TKIP_KEY_LENGTH:          /* 32 */
         case AES_KEY_LENGTH:           /* 16 */
@@ -589,7 +590,7 @@ static int wpa_driver_tista_set_key(void *priv, wpa_alg alg,
                 myKey.KeyIndex |= TIWLAN_KEY_FLAGS_TRANSMIT;
             }
 
-            if( myKey.BSSID[0] != 0xFF ) {   
+            if( myKey.BSSID[0] != 0xFF ) {
                 myKey.KeyIndex |= TIWLAN_KEY_FLAGS_PAIRWISE;
             }
 
@@ -638,7 +639,7 @@ static int wpa_driver_tista_set_key(void *priv, wpa_alg alg,
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_set_countermeasures
 Routine Description: start/stop countermeasures (drop packets due to replay attack detection)
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    enabled - enable/disable flag
 Return Value: 0 on success, -1 on failure
@@ -653,8 +654,8 @@ static int wpa_driver_tista_set_countermeasures(void *priv, int enabled)
 
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_set_drop_unencrypted
-Routine Description: enable/disable EAPOL-only tx by driver 
-Arguments: 
+Routine Description: enable/disable EAPOL-only tx by driver
+Arguments:
    priv - pointer to private data structure
    enabled - enable/disable flag
 Return Value: 0 on success, -1 on failure
@@ -670,7 +671,7 @@ static int wpa_driver_tista_set_drop_unencrypted(void *priv, int enabled)
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_deauthenticate
 Routine Description: send deauthentication packet
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    addr - address to send deauth packet to
    reason_code - reason code supplied in deauth packet
@@ -696,7 +697,7 @@ static int wpa_driver_tista_deauthenticate(void *priv, const UINT8 *addr, int re
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_disassociate
 Routine Description: disassociate from AP
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    addr - address to send deauth packet to
    reason_code - reason code supplied in deauth packet
@@ -722,7 +723,7 @@ static int wpa_driver_tista_disassociate(void *priv, const UINT8 *addr, int reas
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_associate
 Routine Description: associate with AP
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    params - struct wpa_driver_associate_params (ssid, bssid, etc)
 Return Value: 0 on success, -1 on failure
@@ -778,7 +779,7 @@ static int wpa_driver_tista_associate(void *priv, struct wpa_driver_associate_pa
 /*-----------------------------------------------------------------------------
 Routine Name: ti_init_scan_params
 Routine Description: int scan parameters before scan command
-Arguments: 
+Arguments:
    pScanParams - pointer to scan paramters structure
    pScanPolicy - pointer to scan policy structure
    scanType    - scan type
@@ -870,7 +871,7 @@ static void ti_init_scan_params( scan_Params_t *pScanParams, scan_Policy_t *pSca
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_scan
 Routine Description: request scan from driver
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    ssid - ssid buffer
    ssid_len - length of ssid
@@ -887,13 +888,14 @@ static int wpa_driver_tista_scan( void *priv, const UINT8 *ssid, size_t ssid_len
     /* If driver is not initialized yet - we cannot access it so return */
     TI_CHECK_DRIVER( myDrv->driver_is_loaded, -1 );
 
-    ti_init_scan_params( &scanParams, &scanPolicy, myDrv->scan_type, 
+    ti_init_scan_params( &scanParams, &scanPolicy, myDrv->scan_type,
                          myDrv->scan_channels );
     if (ssid && ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.ssidString)) {
         os_memcpy(scanParams.desiredSsid.ssidString, ssid, ssid_len);
         scanParams.desiredSsid.len = ssid_len;
     }
     TI_SetScanPolicy( myDrv->hDriver, (UINT8 *)&scanPolicy, sizeof(scan_Policy_t) );
+    myDrv->last_scan = myDrv->scan_type; /* Remember scan type for last scan */
     ret = TI_StartScan( myDrv->hDriver, (scan_Params_t *)&scanParams );
     return( TI2WPA_STATUS(ret) );
 }
@@ -901,7 +903,7 @@ static int wpa_driver_tista_scan( void *priv, const UINT8 *ssid, size_t ssid_len
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_set_auth_alg
 Routine Description: set authentication in driver
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    auth_alg - Open/Shared/LEAP
 Return Value: 0 on success, -1 on failure
@@ -920,7 +922,7 @@ static int wpa_driver_tista_set_auth_alg( void *priv, int auth_alg )
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_get_bssid_info
 Routine Description: retrieve bssid full info
-Arguments: 
+Arguments:
    hDriver - pointer to driver structure
 Return Value: pointer to BSSID structure or NULL
 -----------------------------------------------------------------------------*/
@@ -936,7 +938,7 @@ static OS_802_11_BSSID_EX *wpa_driver_tista_get_bssid_info( TI_HANDLE hDriver )
         return( nBssid );
 
     if( TI_GetBSSIDList( hDriver, &bssid_list ) || !bssid_list )
-        return( nBssid ); 
+        return( nBssid );
 
     pBssid = &bssid_list->Bssid[0];
     number_items = (int)(bssid_list->NumberOfItems);
@@ -960,14 +962,14 @@ static int wpa_driver_tista_scan_result_compare(const void *a, const void *b)
 {
     const struct wpa_scan_result *wa = a;
     const struct wpa_scan_result *wb = b;
-	
+
     return( wb->level - wa->level );
 }
-							
+
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_get_scan_results
 Routine Description: retrieve driver scan results
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    results - pointer to buffer
    max_size - maximum size of results buffer
@@ -989,7 +991,7 @@ static int wpa_driver_tista_get_scan_results( void *priv,
     TI_CHECK_DRIVER( myDrv->driver_is_loaded, -1 );
 
     if( TI_GetBSSIDList(myDrv->hDriver, &bssid_list) || !bssid_list )
-        return( -1 ); 
+        return( -1 );
 
     pBssid = &bssid_list->Bssid[0];
     number_items = (int)(bssid_list->NumberOfItems);
@@ -1016,7 +1018,7 @@ static int wpa_driver_tista_get_scan_results( void *priv,
         for (i = 0; i < sizeof(pBssid->SupportedRates); i++) {
             if (pBssid->SupportedRates[i] > (unsigned)results[index].maxrate) {
                 results[index].maxrate = pBssid->SupportedRates[i];
-             }
+            }
         }
         wpa_printf(MSG_DEBUG,"TI: Net: %s Cap: 0x%04x Priv: 0x%x NetType: 0x%x InfraMode: 0x%x IELen: %d",
 #ifdef STA_DK_VER_5_0_0_94
@@ -1050,10 +1052,12 @@ static int wpa_driver_tista_get_scan_results( void *priv,
         }
         pBssid = (OS_802_11_BSSID_EX *)(((u8 *)pBssid) + pBssid->Length);
     }
-    
-    qsort(results, number_items, sizeof(struct wpa_scan_result),
-          wpa_driver_tista_scan_result_compare);
-		  
+    /* Merge new results with previous */
+    number_items = scan_merge( myDrv, results, number_items, max_size );
+
+    qsort( results, number_items, sizeof(struct wpa_scan_result),
+           wpa_driver_tista_scan_result_compare );
+
     os_free( bssid_list );
     return( number_items );
 }
@@ -1061,7 +1065,7 @@ static int wpa_driver_tista_get_scan_results( void *priv,
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_get_scan_results
 Routine Description: retrieve driver scan results
-Arguments: 
+Arguments:
    sock - socket
    priv - pointer to private data structure
    sock_ctx - pointer to other private data
@@ -1074,16 +1078,16 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
     UINT32 *bufLong;
     union wpa_event_data myEventData;
     struct wpa_driver_ti_data *mySuppl;
-    OS_802_11_ASSOCIATION_INFORMATION *pInfo = NULL; 
+    OS_802_11_ASSOCIATION_INFORMATION *pInfo = NULL;
     OS_802_11_AUTHENTICATION_REQUEST *pMediaSpecificBuf;
     OS_802_11_BSSID_EX *pSelectedBssidInfo = NULL;
     OS_802_11_NETWORK_MODE myBssType;
     IPC_EV_DATA *pData = &myBuf;
     int res;
-#ifndef STA_DK_VER_5_0_0_94    
+#ifndef STA_DK_VER_5_0_0_94
     btCoexStatus_t *btCoexStatus;
 #endif
-    
+
     wpa_printf(MSG_DEBUG,"wpa_driver_tista_receive_driver_event...");
 
     res = recv( sock, &myBuf, sizeof(myBuf), 0 );
@@ -1178,7 +1182,7 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
         case IPC_EVENT_EAPOL:
             wpa_printf(MSG_INFO,"wpa_supplicant - EAPOL");
             buf = pData->uBuffer;
-            wpa_supplicant_rx_eapol( mySuppl->hWpaSupplicant, (UINT8 *)(buf + MAC_ADDR_LEN), 
+            wpa_supplicant_rx_eapol( mySuppl->hWpaSupplicant, (UINT8 *)(buf + MAC_ADDR_LEN),
                                      (UINT8 *)(buf + ETHERNET_HDR_LEN), (pData->uBufferSize - ETHERNET_HDR_LEN) );
             break;
 
@@ -1222,7 +1226,7 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
             }
             else {
                 wpa_printf(MSG_INFO,"wpa_supplicant - BT_COEX_MODE (SG is OFF)\n");
-            }		
+            }
             break;
 #endif
 
@@ -1235,7 +1239,7 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_init
 Routine Description: init driver interface
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    ifname - return interface name
 Return Value: pointer to driver structure (to be supplied later by supplicant to wrappers)
@@ -1294,7 +1298,7 @@ static void *wpa_driver_tista_init( void *priv, const char *ifname )
 
     /* Get WLAN interface mac address through Utility Adapter */
     res = TI_GetCurrentAddress( myDrv->hDriver, &myMac );
-        
+
     if( res == (UINT32)-1 ) {
         wpa_printf(MSG_ERROR,"Error: failed to initialize Utility Adapter interface...");
         goto label_init_error_free;
@@ -1307,7 +1311,7 @@ static void *wpa_driver_tista_init( void *priv, const char *ifname )
     /* Block disassoc events until connected */
     if( myDrv->block_disassoc_events == NO_BLOCK )
         myDrv->block_disassoc_events = NO_BLOCK_DISASSOC_IN_PROGRESS;
-    
+
     /* Store wpa_supplicant context */
     myDrv->hWpaSupplicant = priv;
 
@@ -1342,6 +1346,7 @@ static void *wpa_driver_tista_init( void *priv, const char *ifname )
 
     /* Set default scan type */
     myDrv->scan_type = SCAN_TYPE_NORMAL_ACTIVE;
+    scan_init( myDrv );
 
     /* Set default amount of channels */
     myDrv->scan_channels = check_and_get_carrier_channels();
@@ -1372,7 +1377,7 @@ label_init_error_file:
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_unload
 Routine Description: unload driver
-Arguments: 
+Arguments:
    priv - pointer to private data structure
 Return Value: None
 -----------------------------------------------------------------------------*/
@@ -1384,10 +1389,11 @@ static void wpa_driver_tista_unload( void *priv )
     /* Unregister driver events */
     wpa_driver_tista_unregister_events( priv );
     /* Close connection socket */
-        close(myDrv->driverEventsSocket);
+    close(myDrv->driverEventsSocket);
     /* Unload Utility Adapter */
     TI_AdapterDeinit( myDrv->hDriver );
     /* Free all allocated memory */
+    scan_exit( myDrv );
     os_free( myDrv );
 #ifdef CONFIG_TI_LOCKFILE
     /* Close and delete the pid-lock-file */
@@ -1400,7 +1406,7 @@ static void wpa_driver_tista_unload( void *priv )
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_get_mac_addr
 Routine Description: return WLAN MAC address
-Arguments: 
+Arguments:
    priv - pointer to private data structure
 Return Value: pointer to BSSID
 -----------------------------------------------------------------------------*/
@@ -1417,7 +1423,7 @@ const u8 *wpa_driver_tista_get_mac_addr( void *priv )
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_send_eapol
 Routine Description: transmit EAPOL
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    data - pointer to EAPOL data
    data_len - length of EAPOL data
@@ -1432,7 +1438,7 @@ static int ti_send_eapol( void *priv, const u8 *dest, u16 proto,
     int ret = 0;
 
     wpa_printf(MSG_DEBUG,"TI send_eapol called");
-#ifdef IEEE8021X_EAPOL   
+#ifdef IEEE8021X_EAPOL
     DataWithHeader = os_malloc(data_len + ETHERNET_HDR_LEN); /* 14 bytes */
     if( DataWithHeader == NULL ) {
         wpa_printf(MSG_ERROR,"TI send_eapol failed to alloc full buffer");
@@ -1448,11 +1454,11 @@ static int ti_send_eapol( void *priv, const u8 *dest, u16 proto,
     data_len += ETHERNET_HDR_LEN;
 
     wpa_hexdump(MSG_DEBUG, "WPA: FULL TX EAPOL-Key", DataWithHeader, data_len);
-  
+
     /* Transmit EAPOL packet */
     ret = TI_Send_EAPOL_Packet( myDrv->hDriver, (void *)DataWithHeader, data_len );
     os_free(DataWithHeader);
-#endif   
+#endif
     return( TI2WPA_STATUS(ret) );
 }
 
@@ -1460,7 +1466,7 @@ static int ti_send_eapol( void *priv, const u8 *dest, u16 proto,
 /*-----------------------------------------------------------------------------
 Routine Name: get_filter_mac_addr
 Routine Description: returns mac address according to parameter type
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    type - type of mac address
 Return Value: pointer to mac address array, or NULL
@@ -1468,34 +1474,34 @@ Return Value: pointer to mac address array, or NULL
 static const u8 *get_filter_mac_addr( void *priv, int type )
 {
     if( type == RX_SELF_FILTER )
-	return( wpa_driver_tista_get_mac_addr(priv) );
+        return( wpa_driver_tista_get_mac_addr(priv) );
     if( type == RX_BROADCAST_FILTER )
-	return( (const u8 *)"\xFF\xFF\xFF\xFF\xFF\xFF" );
+        return( (const u8 *)"\xFF\xFF\xFF\xFF\xFF\xFF" );
     return( NULL );
 }
 
 /*-----------------------------------------------------------------------------
 Routine Name: prepare_filter_struct
 Routine Description: fills rx data filter structure according to parameter type
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    type - type of mac address
    dfreq_ptr - pointer to TIWLAN_DATA_FILTER_REQUEST structure
 Return Value: 0 - success, -1 - error
 -----------------------------------------------------------------------------*/
 static int prepare_filter_struct( void *priv, int type,
-			          TIWLAN_DATA_FILTER_REQUEST *dfreq_ptr )
+                                  TIWLAN_DATA_FILTER_REQUEST *dfreq_ptr )
 {
     u8 *macaddr = (u8 *)get_filter_mac_addr( priv, type );
     int ret = -1;
 
     if( macaddr != NULL ) {
-	dfreq_ptr->Offset = 0;
-	dfreq_ptr->MaskLength = 1;
-	dfreq_ptr->Mask[0] = 0x3F; /* 6 bytes */
-	dfreq_ptr->PatternLength = MAC_ADDR_LEN;
-	os_memcpy( dfreq_ptr->Pattern, macaddr, MAC_ADDR_LEN );
-	ret = 0;
+        dfreq_ptr->Offset = 0;
+        dfreq_ptr->MaskLength = 1;
+        dfreq_ptr->Mask[0] = 0x3F; /* 6 bytes */
+        dfreq_ptr->PatternLength = MAC_ADDR_LEN;
+        os_memcpy( dfreq_ptr->Pattern, macaddr, MAC_ADDR_LEN );
+        ret = 0;
     }
     return( ret );
 }
@@ -1504,7 +1510,7 @@ static int prepare_filter_struct( void *priv, int type,
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_driver_cmd
 Routine Description: executes driver-specific commands
-Arguments: 
+Arguments:
    priv - pointer to private data structure
    cmd - command
    buf - return buffer
@@ -1529,26 +1535,26 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
             myDrv->scan_channels = check_and_get_carrier_channels();
             wpa_msg(myDrv->hWpaSupplicant, MSG_INFO, WPA_EVENT_DRIVER_STATE "STARTED");
         }
-	else
-	    myDrv->block_disassoc_events = prev_events;
-        return( TI2WPA_STATUS(ret) );	
+        else
+            myDrv->block_disassoc_events = prev_events;
+        return( TI2WPA_STATUS(ret) );
     }
 
     /* If driver is not initialized yet - we cannot access it so return */
     TI_CHECK_DRIVER( myDrv->driver_is_loaded, -1 );
-    
+
     if( os_strcasecmp(cmd, "stop") == 0 ) {
         wpa_printf(MSG_DEBUG,"Stop command");
-	myDrv->block_disassoc_prev = myDrv->block_disassoc_events;
+        myDrv->block_disassoc_prev = myDrv->block_disassoc_events;
         myDrv->block_disassoc_events = BLOCK_DISASSOC; /* Block message */
         ret = TI_Stop( myDrv->hDriver );
-        if( ret == OK ) { 
+        if( ret == OK ) {
             /* Signal that driver is not loaded yet */
             myDrv->driver_is_loaded = FALSE;
             wpa_msg(myDrv->hWpaSupplicant, MSG_INFO, WPA_EVENT_DRIVER_STATE "STOPPED");
         }
-	else
-	    myDrv->block_disassoc_events = myDrv->block_disassoc_prev;
+        else
+            myDrv->block_disassoc_events = myDrv->block_disassoc_prev;
     }
     else if( os_strcasecmp(cmd, "macaddr") == 0 ) {
         u8 *macaddr = (u8 *)wpa_driver_tista_get_mac_addr(priv);
@@ -1571,7 +1577,7 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
     }
     else if( os_strcasecmp(cmd, "linkspeed") == 0 ) {
         wpa_printf(MSG_DEBUG,"Link Speed command");
-        ret = snprintf(buf, buf_len, "LinkSpeed %u\n", myDrv->link_speed); 
+        ret = snprintf(buf, buf_len, "LinkSpeed %u\n", myDrv->link_speed);
         if (ret < (int)buf_len) {
             return( ret );
         }
@@ -1591,21 +1597,21 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
                 }
             }
         } else {
-            ret = snprintf(buf, buf_len, "Scan-Channels = %d\n", myDrv->scan_channels); 
+            ret = snprintf(buf, buf_len, "Scan-Channels = %d\n", myDrv->scan_channels);
             if (ret < (int)buf_len) {
                 return( ret );
             }
         }
     }
     else if( os_strcasecmp(cmd, "rssi") == 0 ) {
-#if 1    
-	u8 ssid[MAX_SSID_LEN];
-	int rssi, len;
+#if 1
+        u8 ssid[MAX_SSID_LEN];
+        int rssi, len;
 
         wpa_printf(MSG_DEBUG,"rssi command");
-	
-	ret = TI_GetRSSI( myDrv->hDriver, &rssi );
-	if( ret == OK ) {
+
+        ret = TI_GetRSSI( myDrv->hDriver, &rssi );
+        if( ret == OK ) {
             len = wpa_driver_tista_get_ssid( priv, (u8 *)ssid );
             if( (len > 0) && (len <= MAX_SSID_LEN) && (len < (int)buf_len)) {
                 os_memcpy( (void *)buf, (void *)ssid, len );
@@ -1616,11 +1622,11 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
                 }
             }
         }
-#else	
+#else
         OS_802_11_BSSID_EX bssidInfo;
-	
-        wpa_printf(MSG_DEBUG,"rssi command");	
-	
+
+        wpa_printf(MSG_DEBUG,"rssi command");
+
         ret = TI_GetSelectedBSSIDInfo( myDrv->hDriver, (OS_802_11_BSSID_EX *)&bssidInfo );
         if( ret == OK ) {
             if( bssidInfo.Ssid.SsidLength != 0 && bssidInfo.Ssid.SsidLength < buf_len) {
@@ -1633,24 +1639,24 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
             }
             ret = -1;
         }
-#endif	
+#endif
     }
     else if( os_strncasecmp(cmd, "powermode", 9) == 0 ) {
         u32 rtsThreshold = myDrv->rts_threshold;
         u32 mode;
         char *cp = cmd + 9;
         char *endp;
-        
+
         if (*cp != '\0') {
             mode = (u32)strtol(cp, &endp, 0);
             if (endp != cp) {
                 wpa_printf(MSG_DEBUG,"Power Mode command = %u", mode);
                 if( mode <= OS_POWER_MODE_LONG_DOZE )
                     ret = TI_ConfigPowerManagement( myDrv->hDriver, mode );
-	        if( mode == OS_POWER_MODE_ACTIVE )
-	            rtsThreshold = 0;
+                if( mode == OS_POWER_MODE_ACTIVE )
+                    rtsThreshold = 0;
                 if( TI_SetRTSThreshold( myDrv->hDriver, rtsThreshold ) != OK )
-	            wpa_printf(MSG_DEBUG,"Set RTS threshold = %u failed", rtsThreshold);
+                    wpa_printf(MSG_DEBUG,"Set RTS threshold = %u failed", rtsThreshold);
             }
         }
     }
@@ -1681,7 +1687,7 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
         tiUINT32 rtsThreshold = 0;
         char *cp = cmd + 17;
         char *endp;
-        
+
         if (*cp != '\0') {
             rtsThreshold = (tiUINT32)strtol(cp, &endp, 0);
             if (endp != cp) {
@@ -1697,27 +1703,27 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
     }
 #ifndef STA_DK_VER_5_0_0_94
     else if( os_strcasecmp(cmd, "rxfilter-start") == 0 ) {
-        wpa_printf(MSG_DEBUG,"Rx Data Filter Start command");    
+        wpa_printf(MSG_DEBUG,"Rx Data Filter Start command");
         ret = TI_EnableDisableRxDataFilters( myDrv->hDriver, TRUE );
     }
     else if( os_strcasecmp(cmd, "rxfilter-stop") == 0 ) {
-        wpa_printf(MSG_DEBUG,"Rx Data Filter Stop command");    
+        wpa_printf(MSG_DEBUG,"Rx Data Filter Stop command");
         ret = TI_EnableDisableRxDataFilters( myDrv->hDriver, FALSE );
     }
     else if( os_strcasecmp(cmd, "rxfilter-statistics") == 0 ) {
         TIWLAN_DATA_FILTER_STATISTICS stats;
         int len, i;
 
-        wpa_printf(MSG_DEBUG,"Rx Data Filter Statistics command");    
+        wpa_printf(MSG_DEBUG,"Rx Data Filter Statistics command");
         ret = TI_GetRxDataFiltersStatistics( myDrv->hDriver, &stats );
         if( ret == OK ) {
-            ret = snprintf(buf, buf_len, "RxFilterStat: %u", 
-			    stats.UnmatchedPacketsCount);
+            ret = snprintf(buf, buf_len, "RxFilterStat: %u",
+                           stats.UnmatchedPacketsCount);
             for(i=0;( i < MAX_NUM_DATA_FILTERS );i++) {
                 ret += snprintf(&buf[ret], buf_len-ret, " %u",
-			    stats.MatchedPacketsCount[i]);
+                           stats.MatchedPacketsCount[i]);
             }
-            ret += snprintf(&buf[ret], buf_len-ret, "\n"); 	    
+            ret += snprintf(&buf[ret], buf_len-ret, "\n");
             if (ret < (int)buf_len) {
                 return( ret );
             }
@@ -1741,7 +1747,7 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
         }
     }
     else if( os_strncasecmp(cmd, "rxfilter-remove",15) == 0 ) {
-        wpa_printf(MSG_DEBUG,"Rx Data Filter Remove command");    
+        wpa_printf(MSG_DEBUG,"Rx Data Filter Remove command");
         TIWLAN_DATA_FILTER_REQUEST dfreq;
         char *cp = cmd + 15;
         char *endp;
@@ -1773,7 +1779,7 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
         u32 mode;
         char *cp = cmd + 10;
         char *endp;
-	
+
         if (*cp != '\0') {
             mode = (u32)strtol(cp, &endp, 0);
             if (endp != cp) {
@@ -1787,7 +1793,7 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
     }
     else if( os_strcasecmp(cmd, "btcoexstat") == 0 ) {
         u32 status = myDrv->btcoex_mode;
-	
+
         wpa_printf(MSG_DEBUG,"BtCoex Status");
         ret = TI_SetBtCoeGetStatus( myDrv->hDriver, (tiUINT32 *)&status );
         if( ret == OK ) {
@@ -1829,7 +1835,7 @@ struct wpa_driver_ops wpa_driver_custom_ops = {
     .remove_pmkid   = NULL,
     .flush_pmkid    = NULL,
     .get_capa       = NULL,
-    .poll           = NULL, 
+    .poll           = NULL,
     .get_ifname     = NULL, /* Not nesessary */
     .set_operstate  = NULL,
 #ifdef CONFIG_CLIENT_MLME
