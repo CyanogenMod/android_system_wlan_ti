@@ -79,7 +79,7 @@ LOCAL_STATIC_LIBRARIES := libWifiApi
 else
 LOCAL_SHARED_LIBRARIES := libWifiApi
 endif
-LOCAL_SHARED_LIBRARIES += libc libhardware
+LOCAL_SHARED_LIBRARIES += libc libhardware_legacy
 
 INCLUDES = $(DK_INCS) $(CLI_STA_DK_ROOT)/pform/linux/inc \
 	$(CLI_CUDK_ROOT)/Inc                             \

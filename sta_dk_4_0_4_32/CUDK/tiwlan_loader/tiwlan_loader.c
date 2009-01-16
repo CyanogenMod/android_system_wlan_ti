@@ -42,7 +42,7 @@
 #define LOG_TAG "wlan_loader"
 
 #include <cutils/log.h>
-#include <hardware/power.h>
+#include <hardware_legacy/power.h>
 #define PROGRAM_NAME    "wlan_loader"
 #endif
 	

@@ -1544,7 +1544,7 @@ os_IndicateEvent(IPC_EV_DATA* pData)
    case IPC_EVENT_ASSOCIATED:
          if (drv->netdev != NULL) {
             netif_carrier_on(drv->netdev);
-#ifdef CONFIG_TROUT_PWRSINK
+#if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
             queue_delayed_work(drv->tiwlan_wq, &drv->trxw, 0);
 #endif
          }
@@ -1552,9 +1552,13 @@ os_IndicateEvent(IPC_EV_DATA* pData)
 
        case IPC_EVENT_DISASSOCIATED:
          if (drv->netdev != NULL) {
-#ifdef CONFIG_TROUT_PWRSINK
+#if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
             cancel_delayed_work_sync(&drv->trxw);
-            trout_pwrsink_set(PWRSINK_WIFI, PWRSINK_WIFI_PERCENT_BASE);	
+#ifdef CONFIG_HTC_PWRSINK
+            htc_pwrsink_set(PWRSINK_WIFI, PWRSINK_WIFI_PERCENT_BASE);
+#else
+            trout_pwrsink_set(PWRSINK_WIFI, PWRSINK_WIFI_PERCENT_BASE);
+#endif
 #endif
             netif_carrier_off(drv->netdev);
          }
