@@ -106,10 +106,11 @@
 #include "Ethernet.h"
 #include "tiwlan_profile.h"
 
-#ifdef CONFIG_TROUT_PWRSINK
+#if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
 #define RX_RATE_INTERVAL_SEC 10
 unsigned long num_rx_pkt_new = 0;
 static unsigned long num_rx_pkt_last = 0;
+static unsigned silent_count = 0;
 #endif
 
 #ifdef TIWLAN_MSM7000
@@ -210,7 +211,7 @@ static int tiwlan_register_events(tiwlan_net_dev_t *drv)
 {
     IPC_EVENT_PARAMS evParams;
     int i = 0;
-    
+
     evParams.uDeliveryType      = DELIVERY_PUSH;
     evParams.uProcessID         = 0;
     evParams.uEventID           = 0;
@@ -218,7 +219,7 @@ static int tiwlan_register_events(tiwlan_net_dev_t *drv)
     evParams.pfEventCallback    = os_IndicateEvent;
 
 
-    for (;i < IPC_EVENT_MAX_OS_EVENT;i++) 
+    for (;i < IPC_EVENT_MAX_OS_EVENT;i++)
     {
         evParams.uEventType = i;
 
@@ -599,7 +600,7 @@ static int tiwlan_drv_net_xmit(struct sk_buff *skb, struct net_device *dev)
 
 #ifdef DRIVER_PROFILE
     os_profile (drv, 0, 0);
-#endif    
+#endif
     bm_trace(20, skb->len, 0);
 
 #ifdef NO_COPY_SKB
@@ -694,7 +695,7 @@ static int tiwlan_drv_net_xmit(struct sk_buff *skb, struct net_device *dev)
     bm_trace(21, 0, 0);
    /*
     * Propagate Msdu through Config Manager.
-    * Set DTag to zero 
+    * Set DTag to zero
     * (note that classification is further handled in the Core)
     */
     if (status == OK) {
@@ -726,9 +727,9 @@ static int tiwlan_drv_net_xmit(struct sk_buff *skb, struct net_device *dev)
     }
 
     bm_trace(22, 0, 0);
-#ifdef DRIVER_PROFILE   
+#ifdef DRIVER_PROFILE
     os_profile (drv, 1, 0);
-#endif   
+#endif
 
     return 0;
 }
@@ -1029,7 +1030,7 @@ static void tiwlan_tasklet_handler( unsigned long netdrv )
 #endif
 }
 
-#ifdef CONFIG_TROUT_PWRSINK
+#if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
 static void tiwlan_rx_watchdog(struct work_struct *work)
 {
     struct delayed_work *dwork = (struct delayed_work *) container_of(work, struct delayed_work, work);
@@ -1037,14 +1038,26 @@ static void tiwlan_rx_watchdog(struct work_struct *work)
 
     unsigned long num_rx_pkts = num_rx_pkt_new - num_rx_pkt_last;
     /* Contribute 10mA (200mA x 5%) for 1 pkt/sec, and plus 8mA base. */
-    unsigned percent = (num_rx_pkts  / (2 * RX_RATE_INTERVAL_SEC)) * 10 + PWRSINK_WIFI_PERCENT_BASE;
+    unsigned percent = (5 * num_rx_pkts  / RX_RATE_INTERVAL_SEC) + PWRSINK_WIFI_PERCENT_BASE;
+
+    if (num_rx_pkts == 0 && silent_count < 3)
+        silent_count++;
+    else if (num_rx_pkts > 0)
+        silent_count = 0;
+	
+    if (silent_count >= 3) /* WiFi sleep mode. */
+        percent = 0;
 
     if (drv->unload_driver)
-	return;
+        return;
 	
     percent = (percent > 100) ? 100 : percent;
     /* printk(KERN_INFO "num_rx_pkts=%ld, percent=%d\n", num_rx_pkts, percent); */
+#ifdef CONFIG_HTC_PWRSINK
+    htc_pwrsink_set(PWRSINK_WIFI, percent);
+#else
     trout_pwrsink_set(PWRSINK_WIFI, percent);
+#endif
 
     num_rx_pkt_last = num_rx_pkt_new;
 
@@ -1409,6 +1422,16 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
     return -ENODEV;
 }
 
+#ifdef CONFIG_ANDROID_POWER
+#ifndef CONFIG_HAS_WAKELOCK
+/* Wrapper for Init wake lock */
+static void android_init_suspend_wakelock(android_suspend_lock_t *lp,char *nm)
+{
+    lp->name = nm;
+    android_init_suspend_lock( lp );
+}
+#endif
+#endif
 
 /* tiwlan_start_drv
 */
@@ -1444,6 +1467,9 @@ int tiwlan_start_drv(tiwlan_net_dev_t *drv)
         netif_start_queue(drv->netdev);
 #ifdef CONFIG_TROUT_PWRSINK
     trout_pwrsink_set(PWRSINK_WIFI, PWRSINK_WIFI_PERCENT_BASE);
+#endif
+#ifdef CONFIG_HTC_PWRSINK
+    htc_pwrsink_set(PWRSINK_WIFI, PWRSINK_WIFI_PERCENT_BASE);
 #endif
     return 0;
 }
@@ -1518,7 +1544,7 @@ static void tiwlan_destroy_drv(tiwlan_net_dev_t *drv)
 #endif /*FIRMWARE_DYNAMIC_LOAD*/
     }
 #ifdef DM_USE_WORKQUEUE
-#ifdef CONFIG_TROUT_PWRSINK
+#if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
     cancel_delayed_work_sync(&drv->trxw);
 #endif    
     destroy_workqueue(drv->tiwlan_wq);
@@ -1585,7 +1611,7 @@ tiwlan_create_drv(unsigned long reg_start, unsigned long reg_size,
     tasklet_init( &drv->tl, tiwlan_tasklet_handler, (unsigned long)drv );
 #endif
 
-#ifdef CONFIG_TROUT_PWRSINK
+#if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
     INIT_DELAYED_WORK( &drv->trxw, tiwlan_rx_watchdog, &drv->trxw );
 #else
@@ -1595,14 +1621,10 @@ tiwlan_create_drv(unsigned long reg_start, unsigned long reg_size,
 
 #ifdef CONFIG_ANDROID_POWER
     drv->receive_packet = 0;
-    drv->irq_wake_lock.name = "tiwlan_irq_wake";
-    android_init_suspend_lock(&drv->irq_wake_lock);
-    drv->xmit_wake_lock.name = "tiwlan_xmit_wake";
-    android_init_suspend_lock(&drv->xmit_wake_lock);
-    drv->timer_wake_lock.name = "tiwlan_timer_wake";
-    android_init_suspend_lock(&drv->timer_wake_lock);
-    drv->rx_wake_lock.name = "tiwlan_rx_wake";
-    android_init_suspend_lock(&drv->rx_wake_lock);
+    android_init_suspend_wakelock(&drv->irq_wake_lock,"tiwlan_irq_wake");
+    android_init_suspend_wakelock(&drv->xmit_wake_lock,"tiwlan_xmit_wake");
+    android_init_suspend_wakelock(&drv->timer_wake_lock,"tiwlan_timer_wake");
+    android_init_suspend_wakelock(&drv->rx_wake_lock,"tiwlan_rx_wake");
 #endif
     spin_lock_init(&drv->lock);
     INIT_LIST_HEAD(&drv->request_q);
@@ -1630,7 +1652,7 @@ tiwlan_create_drv(unsigned long reg_start, unsigned long reg_size,
 
     /* Profiler */
 #ifdef DRIVER_PROFILING
-    tiwlan_profile_create (drv); 
+    tiwlan_profile_create (drv);
 #endif
 
     bm_init(drv);
@@ -1659,6 +1681,9 @@ int tiwlan_stop_drv(tiwlan_net_dev_t *drv)
 #ifdef CONFIG_TROUT_PWRSINK
     trout_pwrsink_set(PWRSINK_WIFI, 0);
 #endif
+#ifdef CONFIG_HTC_PWRSINK
+    htc_pwrsink_set(PWRSINK_WIFI, 0);
+#endif
     return 0;
 }
 
@@ -1675,7 +1700,7 @@ int tiwlan_stop_and_destroy_drv(tiwlan_net_dev_t *drv)
     /* Start unload process by calling smeSm_stop, and halting the HAL */
     /* SmeSm_stop finish notification will be one by setting flags */
     configMgr_InitiateUnload(drv->adapter.CoreHalCtx);
-    drv->started = 0; 
+    drv->started = 0;
     return 0;
 }
 
@@ -1695,7 +1720,7 @@ tnetw1130_pci_init_one(struct pci_dev *pcidev, const struct pci_device_id *id)
     int rc;
 
     print_info("tnetw1130_pci_init_one:\n");
-    /* IT: for some reason interrupt doesn't work. 
+    /* IT: for some reason interrupt doesn't work.
        use poling mode for now (comments around
        pcidev->irq below)
     */
@@ -1772,53 +1797,56 @@ int tiwlan_sdio_init(struct sdio_func *func)
 
 static int tiwlan_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
 {
-	int rc;
+    int rc;
 
-	SDIO_SetFunc( NULL );
-	if (func->vendor != VENDOR_ID_TI || func->device != DEVICE_ID_TI_WLAN)
-		return -ENODEV;
+    SDIO_SetFunc( NULL );
+    if (func->vendor != VENDOR_ID_TI || func->device != DEVICE_ID_TI_WLAN)
+        return -ENODEV;
 
-	printk(KERN_INFO
-	       "TIWLAN: Found SDIO controller (vendor 0x%x, device 0x%x)\n",
-	       func->vendor, func->device);
+    printk(KERN_INFO
+           "TIWLAN: Found SDIO controller (vendor 0x%x, device 0x%x)\n",
+           func->vendor, func->device);
 
 #ifdef CONFIG_TROUT_PWRSINK
-	trout_pwrsink_set(PWRSINK_WIFI, PWRSINK_WIFI_PERCENT_BASE);
+    trout_pwrsink_set(PWRSINK_WIFI, PWRSINK_WIFI_PERCENT_BASE);
+#endif
+#ifdef CONFIG_HTC_PWRSINK
+    htc_pwrsink_set(PWRSINK_WIFI, PWRSINK_WIFI_PERCENT_BASE);
 #endif
 
-	sdio_claim_host(func);
+    sdio_claim_host(func);
 
-	rc = tiwlan_sdio_init(func);
-	if (rc)
-		goto err2;
+    rc = tiwlan_sdio_init(func);
+    if (rc)
+        goto err2;
 
-	rc = sdio_claim_irq(func, tiwlan_sdio_irq);
-	if (rc)
-		goto err1;
+    rc = sdio_claim_irq(func, tiwlan_sdio_irq);
+    if (rc)
+        goto err1;
 
-	SDIO_SetFunc( func );
+    SDIO_SetFunc( func );
 
-	rc = tiwlan_create_drv(0, 0, 0, 0, 0, TROUT_IRQ, NULL, NULL);
+    rc = tiwlan_create_drv(0, 0, 0, 0, 0, TROUT_IRQ, NULL, NULL);
 
-	printk(KERN_INFO "TIWLAN: Driver initialized (rc %d)\n", rc);
-	complete(&sdio_wait);
-	return rc;
+    printk(KERN_INFO "TIWLAN: Driver initialized (rc %d)\n", rc);
+    complete(&sdio_wait);
+    return rc;
 err1:
-	sdio_disable_func(func);
+    sdio_disable_func(func);
 err2:
-	sdio_release_host(func);
-	complete(&sdio_wait);
-	printk(KERN_ERR "TIWLAN: SDIO failure (err %d)\n", rc);
-	return rc;
+    sdio_release_host(func);
+    complete(&sdio_wait);
+    printk(KERN_ERR "TIWLAN: SDIO failure (err %d)\n", rc);
+    return rc;
 }
 
 static void tiwlan_sdio_remove(struct sdio_func *func)
 {
-	printk(KERN_DEBUG "TIWLAN: Releasing SDIO resources\n");
-	sdio_release_irq(func);
-	sdio_disable_func(func);
-	sdio_release_host(func);
-	printk(KERN_DEBUG "TIWLAN: SDIO resources released\n");
+    printk(KERN_DEBUG "TIWLAN: Releasing SDIO resources\n");
+    sdio_release_irq(func);
+    sdio_disable_func(func);
+    sdio_release_host(func);
+    printk(KERN_DEBUG "TIWLAN: SDIO resources released\n");
 }
 
 static struct sdio_driver tiwlan_sdio_drv = {
@@ -1832,10 +1860,10 @@ void *wifi_kernel_prealloc(int section, unsigned long size)
 {
 #ifdef CONFIG_WIFI_CONTROL_FUNC
     if( wifi_control_data && wifi_control_data->mem_prealloc )
-		return wifi_control_data->mem_prealloc( section, size );
+        return wifi_control_data->mem_prealloc( section, size );
     else
 #endif
-    return NULL;    
+    return NULL;
 }
 
 #ifdef CONFIG_WIFI_CONTROL_FUNC
@@ -1845,29 +1873,29 @@ static int wifi_probe( struct platform_device *pdev )
 
     printk("%s\n", __FUNCTION__);
     if( wifi_ctrl ) {
-	wifi_control_data = wifi_ctrl;
-	if( wifi_ctrl->set_power )
-	    wifi_ctrl->set_power(1);		/* Power On */
-	if( wifi_ctrl->set_reset )
-	    wifi_ctrl->set_reset(0);		/* Reset clear */
-	if( wifi_ctrl->set_carddetect )
-	    wifi_ctrl->set_carddetect(1);	/* CardDetect (0->1) */
+        wifi_control_data = wifi_ctrl;
+        if( wifi_ctrl->set_power )
+            wifi_ctrl->set_power(1);		/* Power On */
+        if( wifi_ctrl->set_reset )
+            wifi_ctrl->set_reset(0);		/* Reset clear */
+        if( wifi_ctrl->set_carddetect )
+            wifi_ctrl->set_carddetect(1);	/* CardDetect (0->1) */
     }
     return 0;
 }
-	
+
 static int wifi_remove( struct platform_device *pdev )
 {
     struct wifi_platform_data *wifi_ctrl = (struct wifi_platform_data *)(pdev->dev.platform_data);
 
     printk("%s\n", __FUNCTION__);
     if( wifi_ctrl ) {
-	if( wifi_ctrl->set_carddetect )
-	    wifi_ctrl->set_carddetect(0);	/* CardDetect (1->0) */
-	if( wifi_ctrl->set_reset )
-	    wifi_ctrl->set_reset(1);		/* Reset active */
-	if( wifi_ctrl->set_power )
-	    wifi_ctrl->set_power(0);		/* Power Off */
+        if( wifi_ctrl->set_carddetect )
+            wifi_ctrl->set_carddetect(0);	/* CardDetect (1->0) */
+        if( wifi_ctrl->set_reset )
+            wifi_ctrl->set_reset(1);		/* Reset active */
+        if( wifi_ctrl->set_power )
+            wifi_ctrl->set_power(0);		/* Power Off */
     }
     return 0;
 }
@@ -1886,7 +1914,7 @@ static int wifi_add_dev( void )
 {
     return platform_driver_register( &wifi_device );
 }
-	
+
 static void wifi_del_dev( void )
 {
     platform_driver_unregister( &wifi_device );
@@ -1896,7 +1924,7 @@ int msm_wifi_power( int on )
 {
     printk("%s\n", __FUNCTION__);
     if( wifi_control_data && wifi_control_data->set_power ) {
-	wifi_control_data->set_power(on);
+        wifi_control_data->set_power(on);
     }
     return 0;
 }
@@ -1905,7 +1933,7 @@ int msm_wifi_reset( int on )
 {
     printk("%s\n", __FUNCTION__);
     if( wifi_control_data && wifi_control_data->set_reset ) {
-	wifi_control_data->set_reset(on);
+        wifi_control_data->set_reset(on);
     }
     return 0;
 }
@@ -1971,12 +1999,12 @@ static int __init tiwlan_module_init(void)
         remove_proc_entry("calibration", NULL);
         sdio_unregister_driver(&tiwlan_sdio_drv);
 #ifdef CONFIG_WIFI_CONTROL_FUNC
-		wifi_del_dev();
-#else	
+        wifi_del_dev();
+#else
         trout_wifi_set_carddetect(0); /* CardDetect (1->0) */
         trout_wifi_reset(1);          /* Reset active */
         trout_wifi_power(0);          /* Power Off */
-#endif	
+#endif
         return -ENODEV;
     }
     printk(KERN_INFO "TIWLAN: Driver loaded\n");
@@ -2001,7 +2029,7 @@ static void __exit tiwlan_module_cleanup(void)
     list_for_each_safe(l, tmp, &tiwlan_drv_list)
     {
         tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)list_entry(l, tiwlan_net_dev_t, list);
-        list_del(l);	
+        list_del(l);
         tiwlan_destroy_drv(drv);
     }
     remove_proc_entry("mem", NULL);
@@ -2010,11 +2038,11 @@ static void __exit tiwlan_module_cleanup(void)
     sdio_unregister_driver(&tiwlan_sdio_drv);
 #ifdef CONFIG_WIFI_CONTROL_FUNC
     wifi_del_dev();
-#else    
+#else
     trout_wifi_set_carddetect(0); /* CardDetect (1->0) */
     trout_wifi_reset(1);          /* Reset active */
     trout_wifi_power(0);          /* Power Off */
-#endif    
+#endif
 #endif
     printk(KERN_INFO "TIWLAN: Driver unloaded\n");
 }

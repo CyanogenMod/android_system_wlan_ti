@@ -43,8 +43,14 @@
 #include <linux/interrupt.h>
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
 #include <asm/arch/gpio.h>
+#ifdef CONFIG_ANDROID_POWER
+#include <linux/android_power.h>
+#endif
 #else
 #include <asm/gpio.h>
+#ifdef CONFIG_HAS_WAKELOCK
+#include <linux/wakelock.h>
+#endif
 #endif
 
 #ifdef CONFIG_TROUT_PWRSINK
@@ -55,8 +61,8 @@
 #endif
 #endif
 
-#ifdef CONFIG_ANDROID_POWER
-#include <linux/android_power.h>
+#ifdef CONFIG_HTC_PWRSINK
+#include <mach/htc_pwrsink.h>
 #endif
 
 #include "osTIType.h"
@@ -83,20 +89,30 @@ int msm_wifi_reset(int on);
 extern int trout_wifi_power(int on);
 extern int trout_wifi_reset(int on);
 extern int trout_wifi_set_carddetect(int val);
-#define msm_wifi_power(a)	trout_wifi_power(a)
-#define msm_wifi_reset(a)	trout_wifi_reset(a)
+#define msm_wifi_power(a)       trout_wifi_power(a)
+#define msm_wifi_reset(a)       trout_wifi_reset(a)
 #endif
+#endif
+
+#ifdef CONFIG_HAS_WAKELOCK
+#define CONFIG_ANDROID_POWER
+typedef struct wake_lock android_suspend_lock_t;
+#define android_unlock_suspend(a)             wake_unlock(a)
+#define android_lock_suspend(a)               wake_lock(a)
+#define android_lock_suspend_auto_expire(a,t) wake_lock_timeout(a,t)
+#define android_init_suspend_wakelock(a,n)    wake_lock_init(a,WAKE_LOCK_SUSPEND,n)
+#define android_uninit_suspend_lock(a)        wake_lock_destroy(a)
 #endif
 
 #ifndef TIWLAN_OMAP1610_REGBASE
 
 #if defined(TIWLAN_OMAP1610_INNOVATOR)
-#define TIWLAN_OMAP1610_REGBASE	0xEC100000	/* VA*/
-#elif defined(TIWLAN_OMAP1610_WIPP) || defined(TIWLAN_OMAP1610_CRTWIPP) 
+#define TIWLAN_OMAP1610_REGBASE 0xEC100000    /* VA*/
+#elif defined(TIWLAN_OMAP1610_WIPP) || defined(TIWLAN_OMAP1610_CRTWIPP)
 #ifndef OMAP_WLAN_BASE
 #define OMAP_WLAN_BASE  0
 #endif
-#define TIWLAN_OMAP1610_REGBASE	(OMAP_WLAN_BASE+0x100000)
+#define TIWLAN_OMAP1610_REGBASE (OMAP_WLAN_BASE+0x100000)
 #else
 /* Dm: #error TIWLAN_OMAP1610_REGBASE not defined for this platform */
 #endif
@@ -121,7 +137,7 @@ extern int trout_wifi_set_carddetect(int val);
 #define TIWLAN_OMAP1610_IRQ     (OMAP_GPIO_IRQ(2))
 #endif
 
-#endif	 /* TIWLAN_OMAP1610_IRQ */
+#endif /* TIWLAN_OMAP1610_IRQ */
 #define TIWLAN_IRQ_POLL_INTERVAL  HZ/100  /* Used when no Intr are handled from the FW */
 
 
@@ -196,7 +212,7 @@ typedef void (*tiwlan_pfofile_t) (void*, unsigned);
 
 #endif
 
-#ifdef CONFIG_TROUT_PWRSINK
+#if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
 #define PWRSINK_WIFI_PERCENT_BASE 4
 #endif
 
@@ -221,7 +237,7 @@ struct tiwlan_net_dev {
 #else
       struct tasklet_struct tl;        /* Control tasklet */
 #endif
-#ifdef CONFIG_TROUT_PWRSINK
+#if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
       struct delayed_work trxw;        /* Work Task for rx watchdog */
 #endif
 #ifdef CONFIG_ANDROID_POWER
@@ -238,7 +254,7 @@ struct tiwlan_net_dev {
       unsigned long flags;
       struct timer_list poll_timer;    /* Polling timer. Used only when working without interrupts */
       int started;                     /* 1=config manager started. 0=config manager stopped */
-      int initialized;                 /* 1=succeeded to pass init stage, 0=otherwise */     
+      int initialized;                 /* 1=succeeded to pass init stage, 0=otherwise */
       int unload_driver;               /* Driver unload indicator */
       struct net_device_stats stats;
       int alloc_msdu_failures;         /* Extra statistics */
@@ -271,7 +287,7 @@ struct tiwlan_net_dev {
 #ifdef GWSI_DRIVER
       void *gwsi;                      /* GWSI manager handler */
       void *gwsi_ev;                   /* GWSI event handler */
-      char  gwsi_tester_buf [4096];    /* GWSI tester buffer */                                        
+      char  gwsi_tester_buf [4096];    /* GWSI tester buffer */
 #endif
 };
 
