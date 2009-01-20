@@ -52,6 +52,7 @@ OS_SRCS = \
     $(DK_ROOT)/pform/common/src/osClsfr.c \
     $(DK_ROOT)/pform/common/src/osRgstry.c \
     $(DK_ROOT)/pform/linux/src/esta_drv.c \
+    $(DK_ROOT)/pform/linux/src/chip_stat.c \
     $(DK_ROOT)/pform/linux/src/mmc_tnetw1150_api.c \
     $(DK_ROOT)/pform/linux/src/tnetw_sdio.c \
     $(DK_ROOT)/pform/linux/src/osapi.c \
