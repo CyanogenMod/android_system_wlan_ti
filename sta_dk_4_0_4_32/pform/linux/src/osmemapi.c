@@ -68,12 +68,12 @@ struct os_mem_block
 
 /****************************************************************************************
  *                                                                                      *
- *                      OS Memory API                                                   *       
+ *                      OS Memory API                                                   *
  *                                                                                      *
  ****************************************************************************************/
 
 /****************************************************************************************
- *                        os_memoryAlloc()                                 
+ *                        os_memoryAlloc()
  ****************************************************************************************
 DESCRIPTION:    Allocates resident (nonpaged) system-space memory.
 
@@ -103,14 +103,17 @@ os_memoryAlloc(
     if( total_size < Size ) { /* Dm: Security fix */
         return NULL;
     }
-    /* 
+    /*
         memory optimization issue. Allocate 8 kB and less from the SLAB allocator (2^n)
         otherwise allocate from virtual pool.
     */
-               /* 2 pages */
-    if (Size < 2 * 4096)
+    /* 2 pages */
+    if (Size <= 2 * 4096)
     {
-        blk = kmalloc(total_size, GFP_ATOMIC);
+        if (in_atomic())
+            blk = kmalloc(total_size, GFP_ATOMIC);
+        else
+            blk = kmalloc(total_size, GFP_KERNEL);
         if (!blk)
             return NULL;
         blk->f_free = (os_free)kfree;
@@ -120,7 +123,7 @@ os_memoryAlloc(
         /* We expect that the big allocations should be made outside the interrupt,
             otherwise fail
         */
-        if (in_interrupt())
+        if (in_atomic())
             return NULL;
         blk = vmalloc(total_size);
         if (!blk)
@@ -138,18 +141,18 @@ os_memoryAlloc(
 }
 
 /****************************************************************************************
- *                        os_memoryPreFree()                                 
+ *                        os_memoryPreFree()
  ****************************************************************************************
 DESCRIPTION:    Frees preallocated by the kernel memory.
 
-ARGUMENTS:      ptr	- pointer to memory
+ARGUMENTS:      ptr - pointer to memory
 *****************************************************************************************/
 void os_memoryPreFree( void *ptr )
 {
 }
 
 /****************************************************************************************
- *                        os_memoryPreAlloc()                                 
+ *                        os_memoryPreAlloc()
  ****************************************************************************************
 DESCRIPTION:    Gets system-space memory preallocated by kernel.
 
@@ -194,7 +197,7 @@ os_memoryPreAlloc(
 
 
 /****************************************************************************************
- *                        os_memoryCAlloc()                                 
+ *                        os_memoryCAlloc()
  ****************************************************************************************
 DESCRIPTION:    Allocates an array in memory with elements initialized to 0.
 

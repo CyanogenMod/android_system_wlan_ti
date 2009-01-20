@@ -33,7 +33,6 @@
 **+-----------------------------------------------------------------------+**
 ****************************************************************************/
 
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/version.h>
@@ -110,7 +109,6 @@
 #define RX_RATE_INTERVAL_SEC 10
 unsigned long num_rx_pkt_new = 0;
 static unsigned long num_rx_pkt_last = 0;
-static unsigned silent_count = 0;
 #endif
 
 #ifdef TIWLAN_MSM7000
@@ -122,6 +120,10 @@ static struct completion sdio_wait;
 static struct wifi_platform_data *wifi_control_data = NULL;
 #endif
 #endif
+
+/* WiFi chip information functions */
+int export_wifi_fw_version( tiwlan_net_dev_t *drv );
+int export_wifi_chip_id( void );
 
 /* Drivers list */
 static LIST_HEAD(tiwlan_drv_list);
@@ -150,13 +152,12 @@ static int tiwlan_drv_net_stop(struct net_device * dev);
 static int tiwlan_drv_net_xmit(struct sk_buff * skb, struct net_device * dev);
 static struct net_device_stats * tiwlan_drv_net_get_stats(struct net_device * dev);
 
-
 #define OS_WRITE_REG(drv,reg,val)   \
     os_hwWriteMemRegisterUINT32(drv, (UINT32 *)((unsigned long)drv->acx_reg.va + reg), (__u32)(val))
 
 #define OS_READ_REG(drv,reg,val)    \
     os_hwReadMemRegisterUINT32(drv, (UINT32 *)((unsigned long)drv->acx_reg.va + reg), &val)
-      
+
 #ifdef TIWLAN_OMAP1610
 static void omap_memif_init(void)
 {
@@ -811,12 +812,12 @@ static irqreturn_t tiwlan_interrupt (int irq, void *netdrv, struct pt_regs *cpu_
         {
             configMgr_disableInterrupts(drv->adapter.CoreHalCtx);
             drv->interrupt_pending = 1;
-            tasklet_schedule (&drv->tl);     
+            tasklet_schedule (&drv->tl);
         }
         else
         {
 #if DEBUG_UNKNOWN_INTERRUPT
-            ti_dprintf (TIWLAN_LOG_ERROR, 
+            ti_dprintf (TIWLAN_LOG_ERROR,
                         "%s - ERROR - interrupt isn't TNET interrupt! interrupt vector = 0x%08X\n",
                         __FUNCTION__, interruptVector);
 #endif
@@ -831,7 +832,7 @@ static irqreturn_t tiwlan_interrupt (int irq, void *netdrv, struct pt_regs *cpu_
 {
     tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)netdrv;
 
-	drv->interrupt_pending = 1;
+    drv->interrupt_pending = 1;
     /* printk("TI: %s:\t%lu\n", __FUNCTION__, jiffies); */
 #ifdef DM_USE_WORKQUEUE
     if( queue_work( drv->tiwlan_wq, &drv->tirq ) != 0 ) {
@@ -841,7 +842,7 @@ static irqreturn_t tiwlan_interrupt (int irq, void *netdrv, struct pt_regs *cpu_
     }
     /* disable_irq( drv->irq ); Dm: No need, we can loose IRQ */
 #else
-	tasklet_schedule( &drv->tl );
+    tasklet_schedule( &drv->tl );
 #endif
     return IRQ_HANDLED;
 }
@@ -868,7 +869,7 @@ static void tiwlan_handle_control_requests( tiwlan_net_dev_t *drv )
        tiwlan_req_t *req = list_entry(entry, tiwlan_req_t, list);
        tiwlan_req_t tmp_req;
        unsigned long flags;
-    
+
        spin_lock_irqsave(&drv->lock, flags);
        list_del_init(entry);
        spin_unlock_irqrestore(&drv->lock, flags);
@@ -902,7 +903,7 @@ static void tiwlan_handle_control_requests( tiwlan_net_dev_t *drv )
 
     bm_trace(5, 0, 0);
 
-	/* DbgCB_Insert(0, DBG_MODULE_OS, DBG_TYPE_TASKLET, 1)*/
+    /* DbgCB_Insert(0, DBG_MODULE_OS, DBG_TYPE_TASKLET, 1)*/
 }
 
 #ifdef DM_USE_WORKQUEUE
@@ -910,7 +911,7 @@ static void tiwlan_irq_handler( struct work_struct *work )
 {
     tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)container_of( work, struct tiwlan_net_dev, tirq );
 
-    /* if the driver was unloaded by that time we need to ignore all the timers */   
+    /* if the driver was unloaded by that time we need to ignore all the timers */
     if (drv->unload_driver) {
 #ifdef CONFIG_ANDROID_POWER
         android_unlock_suspend( &drv->irq_wake_lock );
@@ -954,7 +955,7 @@ static void tiwlan_tasklet_handler( unsigned long netdrv )
     static unsigned int maximum_stack = 0;
 #endif
 
-    /* if the driver was unloaded by that time we need to ignore all the timers */   
+    /* if the driver was unloaded by that time we need to ignore all the timers */
     if (drv->unload_driver) {
 #ifdef CONFIG_ANDROID_POWER
         android_unlock_suspend( &drv->timer_wake_lock );
@@ -968,27 +969,27 @@ static void tiwlan_tasklet_handler( unsigned long netdrv )
 
 #ifdef DRIVER_PROFILE
     os_profile (drv, 0, 0);
-#endif    
+#endif
     bm_trace(3, 0, 0);
 
 #ifdef STACK_PROFILE
     curr1 = check_stack_start(&base1);
 #endif
 
-    /* Handle bus transaction interrupts */  	
-	if (drv->dma_done)
-   	{
-       	drv->dma_done = 0;
-       	configMgr_HandleBusTxn_Complete(drv->adapter.CoreHalCtx);
-   	}
+    /* Handle bus transaction interrupts */
+    if (drv->dma_done)
+    {
+        drv->dma_done = 0;
+        configMgr_HandleBusTxn_Complete(drv->adapter.CoreHalCtx);
+    }
 
-	/* don't call for "Handle interrupts, timers, ioctls" while recovery process */
-	if (configMgr_areInputsFromOsDisabled(drv->adapter.CoreHalCtx) == TRUE) {
+    /* don't call for "Handle interrupts, timers, ioctls" while recovery process */
+    if (configMgr_areInputsFromOsDisabled(drv->adapter.CoreHalCtx) == TRUE) {
 #ifdef CONFIG_ANDROID_POWER
         android_unlock_suspend( &drv->timer_wake_lock );
 #endif
-		return;
-	}
+        return;
+    }
 
     /* Handle firmware interrupts */
 #ifndef DM_USE_WORKQUEUE
@@ -1002,10 +1003,10 @@ static void tiwlan_tasklet_handler( unsigned long netdrv )
     tiwlan_handle_control_requests( drv );
 
 #ifdef STACK_PROFILE
-	curr2 = check_stack_stop(&base2);
+    curr2 = check_stack_stop(&base2);
 
     if (base2 == base1)
-    {   
+    {
        /* if the current measurement is bigger then the maximum store it and print*/
         if ((curr1 - curr2) > maximum_stack)
         {
@@ -1013,14 +1014,14 @@ static void tiwlan_tasklet_handler( unsigned long netdrv )
             printk("current operation stack use =%d \n",(curr1 - curr2));
             printk("total stack use=%d \n",8192 - curr2 + base2);
             printk("total stack usage= %d percent \n",100 * (8192 - curr2 + base2) / 8192);
-			maximum_stack = curr1 - curr2;
+                maximum_stack = curr1 - curr2;
        }
     }
 #endif
 
 #ifdef DRIVER_PROFILE
     os_profile (drv, 1, 0);
-#endif    
+#endif
 
 #if 0
     ti_dprintf(TIWLAN_LOG_INFO, "%s out\n" , __FUNCTION__);
@@ -1040,17 +1041,10 @@ static void tiwlan_rx_watchdog(struct work_struct *work)
     /* Contribute 10mA (200mA x 5%) for 1 pkt/sec, and plus 8mA base. */
     unsigned percent = (5 * num_rx_pkts  / RX_RATE_INTERVAL_SEC) + PWRSINK_WIFI_PERCENT_BASE;
 
-    if (num_rx_pkts == 0 && silent_count < 3)
-        silent_count++;
-    else if (num_rx_pkts > 0)
-        silent_count = 0;
-	
-    if (silent_count >= 3) /* WiFi sleep mode. */
-        percent = 0;
 
     if (drv->unload_driver)
         return;
-	
+
     percent = (percent > 100) ? 100 : percent;
     /* printk(KERN_INFO "num_rx_pkts=%ld, percent=%d\n", num_rx_pkts, percent); */
 #ifdef CONFIG_HTC_PWRSINK
@@ -1160,7 +1154,7 @@ tiwlan_alloc_drv(unsigned long reg_start, unsigned long reg_size,
 {
     static tiwlan_net_dev_t *drv;
     drv = kmalloc(sizeof(tiwlan_net_dev_t), GFP_KERNEL);
-#ifdef TI_MEM_ALLOC_TRACE        
+#ifdef TI_MEM_ALLOC_TRACE
     os_printf("MTT:%s:%d ::kmalloc(%lu, %x) : %lu\n", __FUNCTION__, __LINE__, sizeof(tiwlan_net_dev_t), GFP_KERNEL, sizeof(tiwlan_net_dev_t));
 #endif/*I_MEM_ALLOC_TRACE*/
 
@@ -1208,7 +1202,7 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
 
     init_table = os_memoryAlloc (drv, sizeof(initTable_t));
 
-#ifdef TI_MEM_ALLOC_TRACE        
+#ifdef TI_MEM_ALLOC_TRACE
     osPrintf ("MTT:%s:%d ::kmalloc(%lu, %x) : %lu\n", __FUNCTION__, __LINE__, sizeof(initTable_t), GFP_KERNEL, sizeof(initTable_t));
 #endif/*I_MEM_ALLOC_TRACE*/
     if (!init_table)
@@ -1224,7 +1218,7 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
         {
             drv->eeprom_image.va = os_memoryAlloc (drv, drv->eeprom_image.size);
 
-#ifdef TI_MEM_ALLOC_TRACE        
+#ifdef TI_MEM_ALLOC_TRACE
             osPrintf ("MTT:%s:%d ::kmalloc(%lu, %x) : %lu\n", __FUNCTION__, __LINE__, drv->eeprom_image.size, GFP_KERNEL, drv->eeprom_image.size);
 #endif
             if (!drv->eeprom_image.va)
@@ -1235,7 +1229,7 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
             }
             memcpy (drv->eeprom_image.va, &init_info->data[0], drv->eeprom_image.size );
         }
-        
+
 #ifdef FIRMWARE_DYNAMIC_LOAD
         drv->firmware_image.size = init_info->firmware_image_length;
         if (!drv->firmware_image.size)
@@ -1244,7 +1238,7 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
             return -EINVAL;
         }
         drv->firmware_image.va = os_memoryAlloc (drv,drv->firmware_image.size);
-#ifdef TI_MEM_ALLOC_TRACE        
+#ifdef TI_MEM_ALLOC_TRACE
         osPrintf ("MTT:%s:%d ::kmalloc(%lu, %x) : %lu\n", __FUNCTION__, __LINE__, drv->firmware_image.size, GFP_KERNEL, drv->firmware_image.size);
 #endif
         if (!drv->firmware_image.va)
@@ -1267,14 +1261,14 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
 #endif
     }
 
-    print_deb ("--------- Eeeprom=%p(%lu), Firmware=%p(%lu)\n", 
-                drv->eeprom_image.va, 
+    print_deb ("--------- Eeeprom=%p(%lu), Firmware=%p(%lu)\n",
+                drv->eeprom_image.va,
                 drv->eeprom_image.size,
-                drv->firmware_image.va, 
+                drv->firmware_image.va,
                 drv->firmware_image.size);
-    
+
     /* Init defaults */
-    if ((rc = osInitTable_IniFile (drv, 
+    if ((rc = osInitTable_IniFile (drv,
                                    init_table,
                                    (init_info && init_info->init_file_length) ?
                                    &init_info->data[init_info->eeprom_image_length+init_info->firmware_image_length] : NULL,
@@ -1282,8 +1276,8 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
     {
         ti_dprintf (TIWLAN_LOG_ERROR, "osInitTable_IniFile failed :cannot initialize defaults\n");
         os_memoryFree (drv, init_table, sizeof(initTable_t));
-        
-#ifdef TI_MEM_ALLOC_TRACE        
+
+#ifdef TI_MEM_ALLOC_TRACE
         os_printf("MTT:%s:%d ::kfree(0x%p) : %d\n", __FUNCTION__, __LINE__, sizeof(initTable_t), -sizeof(initTable_t));
 #endif
         return rc;
@@ -1293,10 +1287,10 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
     pWLAN_Images[1] = (void *)drv->firmware_image.size;
     pWLAN_Images[2] = (void *)drv->eeprom_image.va;
     pWLAN_Images[3] = (void *)drv->eeprom_image.size;
-   
-    drv->adapter.CoreHalCtx = configMgr_create (drv, 
+
+    drv->adapter.CoreHalCtx = configMgr_create (drv,
                                                 pWLAN_Images,
-                                                init_table, 
+                                                init_table,
                                                 (macAddress_t *) &drv->adapter.CurrentAddr);
     if (!(drv->adapter.CoreHalCtx))
     {
@@ -1317,15 +1311,15 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
 #ifndef PRIODIC_INTERRUPT
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
         unsigned long flags;
-        /* 
-         * Disable all interrupts for not to catch the tiwlan irq 
+        /*
+         * Disable all interrupts for not to catch the tiwlan irq
          * between request_irq and disable_irq
          */
         spin_lock_irqsave (&(drv->lock), flags);
         if ((rc = request_irq (drv->irq, tiwlan_interrupt, SA_SHIRQ, drv->netdev->name, drv)))
 #else
         if ((rc = request_irq (drv->irq, (irq_handler_t)tiwlan_interrupt, IRQF_SHARED | IRQF_TRIGGER_FALLING /*Dm:*/, drv->netdev->name, drv)))
-#endif	
+#endif
         {
             print_err ("TIWLAN: Failed to register interrupt handler\n");
             configMgr_stop (drv->adapter.CoreHalCtx);
@@ -1338,7 +1332,7 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
         set_irq_wake(drv->irq, 1);
 #endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
-		set_irq_type (drv->irq, IRQT_FALLING);
+        set_irq_type (drv->irq, IRQT_FALLING);
 #else
         set_irq_type (drv->irq, IRQ_TYPE_EDGE_FALLING);
 #endif
@@ -1356,14 +1350,14 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
         mod_timer (&drv->poll_timer, jiffies + TIWLAN_IRQ_POLL_INTERVAL);
     }
 
-    /* 
-     * Now that all parts of the driver have been created and handles linked 
+    /*
+     * Now that all parts of the driver have been created and handles linked
      * proceed to download the FW code
      */
-    configMgr_init (drv, 
-                    drv->adapter.CoreHalCtx, 
-                    pWLAN_Images, 
-                    init_table, 
+    configMgr_init (drv,
+                    drv->adapter.CoreHalCtx,
+                    pWLAN_Images,
+                    init_table,
                     (macAddress_t *) &drv->adapter.CurrentAddr);
 
     /* Wait for the download to complete */
@@ -1372,9 +1366,9 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
     os_memoryFree (drv, init_table, sizeof(initTable_t));
 
     if (rc == OK)
-    {   
+    {
         proc_stat_init (drv->adapter.CoreHalCtx);
-#ifdef TI_MEM_ALLOC_TRACE        
+#ifdef TI_MEM_ALLOC_TRACE
         osPrintf ("MTT:%s:%d ::kfree(0x%p) : %d\n", __FUNCTION__, __LINE__, sizeof(initTable_t), -sizeof(initTable_t));
 #endif/*I_MEM_ALLOC_TRACE*/
 
@@ -1397,7 +1391,7 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
 #endif
 #else
         drv->wl_sock = netlink_kernel_create(&init_net, NETLINK_USERSOCK, 0, NULL, NULL, THIS_MODULE); /* Dm: */
-#endif    
+#endif
         if (drv->wl_sock == NULL)
         {
             ti_dprintf(TIWLAN_LOG_ERROR, "netlink_kernel_create() failed !\n");
@@ -1411,7 +1405,7 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
         drv->netdev->addr_len = MAC_ADDR_LEN;
 
         /* Register the relevant events with the event handler */
-        tiwlan_register_events (drv); 
+        tiwlan_register_events (drv);
 
         /* Mark that init stage has succeded */
         drv->initialized = 1;
@@ -1471,6 +1465,7 @@ int tiwlan_start_drv(tiwlan_net_dev_t *drv)
 #ifdef CONFIG_HTC_PWRSINK
     htc_pwrsink_set(PWRSINK_WIFI, PWRSINK_WIFI_PERCENT_BASE);
 #endif
+    export_wifi_fw_version(drv);
     return 0;
 }
 
@@ -1675,9 +1670,9 @@ int tiwlan_stop_drv(tiwlan_net_dev_t *drv)
     if (drv->netdev)
         netif_stop_queue(drv->netdev);
 
+    drv->started = 0;
     configMgr_stop(drv->adapter.CoreHalCtx);
 
-    drv->started = 0;
 #ifdef CONFIG_TROUT_PWRSINK
     trout_pwrsink_set(PWRSINK_WIFI, 0);
 #endif
@@ -1704,6 +1699,15 @@ int tiwlan_stop_and_destroy_drv(tiwlan_net_dev_t *drv)
     return 0;
 }
 
+void *wifi_kernel_prealloc(int section, unsigned long size)
+{
+#ifdef CONFIG_WIFI_CONTROL_FUNC
+    if( wifi_control_data && wifi_control_data->mem_prealloc )
+        return wifi_control_data->mem_prealloc( section, size );
+    else
+#endif
+    return NULL;
+}
 
 #ifdef TIWLAN_CARDBUS
 
@@ -1856,16 +1860,6 @@ static struct sdio_driver tiwlan_sdio_drv = {
     .id_table       = tiwlan_sdio_ids,
 };
 
-void *wifi_kernel_prealloc(int section, unsigned long size)
-{
-#ifdef CONFIG_WIFI_CONTROL_FUNC
-    if( wifi_control_data && wifi_control_data->mem_prealloc )
-        return wifi_control_data->mem_prealloc( section, size );
-    else
-#endif
-    return NULL;
-}
-
 #ifdef CONFIG_WIFI_CONTROL_FUNC
 static int wifi_probe( struct platform_device *pdev )
 {
@@ -1964,10 +1958,13 @@ static int __init tiwlan_module_init(void)
         print_err("TIWLAN: PCMCIA driver failed to register\n");
         return rc;
     }
+    printk(KERN_INFO "TIWLAN: Driver loaded\n");
     return 0;
 
 #elif defined(TIWLAN_OMAP1610)
     rc = omap1610_drv_create();
+    export_wifi_chip_id();
+    printk(KERN_INFO "TIWLAN: Driver loaded\n");
     return rc;
 
 #elif defined(TIWLAN_MSM7000)
@@ -2007,6 +2004,7 @@ static int __init tiwlan_module_init(void)
 #endif
         return -ENODEV;
     }
+    export_wifi_chip_id();
     printk(KERN_INFO "TIWLAN: Driver loaded\n");
     return 0;
 

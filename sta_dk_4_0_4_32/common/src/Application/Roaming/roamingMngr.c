@@ -487,10 +487,10 @@ TI_STATUS roamingMngr_init(TI_HANDLE hRoamingMngr,
             {ROAMING_STATE_CONNECTING, roamingMngr_smHandover},              /* REQ_HANDOVER     */
             {ROAMING_STATE_SELECTING, roamingMngr_smUnexpected},             /* ROAM_SUCCESS     */
             {ROAMING_STATE_SELECTING, roamingMngr_smUnexpected}              /* FAILURE          */
-                                                                                   
-        }, 
+                                                                                
+        },
 
-        /* next state and actions for CONNECTING state */                      
+        /* next state and actions for CONNECTING state */
         {   {ROAMING_STATE_CONNECTING, roamingMngr_smUnexpected},           /* START            */ 
             {ROAMING_STATE_IDLE, roamingMngr_smStop},                       /* STOP             */ 
             {ROAMING_STATE_IDLE, roamingMngr_smDisconnectWhileConnecting},      /* ROAM_TRIGGER     */ 
@@ -499,18 +499,18 @@ TI_STATUS roamingMngr_init(TI_HANDLE hRoamingMngr,
             {ROAMING_STATE_CONNECTING, roamingMngr_smHandover},             /* REQ_HANDOVER     */ 
             {ROAMING_STATE_WAIT_4_TRIGGER, roamingMngr_smSuccHandover} ,    /* ROAM_SUCCESS     */ 
             {ROAMING_STATE_IDLE, roamingMngr_smFailHandover}                /* FAILURE          */ 
-                                                                                   
-        } 
+                                                                                
+        }
 
 
 
-    }; 
+    };
 
     if (hRoamingMngr == NULL)
     {
         return NOK;
     }
-    
+
     pRoamingMngr = (roamingMngr_t*)hRoamingMngr;
 
     /* Update handlers */
@@ -520,7 +520,11 @@ TI_STATUS roamingMngr_init(TI_HANDLE hRoamingMngr,
 
     /* Init intrenal variables */
     pRoamingMngr->currentState = ROAMING_STATE_IDLE;
+#ifdef ENABLE_ROAMING_BY_DEFAULT
+    pRoamingMngr->roamingMngrConfig.enableDisable = ROAMING_ENABLED;
+#else
     pRoamingMngr->roamingMngrConfig.enableDisable = ROAMING_DISABLED; 
+#endif
     pRoamingMngr->roamingTrigger = ROAMING_TRIGGER_NONE;
     pRoamingMngr->maskRoamingEvents= TRUE;
     pRoamingMngr->scanType = ROAMING_NO_SCAN;
@@ -536,11 +540,11 @@ TI_STATUS roamingMngr_init(TI_HANDLE hRoamingMngr,
 
 #ifdef TI_DBG
     /* debug counters */
-    pRoamingMngr->roamingSuccesfulHandoverNum = 0;    
-    pRoamingMngr->roamingHandoverStartedTimestamp = 0;  
+    pRoamingMngr->roamingSuccesfulHandoverNum = 0;
+    pRoamingMngr->roamingHandoverStartedTimestamp = 0;
     pRoamingMngr->roamingHandoverCompletedTimestamp = 0;
-    pRoamingMngr->roamingAverageSuccHandoverDuration = 0; 
-    pRoamingMngr->roamingAverageRoamingDuration = 0;  
+    pRoamingMngr->roamingAverageSuccHandoverDuration = 0;
+    pRoamingMngr->roamingAverageRoamingDuration = 0;
     pRoamingMngr->roamingFailedHandoverNum = 0;
 
     for (index=ROAMING_TRIGGER_NONE; index<ROAMING_TRIGGER_LAST; index++)
@@ -2342,6 +2346,3 @@ static void roamingMngr_resetStatistics(TI_HANDLE hRoamingMngr)
 }
 
 #endif /*TI_DBG*/
-
-
-

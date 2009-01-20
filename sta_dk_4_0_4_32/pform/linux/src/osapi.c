@@ -1538,7 +1538,7 @@ os_IndicateEvent(IPC_EV_DATA* pData)
    /*UCHAR AuthBuf[sizeof(ULONG) + sizeof(OS_802_11_AUTHENTICATION_REQUEST)];*/
 
    ti_nodprintf(TIWLAN_LOG_INFO, "\n  os_ConnectionStatus Event 0x%08x \n", CsStatus->Event);
-   
+
    switch(pInParam->uEventType)
      {
    case IPC_EVENT_ASSOCIATED:
@@ -1553,11 +1553,14 @@ os_IndicateEvent(IPC_EV_DATA* pData)
        case IPC_EVENT_DISASSOCIATED:
          if (drv->netdev != NULL) {
 #if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
+            unsigned percent;
+
             cancel_delayed_work_sync(&drv->trxw);
+            percent = ( drv->started ) ? PWRSINK_WIFI_PERCENT_BASE : 0;
 #ifdef CONFIG_HTC_PWRSINK
-            htc_pwrsink_set(PWRSINK_WIFI, PWRSINK_WIFI_PERCENT_BASE);
+            htc_pwrsink_set(PWRSINK_WIFI, percent);
 #else
-            trout_pwrsink_set(PWRSINK_WIFI, PWRSINK_WIFI_PERCENT_BASE);
+            trout_pwrsink_set(PWRSINK_WIFI, percent);
 #endif
 #endif
             netif_carrier_off(drv->netdev);
