@@ -1544,6 +1544,12 @@ static void tiwlan_destroy_drv(tiwlan_net_dev_t *drv)
 #endif    
     destroy_workqueue(drv->tiwlan_wq);
 #endif
+#ifdef CONFIG_TROUT_PWRSINK
+    trout_pwrsink_set(PWRSINK_WIFI, 0);
+#endif
+#ifdef CONFIG_HTC_PWRSINK
+    htc_pwrsink_set(PWRSINK_WIFI, 0);
+#endif
 #ifdef CONFIG_ANDROID_POWER
     android_uninit_suspend_lock(&drv->irq_wake_lock);
     android_uninit_suspend_lock(&drv->xmit_wake_lock);
