@@ -1292,7 +1292,7 @@ static void rxData_rcvMsduEapol(TI_HANDLE hRxData, mem_MSDU_T *pMsdu, Rx_attr_t*
 ***************************************************************************/
 static void rxData_rcvMsduData(TI_HANDLE hRxData, mem_MSDU_T *pMsdu, Rx_attr_t* pRxAttr)
 {
-#ifdef CONFIG_TROUT_PWRSINK
+#if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
 	extern unsigned long num_rx_pkt_new;
 #endif
 	rxData_t *pRxData = (rxData_t *)hRxData;
@@ -1361,7 +1361,7 @@ static void rxData_rcvMsduData(TI_HANDLE hRxData, mem_MSDU_T *pMsdu, Rx_attr_t* 
 		pRxData->rxDataCounters.DirectedBytesRecv += pMsdu->dataLen;
 		EventMask |= DIRECTED_BYTES_RECV;  
 		EventMask |= DIRECTED_FRAMES_RECV;
-#ifdef CONFIG_TROUT_PWRSINK
+#if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
 		num_rx_pkt_new++;
 #endif
 	}
@@ -1381,7 +1381,7 @@ static void rxData_rcvMsduData(TI_HANDLE hRxData, mem_MSDU_T *pMsdu, Rx_attr_t* 
 		pRxData->rxDataCounters.MulticastBytesRecv += pMsdu->dataLen;
 		EventMask |= MULTICAST_BYTES_RECV;  
 		EventMask |= MULTICAST_FRAMES_RECV;
-#ifdef CONFIG_TROUT_PWRSINK
+#if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
 		num_rx_pkt_new++;
 #endif
 	}
