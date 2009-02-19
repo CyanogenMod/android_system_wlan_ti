@@ -38,7 +38,6 @@
 #include <fcntl.h>
 #include <stdarg.h>
 
-#include <sys/shm.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
