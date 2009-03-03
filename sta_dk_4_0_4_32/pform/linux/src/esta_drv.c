@@ -1951,7 +1951,7 @@ static int __init tiwlan_module_init(void)
     if (packed_struct_tst())
         ;/*IT: return -EINVAL; */
 
-    tiwlan_deb_entry = create_proc_entry("mem", 0644, NULL);
+    tiwlan_deb_entry = create_proc_entry(TIWLAN_DBG_PROC, 0644, NULL);
     if (tiwlan_deb_entry == NULL)
         return -EINVAL;
     tiwlan_deb_entry->read_proc = tiwlan_deb_read_proc;
@@ -1962,6 +1962,7 @@ static int __init tiwlan_module_init(void)
 #ifdef TIWLAN_CARDBUS
     if ((rc=pci_register_driver(&tnetw1130_pci_driver)) <  0)
         print_err("TIWLAN: PCMCIA driver failed to register\n");
+        remove_proc_entry(TIWLAN_DBG_PROC, NULL);
         return rc;
     }
     printk(KERN_INFO "TIWLAN: Driver loaded\n");
@@ -1986,19 +1987,23 @@ static int __init tiwlan_module_init(void)
     rc = sdio_register_driver(&tiwlan_sdio_drv);
     if (rc < 0) {
         printk(KERN_ERR "sdio register failed (%d)\n", rc);
+        remove_proc_entry(TIWLAN_DBG_PROC, NULL);
         return rc;
     }
     /* rc = tiwlan_create_drv(0, 0, 0, 0, 0, TROUT_IRQ, NULL, NULL); -- Called in probe */
 
     tiwlan_calibration = create_proc_entry("calibration", 0644, NULL);
-    if (tiwlan_calibration == NULL)
-       return -EINVAL;
+    if (tiwlan_calibration == NULL) {
+        remove_proc_entry(TIWLAN_DBG_PROC, NULL);
+        return -EINVAL;
+    }
     tiwlan_calibration->size = tiwlan_get_nvs_size();
     tiwlan_calibration->read_proc = tiwlan_calibration_read_proc;
     tiwlan_calibration->write_proc = tiwlan_calibration_write_proc;
 
     if (!wait_for_completion_timeout(&sdio_wait, msecs_to_jiffies(10000))) {
         printk(KERN_ERR "%s: Timed out waiting for device detect\n", __func__);
+        remove_proc_entry(TIWLAN_DBG_PROC, NULL);
         remove_proc_entry("calibration", NULL);
         sdio_unregister_driver(&tiwlan_sdio_drv);
 #ifdef CONFIG_WIFI_CONTROL_FUNC
@@ -2036,7 +2041,7 @@ static void __exit tiwlan_module_cleanup(void)
         list_del(l);
         tiwlan_destroy_drv(drv);
     }
-    remove_proc_entry("mem", NULL);
+    remove_proc_entry(TIWLAN_DBG_PROC, NULL);
 #ifdef TIWLAN_MSM7000
     remove_proc_entry("calibration", NULL);
     sdio_unregister_driver(&tiwlan_sdio_drv);

@@ -76,6 +76,7 @@
 #define TIWLAN_DRV_NAME    "tiwlan"
 #define TIWLAN_DRV_IF_NAME TIWLAN_DRV_NAME"%d"
 #define TIWLAN_DRV_NAME_WIRELESS_PROTO "IEEE 802.11-DS"
+#define TIWLAN_DBG_PROC    "wifidbg"
 
 void *wifi_kernel_prealloc(int section, unsigned long size);
 
