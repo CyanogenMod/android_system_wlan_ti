@@ -786,9 +786,17 @@ Arguments:
    noOfChan    - number of allowed channels
 Return Value: None
 -----------------------------------------------------------------------------*/
-static void ti_init_scan_params( scan_Params_t *pScanParams, scan_Policy_t *pScanPolicy,
-                                 int scanType, int noOfChan )
+static void ti_init_scan_params( scan_Params_t *pScanParams,
+                                 scan_Policy_t *pScanPolicy,
+                                 struct wpa_driver_ti_data *myDrv )
 {
+    UINT32 scanMaxDwellTime = SME_SCAN_BG_MAX_DWELL_TIME_DEF;
+    UINT32 scanMinDwellTime = SME_SCAN_BG_MIN_DWELL_TIME_DEF;
+    UINT32 chanMaxDwellTime = SME_SCAN_BG_MIN_DWELL_TIME_DEF;
+    UINT32 chanMinDwellTime = SME_SCAN_BG_MIN_DWELL_TIME_DEF / 2;
+    int scanType = myDrv->scan_type;
+    int noOfChan = myDrv->scan_channels;
+    int btCoexScan = myDrv->btcoex_scan;
     int i, j;
 
     if( noOfChan > MAX_NUMBER_OF_CHANNELS_PER_SCAN )
@@ -797,7 +805,16 @@ static void ti_init_scan_params( scan_Params_t *pScanParams, scan_Policy_t *pSca
     pScanParams->desiredSsid.len = 0;
     pScanParams->scanType = scanType;
     pScanParams->band = RADIO_BAND_2_4_GHZ;
-    pScanParams->probeReqNumber = 3;
+    if( btCoexScan ) {
+        pScanParams->probeReqNumber = 1;
+        scanMaxDwellTime /= 6;
+        scanMinDwellTime /= 6;
+        chanMaxDwellTime /= 6;
+        chanMinDwellTime /= 6;
+    }
+    else {
+        pScanParams->probeReqNumber = 3;
+    }
     pScanParams->probeRequestRate = DRV_RATE_MASK_2_BARKER;
     pScanParams->numOfChannels = (UINT8)noOfChan;
     for(i=0;( i < noOfChan );i++) {
@@ -806,8 +823,8 @@ static void ti_init_scan_params( scan_Params_t *pScanParams, scan_Policy_t *pSca
         }
         pScanParams->channelEntry[ i ].normalChannelEntry.earlyTerminationEvent = SCAN_ET_COND_DISABLE;
         pScanParams->channelEntry[ i ].normalChannelEntry.ETMaxNumOfAPframes = 0;
-        pScanParams->channelEntry[ i ].normalChannelEntry.maxChannelDwellTime = 60000;
-        pScanParams->channelEntry[ i ].normalChannelEntry.minChannelDwellTime = 30000;
+        pScanParams->channelEntry[ i ].normalChannelEntry.maxChannelDwellTime = scanMaxDwellTime;
+        pScanParams->channelEntry[ i ].normalChannelEntry.minChannelDwellTime = scanMinDwellTime;
 #ifdef STA_DK_VER_5_0_0_94
         pScanParams->channelEntry[ i ].normalChannelEntry.txPowerLevel = 1;
 #else
@@ -833,10 +850,10 @@ static void ti_init_scan_params( scan_Params_t *pScanParams, scan_Policy_t *pSca
     pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.scanType = scanType;
     pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.earlyTerminationEvent = SCAN_ET_COND_DISABLE;
     pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.ETMaxNumberOfApFrames = 0;
-    pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.maxChannelDwellTime = 30000;
-    pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.minChannelDwellTime = 15000;
+    pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.maxChannelDwellTime = chanMaxDwellTime;
+    pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.minChannelDwellTime = chanMinDwellTime;
     pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.probReqParams.bitrate = DRV_RATE_MASK_1_BARKER;
-    pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.probReqParams.numOfProbeReqs = 3;
+    pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.probReqParams.numOfProbeReqs = pScanParams->probeReqNumber;
 #ifdef STA_DK_VER_5_0_0_94
     pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.probReqParams.txLevel = 1;
 #else
@@ -845,10 +862,10 @@ static void ti_init_scan_params( scan_Params_t *pScanParams, scan_Policy_t *pSca
     pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.scanType = scanType;
     pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.earlyTerminationEvent = SCAN_ET_COND_DISABLE;
     pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.ETMaxNumberOfApFrames = 0;
-    pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.maxChannelDwellTime = 30000;
-    pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.minChannelDwellTime = 15000;
+    pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.maxChannelDwellTime = chanMaxDwellTime;
+    pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.minChannelDwellTime = chanMinDwellTime;
     pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.probReqParams.bitrate = DRV_RATE_MASK_2_BARKER;
-    pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.probReqParams.numOfProbeReqs = 3;
+    pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.probReqParams.numOfProbeReqs = pScanParams->probeReqNumber;
 #ifdef STA_DK_VER_5_0_0_94
     pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.probReqParams.txLevel = 1;
 #else
@@ -857,10 +874,10 @@ static void ti_init_scan_params( scan_Params_t *pScanParams, scan_Policy_t *pSca
     pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.scanType = scanType;
     pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.method.basicMethodParams.earlyTerminationEvent = SCAN_ET_COND_DISABLE;
     pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.method.basicMethodParams.ETMaxNumberOfApFrames = 0;
-    pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.method.basicMethodParams.maxChannelDwellTime = 30000;
-    pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.method.basicMethodParams.minChannelDwellTime = 15000;
+    pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.method.basicMethodParams.maxChannelDwellTime = chanMaxDwellTime;
+    pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.method.basicMethodParams.minChannelDwellTime = chanMinDwellTime;
     pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.method.basicMethodParams.probReqParams.bitrate = DRV_RATE_MASK_5_5_CCK;
-    pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.method.basicMethodParams.probReqParams.numOfProbeReqs = 3;
+    pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.method.basicMethodParams.probReqParams.numOfProbeReqs = pScanParams->probeReqNumber;
 #ifdef STA_DK_VER_5_0_0_94
     pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.method.basicMethodParams.probReqParams.txLevel = 1;
 #else
@@ -888,8 +905,7 @@ static int wpa_driver_tista_scan( void *priv, const UINT8 *ssid, size_t ssid_len
     /* If driver is not initialized yet - we cannot access it so return */
     TI_CHECK_DRIVER( myDrv->driver_is_loaded, -1 );
 
-    ti_init_scan_params( &scanParams, &scanPolicy, myDrv->scan_type,
-                         myDrv->scan_channels );
+    ti_init_scan_params( &scanParams, &scanPolicy, myDrv );
     if (ssid && ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.ssidString)) {
         os_memcpy(scanParams.desiredSsid.ssidString, ssid, ssid_len);
         scanParams.desiredSsid.len = ssid_len;
@@ -1356,6 +1372,7 @@ static void *wpa_driver_tista_init( void *priv, const char *ifname )
 
     /* BtCoex mode is read from tiwlan.ini file */
     myDrv->btcoex_mode = 1; /* SG_DISABLE */
+    myDrv->btcoex_scan = FALSE;
 
     /* RTS Threshold is read from tiwlan.ini file */
     myDrv->rts_threshold = HAL_CTRL_RTS_THRESHOLD_MAX;
@@ -1567,12 +1584,12 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
     }
     else if( os_strcasecmp(cmd, "scan-passive") == 0 ) {
         wpa_printf(MSG_DEBUG,"Scan Passive command");
-        myDrv->scan_type =  SCAN_TYPE_NORMAL_PASSIVE;
+        myDrv->scan_type = SCAN_TYPE_NORMAL_PASSIVE;
         ret = 0;
     }
     else if( os_strcasecmp(cmd, "scan-active") == 0 ) {
         wpa_printf(MSG_DEBUG,"Scan Active command");
-        myDrv->scan_type =  SCAN_TYPE_NORMAL_ACTIVE;
+        myDrv->scan_type = SCAN_TYPE_NORMAL_ACTIVE;
         ret = 0;
     }
     else if( os_strcasecmp(cmd, "linkspeed") == 0 ) {
@@ -1700,6 +1717,16 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
                 }
             }
         }
+    }
+    else if( os_strcasecmp(cmd, "btcoexscan-start") == 0 ) {
+        wpa_printf(MSG_DEBUG,"BT Coex Scan Start command");
+        myDrv->btcoex_scan = TRUE;
+        ret = 0;
+    }
+    else if( os_strcasecmp(cmd, "btcoexscan-stop") == 0 ) {
+        wpa_printf(MSG_DEBUG,"BT Coex Scan Stop command");
+        myDrv->btcoex_scan = FALSE;
+        ret = 0;
     }
 #ifndef STA_DK_VER_5_0_0_94
     else if( os_strcasecmp(cmd, "rxfilter-start") == 0 ) {
