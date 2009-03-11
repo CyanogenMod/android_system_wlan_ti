@@ -263,11 +263,10 @@ void os_TNETWIF_BusTxn_Complete(TI_HANDLE OsContext,int status)
     drv->dma_done = 1;
 #ifdef DM_USE_WORKQUEUE
     /* printk("TI: %s:\t%lu\n", __FUNCTION__, jiffies); */
-    if( queue_work( drv->tiwlan_wq, &drv->tw ) != 0 ) {
 #ifdef CONFIG_ANDROID_POWER
-        android_lock_suspend( &drv->timer_wake_lock );
+    android_lock_suspend( &drv->timer_wake_lock );
 #endif
-    }
+    queue_work( drv->tiwlan_wq, &drv->tw );
 #else
    	tasklet_schedule(&drv->tl);
 #endif
@@ -1498,11 +1497,10 @@ static void os_timerHandlr(unsigned long parm)
     spin_unlock_irqrestore(&drv->lock, flags);
 #ifdef DM_USE_WORKQUEUE
     /* printk("TI: %s:\t%lu\n", __FUNCTION__, jiffies); */
-    if( queue_work( drv->tiwlan_wq, &drv->tw ) != 0 ) {
 #ifdef CONFIG_ANDROID_POWER
-        android_lock_suspend( &drv->timer_wake_lock );
+    android_lock_suspend( &drv->timer_wake_lock );
 #endif
-    }
+    queue_work( drv->tiwlan_wq, &drv->tw );
 #else
     tasklet_schedule(&drv->tl);
 #endif

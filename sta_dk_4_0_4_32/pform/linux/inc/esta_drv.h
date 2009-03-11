@@ -246,6 +246,7 @@ struct tiwlan_net_dev {
       android_suspend_lock_t xmit_wake_lock;
       android_suspend_lock_t timer_wake_lock;
       android_suspend_lock_t rx_wake_lock;
+      android_suspend_lock_t exec_wake_lock;
       int receive_packet;              /* 1=packet was pushed to network stack */
 #endif
       int interrupt_pending;           /* 1=tasklet has to handle interrupts when awakes */
