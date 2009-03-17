@@ -522,6 +522,10 @@ TI_STATUS roamingMngr_init(TI_HANDLE hRoamingMngr,
     pRoamingMngr->currentState = ROAMING_STATE_IDLE;
 #ifdef ENABLE_ROAMING_BY_DEFAULT
     pRoamingMngr->roamingMngrConfig.enableDisable = ROAMING_ENABLED;
+    apConn_registerRoamMngrCallb(pRoamingMngr->hAPConnection,
+                                 roamingMngr_triggerRoamingCb,
+                                 roamingMngr_connStatusCb,
+                                 roamingMngr_updateNeighborApListCb);
 #else
     pRoamingMngr->roamingMngrConfig.enableDisable = ROAMING_DISABLED; 
 #endif

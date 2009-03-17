@@ -569,6 +569,10 @@ static void tiwlan_xmit_handler( struct work_struct *work )
     mem_MSDU_T *pMsdu;
     unsigned long flags;
 
+#ifdef CONFIG_ANDROID_POWER
+    android_lock_suspend( &drv->exec_wake_lock );
+    android_unlock_suspend( &drv->xmit_wake_lock );
+#endif
     /* printk("TI: %s:\t%lu\n", __FUNCTION__, jiffies); */
     do {
         spin_lock_irqsave(&drv->lock, flags);
@@ -579,7 +583,7 @@ static void tiwlan_xmit_handler( struct work_struct *work )
         }
     } while( pMsdu != NULL );
 #ifdef CONFIG_ANDROID_POWER
-    android_unlock_suspend( &drv->xmit_wake_lock );
+    android_unlock_suspend( &drv->exec_wake_lock );
 #endif
 }
 #endif
@@ -707,11 +711,10 @@ static int tiwlan_drv_net_xmit(struct sk_buff *skb, struct net_device *dev)
         tiwlan_add_msdu(drv, pMsdu);
         spin_unlock_irqrestore(&drv->lock, flags);
         /* printk("TI: %s:\t%lu\n", __FUNCTION__, jiffies); */
-        if( queue_work( drv->tiwlan_wq, &drv->txmit ) != 0 ) {
 #ifdef CONFIG_ANDROID_POWER
-            android_lock_suspend( &drv->xmit_wake_lock );
+        android_lock_suspend( &drv->xmit_wake_lock );
 #endif
-        }
+        queue_work( drv->tiwlan_wq, &drv->txmit );
 #else
         status = configMgr_sendMsdu(drv->adapter.CoreHalCtx, pMsdu, 0);
 #endif
@@ -835,11 +838,10 @@ static irqreturn_t tiwlan_interrupt (int irq, void *netdrv, struct pt_regs *cpu_
     drv->interrupt_pending = 1;
     /* printk("TI: %s:\t%lu\n", __FUNCTION__, jiffies); */
 #ifdef DM_USE_WORKQUEUE
-    if( queue_work( drv->tiwlan_wq, &drv->tirq ) != 0 ) {
 #ifdef CONFIG_ANDROID_POWER
-        android_lock_suspend( &drv->irq_wake_lock );
+    android_lock_suspend( &drv->irq_wake_lock );
 #endif
-    }
+    queue_work( drv->tiwlan_wq, &drv->tirq );
     /* disable_irq( drv->irq ); Dm: No need, we can loose IRQ */
 #else
     tasklet_schedule( &drv->tl );
@@ -911,10 +913,14 @@ static void tiwlan_irq_handler( struct work_struct *work )
 {
     tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)container_of( work, struct tiwlan_net_dev, tirq );
 
+#ifdef CONFIG_ANDROID_POWER
+    android_lock_suspend( &drv->exec_wake_lock );
+    android_unlock_suspend( &drv->irq_wake_lock );
+#endif
     /* if the driver was unloaded by that time we need to ignore all the timers */
     if (drv->unload_driver) {
 #ifdef CONFIG_ANDROID_POWER
-        android_unlock_suspend( &drv->irq_wake_lock );
+        android_unlock_suspend( &drv->exec_wake_lock );
 #endif
         /* enable_irq( drv->irq ); */
         return;
@@ -928,7 +934,7 @@ static void tiwlan_irq_handler( struct work_struct *work )
         /* Keep awake for 500 ms to give a chance to network stack */
         android_lock_suspend_auto_expire( &drv->rx_wake_lock, (HZ >> 1) );
     }
-    android_unlock_suspend( &drv->irq_wake_lock );
+    android_unlock_suspend( &drv->exec_wake_lock );
 #endif
     /* enable_irq( drv->irq ); */
 }
@@ -955,10 +961,15 @@ static void tiwlan_tasklet_handler( unsigned long netdrv )
     static unsigned int maximum_stack = 0;
 #endif
 
+#ifdef CONFIG_ANDROID_POWER
+    android_lock_suspend( &drv->exec_wake_lock );
+    android_unlock_suspend( &drv->timer_wake_lock );
+#endif
+
     /* if the driver was unloaded by that time we need to ignore all the timers */
     if (drv->unload_driver) {
 #ifdef CONFIG_ANDROID_POWER
-        android_unlock_suspend( &drv->timer_wake_lock );
+        android_unlock_suspend( &drv->exec_wake_lock );
 #endif
         return;
     }
@@ -986,7 +997,7 @@ static void tiwlan_tasklet_handler( unsigned long netdrv )
     /* don't call for "Handle interrupts, timers, ioctls" while recovery process */
     if (configMgr_areInputsFromOsDisabled(drv->adapter.CoreHalCtx) == TRUE) {
 #ifdef CONFIG_ANDROID_POWER
-        android_unlock_suspend( &drv->timer_wake_lock );
+        android_unlock_suspend( &drv->exec_wake_lock );
 #endif
         return;
     }
@@ -1027,7 +1038,7 @@ static void tiwlan_tasklet_handler( unsigned long netdrv )
     ti_dprintf(TIWLAN_LOG_INFO, "%s out\n" , __FUNCTION__);
 #endif
 #ifdef CONFIG_ANDROID_POWER
-    android_unlock_suspend( &drv->timer_wake_lock );
+    android_unlock_suspend( &drv->exec_wake_lock );
 #endif
 }
 
@@ -1040,7 +1051,6 @@ static void tiwlan_rx_watchdog(struct work_struct *work)
     unsigned long num_rx_pkts = num_rx_pkt_new - num_rx_pkt_last;
     /* Contribute 10mA (200mA x 5%) for 1 pkt/sec, and plus 8mA base. */
     unsigned percent = (5 * num_rx_pkts  / RX_RATE_INTERVAL_SEC) + PWRSINK_WIFI_PERCENT_BASE;
-
 
     if (drv->unload_driver)
         return;
@@ -1098,11 +1108,10 @@ int tiwlan_send_wait_reply(tiwlan_net_dev_t *drv,
 
 #ifdef DM_USE_WORKQUEUE
     /* printk("TI: %s:\t%lu\n", __FUNCTION__, jiffies); */
-    if( queue_work( drv->tiwlan_wq, &drv->tw ) != 0 ) {
 #ifdef CONFIG_ANDROID_POWER
-        android_lock_suspend( &drv->timer_wake_lock );
+    android_lock_suspend( &drv->timer_wake_lock );
 #endif
-    }
+    queue_work( drv->tiwlan_wq, &drv->tw );
 #else
     tasklet_schedule( &drv->tl );
 #endif
@@ -1555,6 +1564,7 @@ static void tiwlan_destroy_drv(tiwlan_net_dev_t *drv)
     android_uninit_suspend_lock(&drv->xmit_wake_lock);
     android_uninit_suspend_lock(&drv->timer_wake_lock);
     android_uninit_suspend_lock(&drv->rx_wake_lock);
+    android_uninit_suspend_lock(&drv->exec_wake_lock);
 #endif
     unregister_netdev(drv->netdev);
     tiwlan_free_drv(drv);
@@ -1626,6 +1636,7 @@ tiwlan_create_drv(unsigned long reg_start, unsigned long reg_size,
     android_init_suspend_wakelock(&drv->xmit_wake_lock,"tiwlan_xmit_wake");
     android_init_suspend_wakelock(&drv->timer_wake_lock,"tiwlan_timer_wake");
     android_init_suspend_wakelock(&drv->rx_wake_lock,"tiwlan_rx_wake");
+    android_init_suspend_wakelock(&drv->exec_wake_lock,"tiwlan_exec_wake");
 #endif
     spin_lock_init(&drv->lock);
     INIT_LIST_HEAD(&drv->request_q);
@@ -1670,6 +1681,7 @@ tiwlan_create_drv(unsigned long reg_start, unsigned long reg_size,
 */
 int tiwlan_stop_drv(tiwlan_net_dev_t *drv)
 {
+    /* printk("%s\n", __FUNCTION__); */
     if (!drv->adapter.CoreHalCtx)
         return 0;
 
@@ -1951,7 +1963,7 @@ static int __init tiwlan_module_init(void)
     if (packed_struct_tst())
         ;/*IT: return -EINVAL; */
 
-    tiwlan_deb_entry = create_proc_entry("mem", 0644, NULL);
+    tiwlan_deb_entry = create_proc_entry(TIWLAN_DBG_PROC, 0644, NULL);
     if (tiwlan_deb_entry == NULL)
         return -EINVAL;
     tiwlan_deb_entry->read_proc = tiwlan_deb_read_proc;
@@ -1962,6 +1974,7 @@ static int __init tiwlan_module_init(void)
 #ifdef TIWLAN_CARDBUS
     if ((rc=pci_register_driver(&tnetw1130_pci_driver)) <  0)
         print_err("TIWLAN: PCMCIA driver failed to register\n");
+        remove_proc_entry(TIWLAN_DBG_PROC, NULL);
         return rc;
     }
     printk(KERN_INFO "TIWLAN: Driver loaded\n");
@@ -1986,19 +1999,23 @@ static int __init tiwlan_module_init(void)
     rc = sdio_register_driver(&tiwlan_sdio_drv);
     if (rc < 0) {
         printk(KERN_ERR "sdio register failed (%d)\n", rc);
+        remove_proc_entry(TIWLAN_DBG_PROC, NULL);
         return rc;
     }
     /* rc = tiwlan_create_drv(0, 0, 0, 0, 0, TROUT_IRQ, NULL, NULL); -- Called in probe */
 
     tiwlan_calibration = create_proc_entry("calibration", 0644, NULL);
-    if (tiwlan_calibration == NULL)
-       return -EINVAL;
+    if (tiwlan_calibration == NULL) {
+        remove_proc_entry(TIWLAN_DBG_PROC, NULL);
+        return -EINVAL;
+    }
     tiwlan_calibration->size = tiwlan_get_nvs_size();
     tiwlan_calibration->read_proc = tiwlan_calibration_read_proc;
     tiwlan_calibration->write_proc = tiwlan_calibration_write_proc;
 
     if (!wait_for_completion_timeout(&sdio_wait, msecs_to_jiffies(10000))) {
         printk(KERN_ERR "%s: Timed out waiting for device detect\n", __func__);
+        remove_proc_entry(TIWLAN_DBG_PROC, NULL);
         remove_proc_entry("calibration", NULL);
         sdio_unregister_driver(&tiwlan_sdio_drv);
 #ifdef CONFIG_WIFI_CONTROL_FUNC
@@ -2036,7 +2053,7 @@ static void __exit tiwlan_module_cleanup(void)
         list_del(l);
         tiwlan_destroy_drv(drv);
     }
-    remove_proc_entry("mem", NULL);
+    remove_proc_entry(TIWLAN_DBG_PROC, NULL);
 #ifdef TIWLAN_MSM7000
     remove_proc_entry("calibration", NULL);
     sdio_unregister_driver(&tiwlan_sdio_drv);

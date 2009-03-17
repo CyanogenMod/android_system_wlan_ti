@@ -76,6 +76,7 @@
 #define TIWLAN_DRV_NAME    "tiwlan"
 #define TIWLAN_DRV_IF_NAME TIWLAN_DRV_NAME"%d"
 #define TIWLAN_DRV_NAME_WIRELESS_PROTO "IEEE 802.11-DS"
+#define TIWLAN_DBG_PROC    "wifidbg"
 
 void *wifi_kernel_prealloc(int section, unsigned long size);
 
@@ -245,6 +246,7 @@ struct tiwlan_net_dev {
       android_suspend_lock_t xmit_wake_lock;
       android_suspend_lock_t timer_wake_lock;
       android_suspend_lock_t rx_wake_lock;
+      android_suspend_lock_t exec_wake_lock;
       int receive_packet;              /* 1=packet was pushed to network stack */
 #endif
       int interrupt_pending;           /* 1=tasklet has to handle interrupts when awakes */

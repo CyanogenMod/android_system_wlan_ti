@@ -89,6 +89,7 @@ struct wpa_driver_ti_data {
     int scan_channels;                 /* Number of allowed scan channels */
     unsigned link_speed;               /* Link Speed */
     unsigned btcoex_mode;              /* BtCoex Mode */
+    int btcoex_scan;                   /* BtCoex Scan */
     unsigned rts_threshold;            /* RTS Threshold */
     int last_scan;                     /* Last scan type */
     SHLIST scan_merge_list;            /* Previous scan list */

@@ -90,7 +90,7 @@ int export_wifi_fw_version( tiwlan_net_dev_t *drv )
 	return ret;
 }
 
-/* print_wifi_chip_id
+/* export_wifi_chip_id
    Reads WiFi chip id (0x07030101) and prints it
    Returns 0 if OK
 */
