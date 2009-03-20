@@ -798,23 +798,28 @@ static void ti_init_scan_params( scan_Params_t *pScanParams,
     int noOfChan = myDrv->scan_channels;
     int btCoexScan = myDrv->btcoex_scan;
     int i, j;
+    UINT8 tid = 0, probeNum = 3;
 
     if( noOfChan > MAX_NUMBER_OF_CHANNELS_PER_SCAN )
         noOfChan = MAX_NUMBER_OF_CHANNELS_PER_SCAN;
     /* init application scan default params */
     pScanParams->desiredSsid.len = 0;
-    pScanParams->scanType = scanType;
     pScanParams->band = RADIO_BAND_2_4_GHZ;
-    if( btCoexScan ) {
-        pScanParams->probeReqNumber = 1;
+    if( btCoexScan ) { /* Changing scan parameteres to coexist with BT A2DP */
+        if( scanType == SCAN_TYPE_NORMAL_PASSIVE )
+            scanType = SCAN_TYPE_TRIGGERED_PASSIVE;
+        else if( scanType == SCAN_TYPE_NORMAL_ACTIVE )
+            scanType = SCAN_TYPE_TRIGGERED_ACTIVE;
+        probeNum = 1;
+        tid = 0xFF;
         scanMaxDwellTime /= 6;
         scanMinDwellTime /= 6;
         chanMaxDwellTime /= 6;
         chanMinDwellTime /= 6;
     }
-    else {
-        pScanParams->probeReqNumber = 3;
-    }
+    pScanParams->scanType = scanType;
+    pScanParams->probeReqNumber = probeNum;
+    pScanParams->Tid = tid;
     pScanParams->probeRequestRate = DRV_RATE_MASK_2_BARKER;
     pScanParams->numOfChannels = (UINT8)noOfChan;
     for(i=0;( i < noOfChan );i++) {
