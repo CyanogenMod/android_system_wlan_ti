@@ -1597,6 +1597,13 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
         myDrv->scan_type = SCAN_TYPE_NORMAL_ACTIVE;
         ret = 0;
     }
+    else if( os_strcasecmp(cmd, "scan-mode") == 0 ) {
+        wpa_printf(MSG_DEBUG,"Scan Mode command");
+        ret = snprintf(buf, buf_len, "ScanMode = %u\n", myDrv->scan_type);
+        if (ret < (int)buf_len) {
+            return( ret );
+        }
+    }
     else if( os_strcasecmp(cmd, "linkspeed") == 0 ) {
         wpa_printf(MSG_DEBUG,"Link Speed command");
         ret = snprintf(buf, buf_len, "LinkSpeed %u\n", myDrv->link_speed);
