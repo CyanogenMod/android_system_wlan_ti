@@ -47,11 +47,13 @@
 #include <cutils/properties.h>
 #endif
 /*-------------------------------------------------------------------*/
-#define TI_DRIVER_MSG_PORT      9000
-#define RX_SELF_FILTER          0
-#define RX_BROADCAST_FILTER     1
-#define TI2WPA_STATUS(s)        (((s) != OK) ? -1 : 0)
-#define TI_CHECK_DRIVER(f,r)    \
+#define TI_DRIVER_MSG_PORT       9000
+#define RX_SELF_FILTER           0
+#define RX_BROADCAST_FILTER      1
+#define RX_IPV4_MULTICAST_FILTER 2
+#define RX_IPV6_MULTICAST_FILTER 3
+#define TI2WPA_STATUS(s)         (((s) != OK) ? -1 : 0)
+#define TI_CHECK_DRIVER(f,r)     \
     if( !(f) ) { \
         wpa_printf(MSG_ERROR,"TI: Driver not initialized yet...aborting..."); \
         return( r ); \
@@ -1486,23 +1488,6 @@ static int ti_send_eapol( void *priv, const u8 *dest, u16 proto,
 
 #ifndef STA_DK_VER_5_0_0_94
 /*-----------------------------------------------------------------------------
-Routine Name: get_filter_mac_addr
-Routine Description: returns mac address according to parameter type
-Arguments:
-   priv - pointer to private data structure
-   type - type of mac address
-Return Value: pointer to mac address array, or NULL
------------------------------------------------------------------------------*/
-static const u8 *get_filter_mac_addr( void *priv, int type )
-{
-    if( type == RX_SELF_FILTER )
-        return( wpa_driver_tista_get_mac_addr(priv) );
-    if( type == RX_BROADCAST_FILTER )
-        return( (const u8 *)"\xFF\xFF\xFF\xFF\xFF\xFF" );
-    return( NULL );
-}
-
-/*-----------------------------------------------------------------------------
 Routine Name: prepare_filter_struct
 Routine Description: fills rx data filter structure according to parameter type
 Arguments:
@@ -1514,15 +1499,40 @@ Return Value: 0 - success, -1 - error
 static int prepare_filter_struct( void *priv, int type,
                                   TIWLAN_DATA_FILTER_REQUEST *dfreq_ptr )
 {
-    u8 *macaddr = (u8 *)get_filter_mac_addr( priv, type );
+    const u8 *macaddr;
+    size_t len = 0;
+    u8 mask;
     int ret = -1;
 
-    if( macaddr != NULL ) {
+    wpa_printf(MSG_ERROR, "%s: type=%d", __func__, type);
+    switch (type ) {
+      case RX_SELF_FILTER:
+        macaddr = wpa_driver_tista_get_mac_addr(priv);
+        len = MAC_ADDR_LEN;
+        mask = 0x3F; /* 6 bytes */
+        break;
+      case RX_BROADCAST_FILTER:
+        macaddr = (const u8 *)"\xFF\xFF\xFF\xFF\xFF\xFF";
+        len = MAC_ADDR_LEN;
+        mask = 0x3F; /* 6 bytes */
+        break;
+      case RX_IPV4_MULTICAST_FILTER:
+        macaddr = (const u8 *)"\x01\x00\x5E";
+        len = 3;
+        mask = 0x7; /* 3 bytes */
+        break;
+      case RX_IPV6_MULTICAST_FILTER:
+        macaddr = (const u8 *)"\x33\x33";
+        len = 2;
+        mask = 0x3; /* 2 bytes */
+        break;
+    }
+    if (len && macaddr) {
         dfreq_ptr->Offset = 0;
         dfreq_ptr->MaskLength = 1;
-        dfreq_ptr->Mask[0] = 0x3F; /* 6 bytes */
-        dfreq_ptr->PatternLength = MAC_ADDR_LEN;
-        os_memcpy( dfreq_ptr->Pattern, macaddr, MAC_ADDR_LEN );
+        dfreq_ptr->Mask[0] = mask;
+        dfreq_ptr->PatternLength = len;
+        os_memcpy( dfreq_ptr->Pattern, macaddr, len );
         ret = 0;
     }
     return( ret );
