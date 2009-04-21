@@ -78,6 +78,14 @@
 #define TIWLAN_DRV_NAME_WIRELESS_PROTO "IEEE 802.11-DS"
 #define TIWLAN_DBG_PROC    "wifidbg"
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
+#define NETDEV_SET_PRIVATE(dev, drv)	dev->priv = drv
+#define NETDEV_GET_PRIVATE(dev)		dev->priv
+#else
+#define NETDEV_SET_PRIVATE(dev, drv)	dev->ml_priv = drv
+#define NETDEV_GET_PRIVATE(dev)		dev->ml_priv
+#endif   
+
 void *wifi_kernel_prealloc(int section, unsigned long size);
 
 #ifdef TIWLAN_MSM7000

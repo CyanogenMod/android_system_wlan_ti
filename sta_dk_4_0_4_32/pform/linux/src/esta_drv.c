@@ -494,7 +494,7 @@ static int tiwlan_calibration_write_proc(struct file *file, const char *buffer,
 
 static int tiwlan_drv_net_open(struct net_device * dev)
 {
-   tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)dev->priv;
+   tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev);
 
    ti_nodprintf(TIWLAN_LOG_INFO, "tiwlan_drv_net_open()\n");
 
@@ -592,7 +592,7 @@ static void tiwlan_xmit_handler( struct work_struct *work )
  */
 static int tiwlan_drv_net_xmit(struct sk_buff *skb, struct net_device *dev)
 {
-    tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)dev->priv;
+    tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev);
     int status;
     mem_MSDU_T *pMsdu;
     UINT32      packetHeaderLength;
@@ -740,7 +740,7 @@ static int tiwlan_drv_net_xmit(struct sk_buff *skb, struct net_device *dev)
 
 struct net_device_stats * tiwlan_drv_net_get_stats(struct net_device * dev)
 {
-    tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)dev->priv;
+    tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev);
     ti_dprintf(TIWLAN_LOG_OTHER, "tiwlan_drv_net_get_stats()\n");
 
     return &drv->stats;
@@ -759,7 +759,7 @@ static int setup_netif(tiwlan_net_dev_t *drv)
         return -ENOMEM;
     }
     ether_setup(dev);
-    dev->priv = drv;
+    NETDEV_SET_PRIVATE(dev, drv);
     drv->netdev = dev;
     strcpy(dev->name, TIWLAN_DRV_IF_NAME);
     netif_carrier_off(dev);
