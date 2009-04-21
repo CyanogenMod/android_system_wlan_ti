@@ -100,9 +100,9 @@ int ti1610_ioctl_priv_proc_tl(tiwlan_req_t *req_data)
     switch( req->cmd ) {
         case TIWLN_DRIVER_STATUS_SET:
             if(*data)
-                res = tiwlan_start_drv( (tiwlan_net_dev_t *)dev->priv );
+                res = tiwlan_start_drv( (tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev) );
             else
-                res = tiwlan_stop_drv( (tiwlan_net_dev_t *)dev->priv );
+                res = tiwlan_stop_drv( (tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev) );
 
             if( res == OK )
                     drv_started = !drv_started;
@@ -149,7 +149,7 @@ int ti1610_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
                 req->user_data_pointer, req->length, aval_data_size );
 
 	/* driver is already initialized */
-	if ((req->cmd == TIWLN_SET_INIT_INFO) && (((tiwlan_net_dev_t *)dev->priv)->adapter.CoreHalCtx))
+	if ((req->cmd == TIWLN_SET_INIT_INFO) && (((tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev))->adapter.CoreHalCtx))
 	{
 		return 0;
 	}
@@ -188,13 +188,13 @@ int ti1610_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
               init_info?init_info->eeprom_image_length:0,
               init_info?init_info->init_file_length:0,
               init_info?init_info->firmware_image_length:0 );
-       res = tiwlan_init_drv((tiwlan_net_dev_t *)dev->priv, init_info);
+       res = tiwlan_init_drv((tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev), init_info);
     }
 
 #ifdef DRIVER_PROFILING
     else if (req->cmd == TIWLAN_PROFILING_REPORT) 
     {
-       res = tiwlan_profile_report((tiwlan_net_dev_t *)dev->priv);
+       res = tiwlan_profile_report((tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev));
     }
     else if (req->cmd == TIWLAN_PROFILING_CPU_ESTIMATOR_CMD) {
        /* get the command cpu estimator command parameter */
@@ -207,16 +207,16 @@ int ti1610_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
        switch (command_type) 
        {
        case TIWLAN_PROFILING_CPU_ESTIMATOR_CMD_START:
-           res = tiwlan_profile_cpu_usage_estimator_start((tiwlan_net_dev_t *)dev->priv,
+           res = tiwlan_profile_cpu_usage_estimator_start((tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev),
                                                           /* the data in this case is the estimator
                                                           resolution in milliseconds */
                                                           command_data * 1000);
            break;
        case TIWLAN_PROFILING_CPU_ESTIMATOR_CMD_STOP:
-           res = tiwlan_profile_cpu_usage_estimator_stop((tiwlan_net_dev_t *)dev->priv);
+           res = tiwlan_profile_cpu_usage_estimator_stop((tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev));
            break;
        case TIWLAN_PROFILING_CPU_ESTIMATOR_CMD_RESET:
-           res =tiwlan_profile_cpu_usage_estimator_reset((tiwlan_net_dev_t *)dev->priv);
+           res =tiwlan_profile_cpu_usage_estimator_reset((tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev));
            break;
        default:
            res = 0;
@@ -228,7 +228,7 @@ int ti1610_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 
     else
     {
-       res = tiwlan_send_wait_reply((tiwlan_net_dev_t *)dev->priv, ti1610_ioctl_priv_proc_tl,
+       res = tiwlan_send_wait_reply((tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev), ti1610_ioctl_priv_proc_tl,
                                     (unsigned long)req, (unsigned long)extra, 0, 0);
     }
 
