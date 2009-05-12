@@ -63,29 +63,25 @@ LOCAL_C_INCLUDES = \
 	$(LOCAL_PATH)/$(WILINK_ROOT)/TWD/FW_Transfer/Export_Inc \
 	external/wpa_supplicant 
 
-LOCAL_SRC_FILES:= \
+LOCAL_SRC_FILES = \
 	src/console.c \
 	src/cu_common.c \
 	src/cu_cmd.c \
 	src/ticon.c \
 	src/wpa_core.c
 
-LOCAL_CFLAGS+= \
-	-DANDROID
-
-LOCAL_CFLAGS+= -Wall -Wstrict-prototypes $(DEBUGFLAGS) -D__LINUX__ $(DK_DEFINES) -D__BYTE_ORDER_LITTLE_ENDIAN -DDRV_NAME='"tiwlan"'
+LOCAL_CFLAGS += -Wall -Wstrict-prototypes $(DEBUGFLAGS) -D__LINUX__ $(DK_DEFINES) -D__BYTE_ORDER_LITTLE_ENDIAN -DDRV_NAME='"tiwlan"'
 
 LOCAL_CFLAGS += $(ARMFLAGS)
 
 LOCAL_LDLIBS += -lpthread
 
-LOCAL_STATIC_LIBRARIES := \
+LOCAL_STATIC_LIBRARIES = \
 	libtiOsLib
 
-LOCAL_SHARED_LIBRARIES := \
-        libwpa_client
+LOCAL_SHARED_LIBRARIES = \
+	libwpa_client
 
-LOCAL_MODULE:= tiwlan_cu
+LOCAL_MODULE:= wlan_cu
 
 include $(BUILD_EXECUTABLE)
-

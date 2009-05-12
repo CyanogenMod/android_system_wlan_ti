@@ -39,9 +39,6 @@ LOCAL_C_INCLUDES = \
 LOCAL_SRC_FILES:= \
 	tiwlan_loader.c
 
-LOCAL_CFLAGS+= \
-	-DANDROID
-
 LOCAL_CFLAGS+= -Wall -Wstrict-prototypes $(DEBUGFLAGS) -D__LINUX__ $(DK_DEFINES) -D__BYTE_ORDER_LITTLE_ENDIAN -DDRV_NAME='"tiwlan"'
 
 LOCAL_CFLAGS += $(ARMFLAGS)
@@ -52,9 +49,9 @@ LOCAL_STATIC_LIBRARIES := \
 	libtiOsLib
 
 LOCAL_SHARED_LIBRARIES := \
-	libcutils libc libhardware_legacy
+	libc libhardware_legacy
 
-LOCAL_MODULE:= tiwlan_loader
+LOCAL_MODULE:= wlan_loader
 
 include $(BUILD_EXECUTABLE)
 

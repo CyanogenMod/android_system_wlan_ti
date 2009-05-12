@@ -35,14 +35,15 @@
 #include <unistd.h>
 #endif
 
+#include <string.h>
 #include "cu_osapi.h"
 #include "TWDriver.h"
+#include "common.h"
 #include "config_ssid.h"
 #include "driver.h"
 #include "ipc_wpa.h"
 #include "wpa_core.h"
 #include "oserr.h"
-
 
 /* defines */
 /***********/

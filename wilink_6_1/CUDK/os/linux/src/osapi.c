@@ -43,7 +43,7 @@
 
 /* defines */
 /***********/
-#define MAX_HOST_MESSAGE_SIZE   256
+#define MAX_HOST_MESSAGE_SIZE   512
 
 S32 ipc_pipe[2];
 
@@ -79,26 +79,31 @@ RETURN:         None
 VOID os_error_printf(S32 debug_level, const PS8 arg_list ,...)
 {
     static int g_debug_level = CU_MSG_ERROR; /* TODO ronen: create debug logic for CLI */
-	char file_name[30]="/cli.log";
-	FILE *ftmp;
-	va_list ap;
     S8 msg[MAX_HOST_MESSAGE_SIZE];
+    va_list ap;
+#ifdef OS_CLI_LOG_TO_FILE
+    char file_name[30]="/cli.log";
+    FILE *ftmp;
+#endif
 
     if (debug_level < g_debug_level)
         return;
 
-    ftmp = fopen(file_name,"a");
-
     /* Format the message */
     va_start(ap, arg_list);
-    vsprintf((char*)msg, (char*)arg_list, ap);
+    vsprintf((char *)msg, (char *)arg_list, ap);
     va_end(ap);
 
     /* print the message */
-	
-	fprintf(ftmp,(char*)msg);
-	fclose(ftmp);
-    fprintf(stderr, (char*)msg);
+    fprintf(stderr, (char *)msg);
+
+#ifdef OS_CLI_LOG_TO_FILE
+    ftmp = fopen(file_name, "a");
+    if (ftmp != NULL) {
+        fprintf(ftmp,(char *)msg);
+        fclose(ftmp);
+    }
+#endif
 }
 
 /****************************************************************************************
@@ -547,7 +552,7 @@ S32 os_getInputString(PS8 inbuf, S32 len)
         if (FD_ISSET(0, &read_set))
         {
             /* Data received from STDIN */
-            if ( fgets( (char*)inbuf, len, stdin ) <= 0 )
+            if ( fgets( (char*)inbuf, len, stdin ) == NULL )
                 return FALSE;
             else
                 return TRUE;
