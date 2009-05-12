@@ -6,7 +6,7 @@ WLAN_INCS := \
 	$(DK_ROOT)/external_drivers/zoom2/Linux/sdio \
 	$(DK_ROOT)/platforms/hw/host_platform_zoom2/linux
 
-EXTRA_CFLAGS += $(addprefix -I, $(WLAN_INCS))
+EXTRA_CFLAGS += $(addprefix -I, $(WLAN_INCS)) -DTI_SDIO_STANDALONE
 
 SDIO_IN_BAND ?= n
 TRACE ?= n

@@ -40,6 +40,7 @@
 #ifndef WLAN_DRV_IF_H
 #define WLAN_DRV_IF_H
 
+#include <linux/version.h>
 #include <linux/completion.h>
 #include <linux/netdevice.h>
 #include <linux/workqueue.h>
@@ -65,6 +66,14 @@
 #define ti_dprintf(log, fmt, args...)
 #endif
 
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
+#define NETDEV_SET_PRIVATE(dev, drv)    dev->priv = drv
+#define NETDEV_GET_PRIVATE(dev)         dev->priv
+#else
+#define NETDEV_SET_PRIVATE(dev, drv)    dev->ml_priv = drv
+#define NETDEV_GET_PRIVATE(dev)         dev->ml_priv
+#endif
 
 #define ti_nodprintf(log, fmt, args...)
 

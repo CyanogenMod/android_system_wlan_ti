@@ -173,7 +173,7 @@ typedef void*                       TI_HANDLE;
 
 #define SDIODRV_MAX_LOOPS 50000
 
-#define CONFIG_OMAP3_PM
+/* Dm: Tmp #define CONFIG_OMAP3_PM */
 #if defined(CONFIG_OMAP3_PM)
 static struct constraint_id cnstr_id = {
 	.type = RES_LATENCY_CO,
@@ -483,8 +483,10 @@ static void sdiodrv_free_resources(void)
 		sdiodrv_iclk_got = 0;
 	}
 	if (omap3430_sdio_cnstr) {
+#ifdef CONFIG_OMAP3_PM /* Dm: Tmp */
 		constraint_remove(omap3430_sdio_cnstr);
 		constraint_put(omap3430_sdio_cnstr);
+#endif
 		omap3430_sdio_cnstr = NULL;
 	}
 }
@@ -700,8 +702,9 @@ int sdioDrv_ReadAsync (unsigned int uFunc,
     unsigned int uNumOfElem;
 	void         *dma_buffer;
 	dma_addr_t dma_bus_address;
-
+#ifdef CONFIG_OMAP3_PM /* Dm: Tmp */
 	constraint_set(omap3430_sdio_cnstr, CO_LATENCY_WFI);	
+#endif
 	//printk(KERN_INFO "in sdioDrv_ReadAsync\n");
 	
     if (bBlkMode)
@@ -750,7 +753,9 @@ int sdioDrv_ReadAsync (unsigned int uFunc,
 	}		
 
 	if (g_drv.dma_read_addr != 0) {
+#ifdef CONFIG_OMAP3_PM /* Dm: Tmp */
 		constraint_remove(omap3430_sdio_cnstr);
+#endif
 		printk(KERN_ERR "sdioDrv_ReadAsync: previous DMA op is not finished!\n");
 		BUG();
 	}
@@ -771,7 +776,9 @@ int sdioDrv_ReadAsync (unsigned int uFunc,
     /* Continued at sdiodrv_irq() after DMA transfer is finished */
 	return 0;
 err:
+#ifdef CONFIG_OMAP3_PM /* Dm: Tmp */
 	constraint_remove(omap3430_sdio_cnstr);
+#endif
 	return -1;
 
 }
@@ -816,8 +823,9 @@ int sdioDrv_WriteAsync (unsigned int uFunc,
     unsigned int uDmaBlockCount;
     unsigned int uNumOfElem;
 	dma_addr_t dma_bus_address;
-
+#ifdef CONFIG_OMAP3_PM /* Dm: */
 	constraint_set(omap3430_sdio_cnstr, CO_LATENCY_WFI);	
+#endif
 //	printk(KERN_INFO "in sdioDrv_WriteAsync\n");
     if (bBlkMode)
     {
@@ -853,7 +861,9 @@ int sdioDrv_WriteAsync (unsigned int uFunc,
 	}
 
 	if (g_drv.dma_write_addr != 0) {
+#ifdef CONFIG_OMAP3_PM /* Dm: */
 		constraint_remove(omap3430_sdio_cnstr);
+#endif
 		PERR("sdioDrv_WriteAsync: previous DMA op is not finished!\n");
 		BUG();
 	}
@@ -874,7 +884,9 @@ int sdioDrv_WriteAsync (unsigned int uFunc,
     /* Continued at sdiodrv_irq() after DMA transfer is finished */
 	return 0;
 err:
+#ifdef CONFIG_OMAP3_PM /* Dm: */
 	constraint_remove(omap3430_sdio_cnstr);
+#endif
 	return -1;
 }
 
@@ -999,8 +1011,9 @@ int sdioDrv_acquire_clk(void)
 		goto err;
 	}
 	sdiodrv_fclk_ena = 1;
+#ifdef CONFIG_OMAP3_PM /* Dm: Tmp */
 	omap3430_sdio_cnstr = constraint_get("sdio", &cnstr_id);
-
+#endif
 	OMAP3430_mmc_reset();
 
 	//obc - init sequence p. 3600,3617
@@ -1093,8 +1106,9 @@ static int sdioDrv_probe(struct platform_device *pdev)
 		goto err;
 	}
 	sdiodrv_fclk_ena = 1;
+#ifdef CONFIG_OMAP3_PM /* Dm: Tmp */
 	omap3430_sdio_cnstr = constraint_get("sdio", &cnstr_id);
-
+#endif
 	OMAP3430_mmc_reset();
 
 	//obc - init sequence p. 3600,3617
@@ -1214,7 +1228,10 @@ void sdioDrv_register_pm(int (*wlanDrvIf_Start)(void),
 	g_drv.wlanDrvIf_pm_suspend = wlanDrvIf_Stop;
 }
 
-static int __init sdioDrv_init(void)
+#ifdef TI_SDIO_STANDALONE
+static
+#endif
+int __init sdioDrv_init(void)
 {
 	int rc;
 	PDEBUG("entering %s()\n" , __FUNCTION__ );
@@ -1241,7 +1258,10 @@ static int __init sdioDrv_init(void)
 	return platform_driver_register(&sdioDrv_struct);
 }
 
-static void __exit sdioDrv_exit(void)
+#ifdef TI_SDIO_STANDALONE
+static
+#endif
+void __exit sdioDrv_exit(void)
 {
 	if (sdiodrv_dma_on) {
 		sdiodrv_dma_shutdown();
@@ -1257,8 +1277,10 @@ static void __exit sdioDrv_exit(void)
 	platform_driver_unregister(&sdioDrv_struct);
 }
 
+#ifdef TI_SDIO_STANDALONE
 module_init(sdioDrv_init);
 module_exit(sdioDrv_exit);
+#endif
 
 EXPORT_SYMBOL(sdioDrv_ConnectBus);
 EXPORT_SYMBOL(sdioDrv_DisconnectBus);
@@ -1277,4 +1299,3 @@ MODULE_DESCRIPTION("TI WLAN SDIO driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS(SDIO_DRIVER_NAME);
 MODULE_AUTHOR("Texas Instruments Inc");
-

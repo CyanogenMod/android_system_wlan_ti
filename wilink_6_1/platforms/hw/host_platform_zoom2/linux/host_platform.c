@@ -69,9 +69,9 @@ static void pad_config(unsigned long pad_addr, u32 andmask, u32 ormask)
 static int OMAP3430_TNETW_Power(int power_on)
 {
 	if (power_on) {
-		omap_set_gpio_dataout(PMENA_GPIO, 1);
+		gpio_set_value(PMENA_GPIO, 1);
 	} else {
-		omap_set_gpio_dataout(PMENA_GPIO, 0);
+		gpio_set_value(PMENA_GPIO, 0);
 	}
 
 	return 0;    
@@ -215,26 +215,26 @@ int hPlatform_initInterrupt(void *tnet_drv, void* handle_add )
 	  print_err("hPlatform_initInterrupt() bad param drv->irq=%d handle_add=0x%x !!!\n",drv->irq,(int)handle_add);
 	  return -EINVAL;
 	}
-	if (omap_request_gpio(IRQ_GPIO) != 0) 
+	if (gpio_request(IRQ_GPIO, "wifi_irq") != 0)
     {
 	    print_err("hPlatform_initInterrupt() omap_request_gpio() FAILED !!\n");
 		return -EINVAL;
 	}
-	omap_set_gpio_direction(IRQ_GPIO, GPIO_DIR_INPUT);
+	gpio_direction_input(IRQ_GPIO);
 	if ((rc = request_irq(drv->irq, handle_add, IRQF_TRIGGER_FALLING, drv->netdev->name, drv)))
 	{
 	    print_err("TIWLAN: Failed to register interrupt handler\n");
-		omap_free_gpio(IRQ_GPIO);
+		gpio_free(IRQ_GPIO);
 		return rc;
 	}
 
-	if (omap_request_gpio(PMENA_GPIO) != 0) 
+	if (gpio_request(PMENA_GPIO, "wifi_pmena") != 0)
 	{
 		printk(KERN_ERR "%s:OMAP2430_TNETW_Power() omap_request_gpio FAILED\n",__FILE__);
-	    omap_free_gpio(IRQ_GPIO);
+		gpio_free(IRQ_GPIO);
 		return -EINVAL;
 	};
-	omap_set_gpio_direction(PMENA_GPIO, GPIO_DIR_OUTPUT);
+	gpio_direction_output(PMENA_GPIO, 0);
 
 	return rc;
 
@@ -244,7 +244,7 @@ int hPlatform_initInterrupt(void *tnet_drv, void* handle_add )
 
 void hPlatform_freeInterrupt(void) 
 {
-	omap_free_gpio(IRQ_GPIO);
+	gpio_free(IRQ_GPIO);
 }
 
 /****************************************************************************************
@@ -288,7 +288,7 @@ hPlatform_hwGetMemoryAddr(
 
 void hPlatform_Wlan_Hardware_DeInit(void)
 {
-  omap_free_gpio(PMENA_GPIO);
+	gpio_free(PMENA_GPIO);
 
 }
 

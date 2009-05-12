@@ -6,6 +6,11 @@
 ##
 
 #
+# Host platform
+#
+HOST_PLATFORM ?= zoom2
+
+#
 # Statically link the CU
 #
 STATIC_LIB ?= y
@@ -245,7 +250,7 @@ help:
 # Create the images
 #
 .PHONY: suppl.img voice.img apps.img apps.tar $(BUS_DRV)
-MODULES_LIST = tiwlan_drv.ko wlan_cu 
+MODULES_LIST = tiwlan_drv.ko
 IMAGES_AND_FILES = dhcpcd wfa_dut dotnet_personal_test.cer dotnet_personal_test.pem dotnet_root.cer wpa_supplicant_wpa_tls.txt
 TAR_FILE = $(HOST_PLATFORM)Binaries.tar
 
@@ -253,12 +258,12 @@ apps.tar: apps
 ifeq ($(STRIP),y)
 	@echo stripping...
 	cd $(OUTPUT_DIR) && $(CROSS_COMPILE)strip -g $(MODULES_LIST)
-	cd $(DK_ROOT)/external_drivers/$(HOST_PLATFORM)/Linux/$(BUS_DRV) && $(CROSS_COMPILE)strip -g $(BUS_DRIVER_MODULE)
+#	cd $(DK_ROOT)/external_drivers/$(HOST_PLATFORM)/Linux/$(BUS_DRV) && $(CROSS_COMPILE)strip -g $(BUS_DRIVER_MODULE)
 endif
-	tar Ccvf $(OUTPUT_DIR)  $(TAR_FILE) $(MODULES_LIST) tiwlan_loader
-	tar Crvf $(DK_ROOT)/external_drivers/$(HOST_PLATFORM)/Linux/$(BUS_DRV) $(TAR_FILE) $(BUS_DRIVER_MODULE)
-	tar Crvf . $(TAR_FILE) tiwlan.ini wpa_supplicant.txt
-	tar Crvf images/$(HOST_PLATFORM) $(TAR_FILE) ${IMAGES_AND_FILES}
+#	tar Ccvf $(OUTPUT_DIR)  $(TAR_FILE) $(MODULES_LIST) tiwlan_loader
+#	tar Crvf $(DK_ROOT)/external_drivers/$(HOST_PLATFORM)/Linux/$(BUS_DRV) $(TAR_FILE) $(BUS_DRIVER_MODULE)
+#	tar Crvf . $(TAR_FILE) tiwlan.ini wpa_supplicant.txt
+#	tar Crvf images/$(HOST_PLATFORM) $(TAR_FILE) ${IMAGES_AND_FILES}
 
 
 
@@ -266,10 +271,10 @@ apps.img: apps
 	mkcramfs apps apps.cram
 	mkimgti -t data -o apps.img apps.cram
 
-apps: $(OUTPUT_FILE) $(BUS_DRV) CU_DK
-	rm -f $(OUTPUT_DIR)/$(BUS_DRV_REMOVE).ko $(OUTPUT_DIR)/$(BUS_DRV_REMOVE)_test
-	cp -f $(WLAN_CU_CLI) $(OUTPUT_DIR)
-	cp -f $(WLAN_LOADER) $(OUTPUT_DIR)
+apps: $(OUTPUT_FILE)
+#	rm -f $(OUTPUT_DIR)/$(BUS_DRV_REMOVE).ko $(OUTPUT_DIR)/$(BUS_DRV_REMOVE)_test
+#	cp -f $(WLAN_CU_CLI) $(OUTPUT_DIR)
+#	cp -f $(WLAN_LOADER) $(OUTPUT_DIR)
 
 voice.img: 
 	$(MAKEJFFS2) -l -r voice -e 0x10000 -o voice.jffs2
@@ -290,21 +295,22 @@ clean:
 	$(MAKE) -C $(DRIVER_LIB_DIR) CROSS_COMPILE=$(CROSS_COMPILE) DEBUG=$(DEBUG) BUILD_SUPPL=$(BUILD_SUPPL) SUPPL=$(SUPPL) WSPI=$(WSPI) INTR=$(INTR) XCC=$(XCC) INFO=$(INFO) STATIC_LIB=$(STATIC_LIB) clean
 	$(MAKE) -C $(OS_COMMON_DIR) CROSS_COMPILE=$(CROSS_COMPILE) DEBUG=$(DEBUG) BUILD_SUPPL=$(BUILD_SUPPL) SUPPL=$(SUPPL) WSPI=$(WSPI) INTR=$(INTR) XCC=$(XCC) INFO=$(INFO) STATIC_LIB=$(STATIC_LIB) clean
 	$(MAKE) -C $(OS_LINUX_DIR) CROSS_COMPILE=$(CROSS_COMPILE) DEBUG=$(DEBUG) BUILD_SUPPL=$(BUILD_SUPPL) SUPPL=$(SUPPL) WSPI=$(WSPI) INTR=$(INTR) XCC=$(XCC) INFO=$(INFO) STATIC_LIB=$(STATIC_LIB) clean
-	$(MAKE) -C $(DK_ROOT)/external_drivers/$(HOST_PLATFORM)/Linux/$(BUS_DRV) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) KERNEL_DIR=$(KERNEL_DIR) OUTPUT_DIR=$(shell pwd)/$(OUTPUT_DIR) clean
-	$(MAKE) -C $(WLAN_CUDK_DIR) CROSS_COMPILE=$(CROSS_COMPILE) BUILD_SUPPL=$(BUILD_SUPPL) SUPPL=$(SUPPL) XCC=$(XCC) clean
+#	$(MAKE) -C $(DK_ROOT)/external_drivers/$(HOST_PLATFORM)/Linux/$(BUS_DRV) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) KERNEL_DIR=$(KERNEL_DIR) OUTPUT_DIR=$(shell pwd)/$(OUTPUT_DIR) clean
+#	$(MAKE) -C $(WLAN_CUDK_DIR) CROSS_COMPILE=$(CROSS_COMPILE) BUILD_SUPPL=$(BUILD_SUPPL) SUPPL=$(SUPPL) XCC=$(XCC) clean
 #       $(MAKE) -C $(WLAN_CU_CLI_DIR) CROSS_COMPILE=$(CROSS_COMPILE) BUILD_SUPPL=$(BUILD_SUPPL) SUPPL=$(SUPPL) XCC=$(XCC) cleanall
 #       $(MAKE) -C $(WLAN_LOADER_DIR) CROSS_COMPILE=$(CROSS_COMPILE) BUILD_SUPPL=$(BUILD_SUPPL) SUPPL=$(SUPPL) XCC=$(XCC) clean
 #       $(MAKE) -C $(LINUX_WIRELESS_TOOLS_DIR) CROSS_COMPILE=$(CROSS_COMPILE) BUILD_SUPPL=$(BUILD_SUPPL) SUPPL=$(SUPPL) XCC=$(XCC) clean
 #       $(MAKE) -C $(DBG_MDL) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) KERNEL_DIR=$(KERNEL_DIR) clean
 
-	@rm -f suppl.* apps.* voice.*
-	@rm -f *spi*.ko sdio.ko
-	@rm -f $(OUTPUT_DIR)/wlan_cu $(OUTPUT_DIR)/tiwlan_drv.ko 
-	@rm -f $(OUTPUT_DIR)/wlan_logger $(OUTPUT_DIR)/tiwlan_drv.ko 
-	@rm -f wpa_supplicant 
-	@rm -f $(FW_IMAGE_DEST_FILE)
-	@rm -rf *.o *.a \.*.o.cmd *~ *.~* core .depend dep
-	@rm -rf $(OUTPUT_DIR)/tiwlan_loader
+#	@rm -f suppl.* apps.* voice.*
+#	@rm -f *spi*.ko sdio.ko
+#	@rm -f $(OUTPUT_DIR)/wlan_cu
+	@rm -f $(OUTPUT_DIR)/tiwlan_drv.ko 
+#	@rm -f $(OUTPUT_DIR)/wlan_logger $(OUTPUT_DIR)/tiwlan_drv.ko 
+#	@rm -f wpa_supplicant 
+#	@rm -f $(FW_IMAGE_DEST_FILE)
+#	@rm -rf *.o *.a \.*.o.cmd *~ *.~* core .depend dep
+#	@rm -rf $(OUTPUT_DIR)/tiwlan_loader
 
 #       @rm -f tiwlan_drv.ko $(OUTPUT_DIR)/gwsi_drv.o $(OUTPUT_DIR)/debug_tools.o
 #       @rm -rf $(OUTPUT_DIR)/iwconfig apps/iwlist $(OUTPUT_DIR)/iwevent

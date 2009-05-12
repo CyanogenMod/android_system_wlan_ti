@@ -111,7 +111,7 @@ void sdiodrv_shutdown(void);
  */ 
 static int wlanDrvIf_Xmit (struct sk_buff *skb, struct net_device *dev)
 {
-    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)dev->priv;
+    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
 	TTxCtrlBlk *  pPktCtrlBlk;
     int status;
 
@@ -205,7 +205,7 @@ static int wlanDrvIf_XmitDummy (struct sk_buff *skb, struct net_device *dev)
  */ 
 static struct net_device_stats *wlanDrvIf_NetGetStat (struct net_device *dev)
 {
-    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)dev->priv;
+    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
     ti_dprintf (TIWLAN_LOG_OTHER, "wlanDrvIf_NetGetStat()\n");
     
     return &drv->stats;
@@ -600,7 +600,7 @@ void wlanDrvIf_SetMacAddress (TI_HANDLE hOs, TI_UINT8 *pMacAddr)
  */ 
 int wlanDrvIf_Start (struct net_device *dev)
 {
-    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)dev->priv;
+    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
 
     ti_dprintf (TIWLAN_LOG_OTHER, "wlanDrvIf_Start()\n");
 
@@ -650,7 +650,7 @@ int wlanDrvIf_Start (struct net_device *dev)
  */ 
 int wlanDrvIf_Stop (struct net_device *dev)
 {
-    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)dev->priv;
+    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
 
     ti_dprintf (TIWLAN_LOG_OTHER, "wlanDrvIf_Stop()\n");
 
@@ -717,7 +717,7 @@ static int wlanDrvIf_SetupNetif (TWlanDrvIfObj *drv)
    dev->validate_addr	= NULL;
 #endif
 
-   dev->priv = drv;
+   NETDEV_SET_PRIVATE(dev,drv);
    drv->netdev = dev;
    strcpy (dev->name, TIWLAN_DRV_IF_NAME);
    netif_carrier_off (dev);
@@ -943,7 +943,7 @@ static void wlanDrvIf_Destroy (TWlanDrvIfObj *drv)
 
     /* Free the driver object */
 #ifdef TI_DBG
-	tb_destroy();
+    tb_destroy();
 #endif	
     kfree (drv);
 }
@@ -960,17 +960,25 @@ static void wlanDrvIf_Destroy (TWlanDrvIfObj *drv)
  * \return Init: 0 - OK, else - failure.   Exit: void
  * \sa     wlanDrvIf_Create, wlanDrvIf_Destroy
  */ 
+#ifndef TI_SDIO_STANDALONE
+extern int sdioDrv_init(void);
+extern void sdioDrv_exit(void);
+#endif
 static int __init wlanDrvIf_ModuleInit (void)
 {
     printk(KERN_INFO "TIWLAN: driver init\n");
-
+#ifndef TI_SDIO_STANDALONE
+    sdioDrv_init();
+#endif
     return wlanDrvIf_Create ();
 }
 
 static void __exit wlanDrvIf_ModuleExit (void)
 {
     wlanDrvIf_Destroy (pDrvStaticHandle);
-
+#ifndef TI_SDIO_STANDALONE
+    sdioDrv_exit();
+#endif
     printk (KERN_INFO "TI WLAN: driver unloaded\n");
 }
 

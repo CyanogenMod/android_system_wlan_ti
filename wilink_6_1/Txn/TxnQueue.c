@@ -555,7 +555,7 @@ static ETxnStatus txnQ_RunScheduler (TTxnQObj *pTxnQ, TTxnStruct *pInputTxn)
      */
     while (1)
     {
-        ETxnStatus eStatus;
+        ETxnStatus eStatus = TXN_STATUS_PENDING;
 
         /* If first scheduler iteration, save its return code to return the original Txn result */
         if (bFirstIteration) 

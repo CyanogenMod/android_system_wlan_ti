@@ -154,7 +154,7 @@ void wlanDrvWext_Init (struct net_device *dev)
 /* Return driver statistics - currently not supported */
 static struct iw_statistics *wlanDrvWext_GetWirelessStats(struct net_device *dev)
 {
-	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)dev->priv;
+    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
 
     return (struct iw_statistics *) cmdHndlr_GetStat (drv->tCommon.hCmdHndlr);
 }
@@ -167,7 +167,7 @@ int wlanDrvWext_Handler (struct net_device *dev,
                      void *extra)
 {
    int              rc;
-   TWlanDrvIfObj   *drv = (TWlanDrvIfObj *)dev->priv;
+   TWlanDrvIfObj   *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
    ti_private_cmd_t my_command; 
    struct iw_mlme   mlme;
    void             *copy_to_buf=NULL, *param3=NULL; 

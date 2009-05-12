@@ -45,7 +45,8 @@ OS_SRCS = \
     $(DK_ROOT)/platforms/os/linux/src/ipc_k.c \
     $(DK_ROOT)/platforms/os/linux/src/WlanDrvWext.c \
     $(DK_ROOT)/platforms/os/linux/src/CmdInterpretWext.c \
-    $(DK_ROOT)/platforms/os/linux/src/RxBuf.c
+    $(DK_ROOT)/platforms/os/linux/src/RxBuf.c \
+    $(DK_ROOT)/external_drivers/$(HOST_PLATFORM)/Linux/sdio/SdioDrv.c
 
 ifeq ($(STACK_PROFILING_ON),y)    
     OS_SRCS += $(DK_ROOT)/platforms/os/linux/src/stack_profile.c
