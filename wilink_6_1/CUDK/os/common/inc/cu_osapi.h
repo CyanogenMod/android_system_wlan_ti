@@ -25,12 +25,14 @@
 #ifndef _CUOSAPI_H_
 #define _CUOSAPI_H_
 
+#include "cu_ostypes.h"
+
 /* defines */
 /***********/
 #define OK                      0
 #define FALSE                   0
 #define TRUE                    1
-#define OSAL_ERROR					-1
+#define OSAL_ERROR				-1
 #define OSAL_SUCCESS				0
 #define OSAL_FAILURE				1
 #define OS_GETINPUTSTRING_CONTINUE  TRUE+1
@@ -40,21 +42,6 @@
 #endif
 /* replaces IFNAMSIZ in Linux */
 #define IF_NAME_SIZE    16
-
-/* types */
-/*********/
-#if !defined(VOID)
-typedef void                    VOID,*PVOID;
-#endif
-typedef unsigned char           U8,*PU8;
-typedef /*signed*/ char         S8,*PS8,**PPS8;
-typedef unsigned short          U16,*PU16;
-typedef signed short            S16,*PS16;
-typedef unsigned long           U32,*PU32;
-typedef signed long             S32,*PS32;
-typedef float                   F32,*PF32;
-typedef PVOID                   THandle;
-typedef int                     TI_SIZE_T;
 
 /* 
  * TODO : supp declares its OS abstarction with primitive types, so these must

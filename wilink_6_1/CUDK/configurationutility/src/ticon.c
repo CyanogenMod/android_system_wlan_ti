@@ -54,8 +54,12 @@
 #endif
 
 #define TIWLAN_DRV_NAME "tiwlan0"
-#define SUPPL_IF_FILE "/var/run/tiwlan0"
-    
+#ifdef ANDROID
+#define SUPPL_IF_FILE "/data/misc/wifi/sockets/" TIWLAN_DRV_NAME
+#else
+#define SUPPL_IF_FILE "/var/run/" TIWLAN_DRV_NAME
+#endif
+
 /* local types */
 /***************/
 /* Module control block */
