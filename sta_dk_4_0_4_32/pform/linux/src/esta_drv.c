@@ -1092,6 +1092,9 @@ int tiwlan_send_wait_reply(tiwlan_net_dev_t *drv,
     unsigned long flags;
 
     /* Send request to tiwlan_tasklet and wait for reply */
+    if (!drv->adapter.CoreHalCtx) {
+        return STATION_IS_NOT_RUNNING;
+    }
 
     req.drv = drv;
     req.u.req.f = f;
