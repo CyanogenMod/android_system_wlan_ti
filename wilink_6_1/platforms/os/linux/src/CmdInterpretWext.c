@@ -622,7 +622,7 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
                 os_memorySet (pCmdInterpret->hOs, &iwe, 0, sizeof(iwe));
                 iwe.cmd = SIOCGIWFREQ;
                 iwe.u.freq.m = my_current->Configuration.Union.channel;
-                iwe.u.freq.e = 0;
+                iwe.u.freq.e = 3; /* Dm: Frequency divider */
                 iwe.u.freq.i = 0;
                 iwe.len = IW_EV_FREQ_LEN;
 #if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
