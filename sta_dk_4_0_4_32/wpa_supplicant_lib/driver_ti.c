@@ -64,44 +64,24 @@
 static int lfp;
 #endif
 /*-------------------------------------------------------------------*/
-#ifdef ANDROID
-typedef struct REG_DOMAIN_STRUCT {
-    char tmzn_name[PROPERTY_VALUE_MAX];
-    int size;
-    int num_of_channels;
-} reg_domain_struct_t;
 
-reg_domain_struct_t reg_domain_str[] = {
-    { "US", 2, NUMBER_SCAN_CHANNELS_FCC },
-    { "AU", 2, NUMBER_SCAN_CHANNELS_FCC },
-    { "SG", 2, NUMBER_SCAN_CHANNELS_FCC },
-    { "CA", 2, NUMBER_SCAN_CHANNELS_FCC },
-    { "GB", 2, NUMBER_SCAN_CHANNELS_ETSI },
-    { "JP", 2, NUMBER_SCAN_CHANNELS_MKK1 },
-    { "ZZ", 2, NUMBER_SCAN_CHANNELS_FCC }
-};
-#endif
 /*-----------------------------------------------------------------------------
-Routine Name: check_and_get_carrier_channels
-Routine Description: get number of allowed channels according to locale
-as determined by the carrier being used.
+Routine Name: check_and_get_build_channels
+Routine Description: get number of allowed channels according to a build var.
 Arguments: None
 Return Value: Number of channels
 -----------------------------------------------------------------------------*/
-static int check_and_get_carrier_channels( void )
+static int check_and_get_build_channels( void )
 {
 #ifdef ANDROID
     char prop_status[PROPERTY_VALUE_MAX];
-    char *prop_name = "ro.product.locale.region";
-    int default_channels = NUMBER_SCAN_CHANNELS_ETSI;
-    unsigned i;
+    char *prop_name = "ro.product.wifi.channels";
+    int i, default_channels = NUMBER_SCAN_CHANNELS_ETSI;
 
-    if( !property_get(prop_name, prop_status, NULL) )
-        return default_channels;
-    for(i=0;( i < (sizeof(reg_domain_str)/sizeof(reg_domain_struct_t)) );i++) {
-        if( strncmp(prop_status, reg_domain_str[i].tmzn_name,
-                    reg_domain_str[i].size) == 0 )
-            return reg_domain_str[i].num_of_channels;
+    if( property_get(prop_name, prop_status, NULL) ) {
+        i = atoi(prop_status);
+        if( i != 0 )
+            default_channels = i;
     }
     return( default_channels );
 #else
@@ -1372,7 +1352,7 @@ static void *wpa_driver_tista_init( void *priv, const char *ifname )
     scan_init( myDrv );
 
     /* Set default amount of channels */
-    myDrv->scan_channels = check_and_get_carrier_channels();
+    myDrv->scan_channels = check_and_get_build_channels();
 
     /* Link Speed will be set by the message from the driver */
     myDrv->link_speed = 0;
@@ -1564,7 +1544,7 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
         if( ret == OK ) {
             /* Signal that driver is not loaded yet */
             myDrv->driver_is_loaded = TRUE;
-            myDrv->scan_channels = check_and_get_carrier_channels();
+            myDrv->scan_channels = check_and_get_build_channels();
             wpa_msg(myDrv->hWpaSupplicant, MSG_INFO, WPA_EVENT_DRIVER_STATE "STARTED");
         }
         else
