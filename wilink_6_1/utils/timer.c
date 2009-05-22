@@ -353,18 +353,22 @@ TI_HANDLE tmr_CreateTimer (TI_HANDLE hTimerModule)
  */ 
 TI_STATUS tmr_DestroyTimer (TI_HANDLE hTimerInfo)
 {
-    TTimerInfo   *pTimerInfo   = (TTimerInfo *)hTimerInfo;                 /* The timer handle */     
-	TTimerModule *pTimerModule = (TTimerModule *)pTimerInfo->hTimerModule; /* The timer module handle */
+	TTimerInfo *pTimerInfo = (TTimerInfo *)hTimerInfo; /* The timer handle */
+	TTimerModule *pTimerModule;
 
-    /* Free the OS-API timer */
-    os_timerDestroy (pTimerModule->hOs, pTimerInfo->hOsTimerObj);
+	if (!hTimerInfo)
+		return TI_NOK;
+	pTimerModule = (TTimerModule *)pTimerInfo->hTimerModule; /* The timer module handle */
 
-    /* Free the timer object */
-    os_memoryFree (pTimerModule->hOs, hTimerInfo, sizeof(TTimerInfo));
-	
-    pTimerModule->uTimersCount--;  /* update created timers number */
+	/* Free the OS-API timer */
+	os_timerDestroy (pTimerModule->hOs, pTimerInfo->hOsTimerObj);
 
-    return TI_OK;
+	/* Free the timer object */
+	os_memoryFree (pTimerModule->hOs, hTimerInfo, sizeof(TTimerInfo));
+
+	pTimerModule->uTimersCount--;  /* update created timers number */
+
+	return TI_OK;
 }
 
 

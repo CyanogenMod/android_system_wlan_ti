@@ -195,23 +195,25 @@ TI_HANDLE assoc_create(TI_HANDLE hOs)
 */
 TI_STATUS assoc_unload(TI_HANDLE hAssoc)
 {
-    TI_STATUS       status;
-    assoc_t     *pHandle;
+	TI_STATUS       status;
+	assoc_t     *pHandle;
 
-    pHandle = (assoc_t*)hAssoc;
+	pHandle = (assoc_t *)hAssoc;
+	if (!pHandle)
+		return TI_NOK;
 
-    status = fsm_Unload(pHandle->hOs, pHandle->pAssocSm);
-    if (status != TI_OK)
-    {
-        /* report failure but don't stop... */
-        TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "ASSOC_SM: Error releasing FSM memory \n");
-    }
-    
-    tmr_DestroyTimer (pHandle->hAssocSmTimer);
-    
-    os_memoryFree(pHandle->hOs, hAssoc, sizeof(assoc_t));
+	status = fsm_Unload(pHandle->hOs, pHandle->pAssocSm);
+	if (status != TI_OK)
+	{
+		/* report failure but don't stop... */
+		TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "ASSOC_SM: Error releasing FSM memory \n");
+	}
 
-    return TI_OK;
+	tmr_DestroyTimer (pHandle->hAssocSmTimer);
+
+	os_memoryFree(pHandle->hOs, hAssoc, sizeof(assoc_t));
+
+	return TI_OK;
 }
 
 /**

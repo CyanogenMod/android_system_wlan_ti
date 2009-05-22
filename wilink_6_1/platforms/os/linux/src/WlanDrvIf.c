@@ -783,86 +783,84 @@ void wlanDrvIf_CommandDone (TI_HANDLE hOs, void *pSignalObject, TI_UINT8 *CmdRes
  */ 
 static int wlanDrvIf_Create (void)
 {
-    TWlanDrvIfObj *drv;
-    int rc;
+	TWlanDrvIfObj *drv; // Dm: Failure is not cleaned properly !!!
+	int rc;
 
-    /* Allocate driver's structure */
-    drv = kmalloc (sizeof(TWlanDrvIfObj), GFP_KERNEL);
-    if (!drv)
-    {
-        return -ENOMEM;
-    }
+	/* Allocate driver's structure */
+	drv = kmalloc (sizeof(TWlanDrvIfObj), GFP_KERNEL);
+	if (!drv)
+	{
+		return -ENOMEM;
+	}
 #ifdef TI_DBG
 	tb_init(TB_OPTION_NONE);
 #endif
-    pDrvStaticHandle = drv;  /* save for module destroy */
-    #ifdef TI_MEM_ALLOC_TRACE        
-      os_printf ("MTT:%s:%d ::kmalloc(%lu, %x) : %lu\n", __FUNCTION__, __LINE__, sizeof(TWlanDrvIfObj), GFP_KERNEL, sizeof(TWlanDrvIfObj));
-    #endif
-    memset (drv, 0, sizeof(TWlanDrvIfObj));
-
-    drv->irq = TNETW_IRQ;
-    drv->tCommon.eDriverState = DRV_STATE_IDLE;
-
-#if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-    INIT_WORK(&drv->tWork, wlanDrvIf_DriverTask);
-#else
-    INIT_WORK(&drv->tWork, wlanDrvIf_DriverTask, (void *)drv);
+	pDrvStaticHandle = drv;  /* save for module destroy */
+#ifdef TI_MEM_ALLOC_TRACE        
+	os_printf ("MTT:%s:%d ::kmalloc(%lu, %x) : %lu\n", __FUNCTION__, __LINE__, sizeof(TWlanDrvIfObj), GFP_KERNEL, sizeof(TWlanDrvIfObj));
 #endif
-    spin_lock_init (&drv->lock);
+	memset (drv, 0, sizeof(TWlanDrvIfObj));
 
-    /* Setup driver network interface. */
-    rc = wlanDrvIf_SetupNetif (drv);
-    if (rc)
-    {
-        kfree (drv);
-        return rc;
-    }
-   
+	/* Dm:    drv->irq = TNETW_IRQ; */
+	drv->tCommon.eDriverState = DRV_STATE_IDLE;
 
-    /* Create the events socket interface */
 #if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-	drv->wl_sock = netlink_kernel_create(&init_net, NETLINK_USERSOCK, 0, NULL, NULL, THIS_MODULE );
+	INIT_WORK(&drv->tWork, wlanDrvIf_DriverTask); // Dm: Kernel version !!!
+#else
+	INIT_WORK(&drv->tWork, wlanDrvIf_DriverTask, (void *)drv);
+#endif
+	spin_lock_init (&drv->lock);
+
+	/* Setup driver network interface. */
+	rc = wlanDrvIf_SetupNetif (drv);
+	if (rc)
+	{
+		kfree (drv);
+		return rc;
+	}
+
+	/* Create the events socket interface */
+#if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
+	drv->wl_sock = netlink_kernel_create(&init_net, NETLINK_USERSOCK, 0, NULL, NULL, THIS_MODULE ); // Dm: Version !!!
 #else
 	drv->wl_sock = netlink_kernel_create( NETLINK_USERSOCK, 0, NULL, THIS_MODULE );
 #endif
-    if (drv->wl_sock == NULL)
-    {
-        ti_dprintf (TIWLAN_LOG_ERROR, "netlink_kernel_create() failed !\n");
-        return -EINVAL;
-    }
+	if (drv->wl_sock == NULL)
+	{
+	        ti_dprintf (TIWLAN_LOG_ERROR, "netlink_kernel_create() failed !\n");
+	        return -EINVAL;
+	}
 
-    /* Create all driver modules and link their handles */
-    drvMain_Create (drv, 
-                    &drv->tCommon.hDrvMain, 
-                    &drv->tCommon.hCmdHndlr, 
-                    &drv->tCommon.hContext, 
-                    &drv->tCommon.hTxDataQ,
-                    &drv->tCommon.hTxMgmtQ,
-					&drv->tCommon.hTxCtrl,
-                    &drv->tCommon.hTWD,
-					&drv->tCommon.hEvHandler);
+	/* Create all driver modules and link their handles */
+	drvMain_Create (drv,
+			&drv->tCommon.hDrvMain,
+			&drv->tCommon.hCmdHndlr,
+			&drv->tCommon.hContext,
+			&drv->tCommon.hTxDataQ,
+			&drv->tCommon.hTxMgmtQ,
+			&drv->tCommon.hTxCtrl,
+			&drv->tCommon.hTWD,
+			&drv->tCommon.hEvHandler);
 
-    /* 
-     *  Initialize interrupts (or polling mode for debug):
-     */
+	/*
+	 *  Initialize interrupts (or polling mode for debug):
+	 */
 #ifdef PRIODIC_INTERRUPT
-    /* Debug mode: Polling (the timer is started by HwInit process) */
-    drv->hPollTimer = os_timerCreate ((TI_HANDLE)drv, wlanDrvIf_PollIrqHandler, (TI_HANDLE)drv);
+	/* Debug mode: Polling (the timer is started by HwInit process) */
+	drv->hPollTimer = os_timerCreate ((TI_HANDLE)drv, wlanDrvIf_PollIrqHandler, (TI_HANDLE)drv);
 #else 
-    /* Normal mode: Interrupts (the default mode) */
-    rc = hPlatform_initInterrupt (drv, (void*)wlanDrvIf_HandleInterrupt);
-    if (rc)
-    {
-        ti_dprintf (TIWLAN_LOG_ERROR, "wlanDrvIf_Create(): Failed to register interrupt handler!\n");
-        return rc;
-    }
+	/* Normal mode: Interrupts (the default mode) */
+	rc = hPlatform_initInterrupt (drv, (void*)wlanDrvIf_HandleInterrupt);
+	if (rc)
+	{
+		ti_dprintf (TIWLAN_LOG_ERROR, "wlanDrvIf_Create(): Failed to register interrupt handler!\n");
+		return rc;
+	}
 #ifdef  HOST_PLATFORM_OMAP2430
-    set_irq_type (drv->irq, IRQT_FALLING);
+	/* Dm:    set_irq_type (drv->irq, IRQT_FALLING); */
 #endif
 #endif  /* PRIODIC_INTERRUPT */
-
-   return 0;
+	return 0;
 }
 
 
@@ -908,8 +906,8 @@ static void wlanDrvIf_Destroy (TWlanDrvIfObj *drv)
 #else
     if (drv->irq)
     {
-        free_irq (drv->irq, drv);
-        hPlatform_freeInterrupt ();
+//Dm:        free_irq (drv->irq, drv);
+        hPlatform_freeInterrupt(drv);
     }
 #endif
 
