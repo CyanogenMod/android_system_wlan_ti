@@ -250,7 +250,7 @@ TI_STATUS rxData_SetDefaults (TI_HANDLE hRxData, rxDataInitParams_t * rxDataInit
         }
     }
 
-  #ifdef TI_DBG
+#ifdef TI_DBG
     /* reset counters */
     rxData_resetCounters(pRxData);
     rxData_resetDbgCounters(pRxData);
@@ -263,7 +263,7 @@ TI_STATUS rxData_SetDefaults (TI_HANDLE hRxData, rxDataInitParams_t * rxDataInit
         return TI_NOK;
     }
     pRxData->rxThroughputTimerEnable = TI_FALSE;
-  #endif
+#endif
 
 
     TRACE0(pRxData->hReport, REPORT_SEVERITY_INIT, ".....Rx Data configured successfully\n");
@@ -285,26 +285,26 @@ TI_STATUS rxData_SetDefaults (TI_HANDLE hRxData, rxDataInitParams_t * rxDataInit
 ***************************************************************************/
 TI_STATUS rxData_unLoad(TI_HANDLE hRxData)
 {
-    rxData_t *pRxData = (rxData_t *)hRxData;
+	rxData_t *pRxData = (rxData_t *)hRxData;
 
-    /* check parameters validity */
-    if (pRxData == NULL)
-    {
-        TRACE0(pRxData->hReport, REPORT_SEVERITY_ERROR, " rxData_unLoad()  : Illegal value for hRxData\n");
-        return TI_NOK;
-    }
+	/* check parameters validity */
+	if (pRxData == NULL)
+	{
+		TRACE0(pRxData->hReport, REPORT_SEVERITY_ERROR, " rxData_unLoad()  : Illegal value for hRxData\n");
+		return TI_NOK;
+	}
 
-    DistributorMgr_Destroy(pRxData->RxEventDistributor);
+	DistributorMgr_Destroy(pRxData->RxEventDistributor);
 
 #ifdef TI_DBG
-    /* destroy periodic rx throughput timer */
-    tmr_DestroyTimer (pRxData->hThroughputTimer);
-  #endif
+	/* destroy periodic rx throughput timer */
+	tmr_DestroyTimer (pRxData->hThroughputTimer);
+#endif
 
-    /* free Rx Data controll block */
-    os_memoryFree(pRxData->hOs, pRxData, sizeof(rxData_t));
+	/* free Rx Data controll block */
+	os_memoryFree(pRxData->hOs, pRxData, sizeof(rxData_t));
 
-    return TI_OK;
+	return TI_OK;
 }
 
 

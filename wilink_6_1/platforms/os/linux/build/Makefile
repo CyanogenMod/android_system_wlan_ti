@@ -38,7 +38,6 @@ endif
 #
 OS_SRCS = \
     $(DK_ROOT)/platforms/os/linux/src/WlanDrvIf.c \
-    $(DK_ROOT)/platforms/hw/host_platform_$(HOST_PLATFORM)/linux/host_platform.c \
     $(DK_ROOT)/platforms/os/linux/src/osapi.c \
     $(DK_ROOT)/platforms/os/linux/src/osmemapi.c \
     $(DK_ROOT)/platforms/os/linux/src/osRgstry_parser.c \
@@ -47,6 +46,12 @@ OS_SRCS = \
     $(DK_ROOT)/platforms/os/linux/src/CmdInterpretWext.c \
     $(DK_ROOT)/platforms/os/linux/src/RxBuf.c \
     $(DK_ROOT)/external_drivers/$(HOST_PLATFORM)/Linux/sdio/SdioDrv.c
+
+ifeq ($(CONFIG_WIFI_CONTROL_FUNC),y)
+    OS_SRCS += $(DK_ROOT)/platforms/hw/linux/host_platform.c
+else
+    OS_SRCS += $(DK_ROOT)/platforms/hw/host_platform_$(HOST_PLATFORM)/linux/host_platform.c
+endif   
 
 ifeq ($(STACK_PROFILING_ON),y)    
     OS_SRCS += $(DK_ROOT)/platforms/os/linux/src/stack_profile.c

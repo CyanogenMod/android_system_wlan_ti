@@ -37,20 +37,16 @@
 #include "wpa.h"
 #include "wpa_ctrl.h"
 
-#define TI_WLAN_WILINK_6_SUPPORT
-
-#ifdef TI_WLAN_WILINK_6_SUPPORT
 #include "cu_ostypes.h"
 #include "STADExternalIf.h"
 #include "convert.h"
-#endif
 
 #define TIWLAN_DRV_NAME         "tiwlan0"
 
 typedef enum {
-    BLUETOOTH_COEXISTENCE_MODE_ENABLED = 0,
-    BLUETOOTH_COEXISTENCE_MODE_DISABLED,
-    BLUETOOTH_COEXISTENCE_MODE_SENSE
+	BLUETOOTH_COEXISTENCE_MODE_ENABLED = 0,
+	BLUETOOTH_COEXISTENCE_MODE_DISABLED,
+	BLUETOOTH_COEXISTENCE_MODE_SENSE
 } EUIBTCoexMode;
 
 struct wpa_driver_tista_data {
@@ -58,14 +54,12 @@ struct wpa_driver_tista_data {
 	void *ctx;
 	char ifname[IFNAMSIZ + 1];
 	int ioctl_sock;
-#ifdef TI_WLAN_WILINK_6_SUPPORT
 	u8 own_addr[ETH_ALEN];          /* MAC address of WLAN interface */
 	int driver_is_loaded;           /* TRUE/FALSE flag if driver is already loaded and can be accessed */
 	int scan_type;                  /* SCAN_TYPE_NORMAL_ACTIVE or  SCAN_TYPE_NORMAL_PASSIVE */
 	int scan_channels;              /* Number of allowed scan channels */
 	unsigned int link_speed;        /* Link Speed */
 	u32 btcoex_mode;                /* BtCoex Mode */
-#endif
 };
 
 static int wpa_driver_tista_cipher2wext(int cipher)
@@ -111,7 +105,6 @@ static int wpa_driver_tista_get_ssid(void *priv, u8 *ssid)
 	return wpa_driver_wext_get_ssid(drv->wext, ssid);
 }
 
-#ifdef TI_WLAN_WILINK_6_SUPPORT
 static int wpa_driver_tista_private_send( void *priv, u32 ioctl_cmd, void *bufIn, u32 sizeIn, void *bufOut, u32 sizeOut )
 {
 	struct wpa_driver_tista_data *drv = (struct wpa_driver_tista_data *)priv;
@@ -140,8 +133,8 @@ static int wpa_driver_tista_private_send( void *priv, u32 ioctl_cmd, void *bufIn
 	res = ioctl(drv->ioctl_sock, SIOCIWFIRSTPRIV, &iwr);
 	if(res != 0)
 	{
-	    wpa_printf(MSG_ERROR, "ERROR - wpa_driver_tista_private_send - error sending Wext private IOCTL to STA driver (ioctl_cmd = %x,  res = %d, errno = %d)", ioctl_cmd, res, errno);
-	    return -1;
+		wpa_printf(MSG_ERROR, "ERROR - wpa_driver_tista_private_send - error sending Wext private IOCTL to STA driver (ioctl_cmd = %x,  res = %d, errno = %d)", ioctl_cmd, res, errno);
+		return -1;
 	}
 
 	wpa_printf(MSG_DEBUG, "wpa_driver_tista_private_send ioctl_cmd = %x  res = %d", ioctl_cmd, res);
@@ -159,9 +152,10 @@ static int wpa_driver_tista_driver_start( void *priv )
 
 	if(0 != res)
 		wpa_printf(MSG_ERROR, "ERROR - Failed to start driver!");
-	else
+	else {
+		usleep(200 * 1000); /* delay 200 ms */
 		wpa_printf(MSG_DEBUG, "wpa_driver_tista_driver_start success");
-
+	}
 	return res;
 }
 
@@ -392,7 +386,6 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 		wpa_driver_tista_get_mac_addr(priv);
 		wpa_printf(MSG_DEBUG, "Macaddr command");
 		ret = sprintf(buf, "Macaddr = " MACSTR "\n", MAC2STR(drv->own_addr));
-		buf[ret]='\0';
 		wpa_printf(MSG_DEBUG, "buf %s", buf);
 	}
 	else if( os_strcasecmp(cmd, "scan-passive") == 0 ) {
@@ -408,7 +401,6 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 	else if( os_strcasecmp(cmd, "linkspeed") == 0 ) {
 		wpa_printf(MSG_DEBUG,"Link Speed command");
 		ret = sprintf(buf,"LinkSpeed %u\n", drv->link_speed);
-		buf[ret]='\0';
 		wpa_printf(MSG_DEBUG, "buf %s", buf);
 	}
 	else if( os_strncasecmp(cmd, "scan-channels", 13) == 0 ) {
@@ -419,7 +411,6 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 		if( (noOfChan > 0) && (noOfChan <= MAX_NUMBER_OF_CHANNELS_PER_SCAN) )
 			drv->scan_channels = noOfChan;
 		ret = sprintf(buf,"Scan-Channels = %d\n", drv->scan_channels);
-		buf[ret]='\0';
 		wpa_printf(MSG_DEBUG, "buf %s", buf);
 	}
 	else if( os_strcasecmp(cmd, "rssi") == 0 ) {
@@ -436,7 +427,6 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 				os_memcpy( (void *)buf, (void *)ssid, len );
 				ret = len;
 				ret += sprintf(&buf[ret], " rssi %d\n", rssi_beacon);
-				buf[ret]='\0';
 				wpa_printf(MSG_DEBUG, "buf %s", buf);
 			}
 			else
@@ -466,7 +456,6 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 		ret = wpa_driver_tista_config_power_management( priv, &tMode, 0 );
 		if( ret == 0 ) {
 			ret = sprintf(buf, "powermode = %u\n", tMode.PowerMode);
-			buf[ret]='\0';
 			wpa_printf(MSG_DEBUG, "buf %s", buf);
 		}
 	}
@@ -487,7 +476,6 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 		ret = wpa_driver_tista_get_bt_coe_status( priv, &status );
 		if( ret == 0 ) {
 			ret = sprintf(buf, "btcoexstatus = 0x%x\n", status);
-			buf[ret]='\0';
 			wpa_printf(MSG_DEBUG, "buf %s", buf);
 		}
 	}
@@ -504,8 +492,6 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 
 	return ret;
 }
-#endif
-
 
 /**
  * wpa_driver_tista_init - Initialize WE driver interface
@@ -537,7 +523,6 @@ void * wpa_driver_tista_init(void *ctx, const char *ifname)
 		return NULL;
 	}
 
-#ifdef TI_WLAN_WILINK_6_SUPPORT
 	/* Signal that driver is not loaded yet */
 	drv->driver_is_loaded = TRUE;
 
@@ -552,7 +537,6 @@ void * wpa_driver_tista_init(void *ctx, const char *ifname)
 
 	/* BtCoex mode is read from tiwlan.ini file */
 	drv->btcoex_mode = 0; /* SG_DISABLE */
-#endif
 	return drv;
 }
 

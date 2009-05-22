@@ -1028,28 +1028,28 @@ static void drvMain_GetFileCb (TI_HANDLE hDrvMain)
  */ 
 static void drvMain_InitLocals (TDrvMain *pDrvMain)
 {
-    /* Initialize the module's local varniables to default values */
-    pDrvMain->tFileInfo.eFileType   = FILE_TYPE_INI;
-    pDrvMain->tFileInfo.fCbFunc     = drvMain_GetFileCb;
-    pDrvMain->tFileInfo.hCbHndl     = (TI_HANDLE)pDrvMain;
-    pDrvMain->eSmState              = SM_STATE_IDLE;
-    pDrvMain->uPendingEventsCount   = 0;
-    pDrvMain->bRecovery             = TI_FALSE; 
-    pDrvMain->eAction               = ACTION_TYPE_NONE; 
+	/* Initialize the module's local varniables to default values */
+	pDrvMain->tFileInfo.eFileType   = FILE_TYPE_INI;
+	pDrvMain->tFileInfo.fCbFunc     = drvMain_GetFileCb;
+	pDrvMain->tFileInfo.hCbHndl     = (TI_HANDLE)pDrvMain;
+	pDrvMain->eSmState              = SM_STATE_IDLE;
+	pDrvMain->uPendingEventsCount   = 0;
+	pDrvMain->bRecovery             = TI_FALSE;
+	pDrvMain->eAction               = ACTION_TYPE_NONE;
 
-    /* Register the Action callback to the context engine and get the client ID */
-    pDrvMain->uContextId = context_RegisterClient (pDrvMain->tStadHandles.hContext,
+	/* Register the Action callback to the context engine and get the client ID */
+	pDrvMain->uContextId = context_RegisterClient (pDrvMain->tStadHandles.hContext,
                                                    drvMain_InvokeAction,
                                                    (TI_HANDLE)pDrvMain,
                                                    TI_TRUE,
                                                    "ACTION",
                                                    sizeof("ACTION"));
 
-    /* Platform specific HW preparations */
-   	hPlatform_Wlan_Hardware_Init ();
+	/* Platform specific HW preparations */
+	hPlatform_Wlan_Hardware_Init(pDrvMain->tStadHandles.hOs);
 
-    /* Insure that device power is off (expected to be) */
-    hPlatform_DevicePowerOff ();
+	/* Insure that device power is off (expected to be) */
+	hPlatform_DevicePowerOff();
 }
 
 

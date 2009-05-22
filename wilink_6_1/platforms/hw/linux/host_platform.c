@@ -35,15 +35,99 @@
 #include <asm/io.h>
 #include <mach/tc.h>
 #include <linux/delay.h>
+#include <linux/platform_device.h>
+#include <linux/wifi_tiwlan.h>
 
 #include "host_platform.h"
 #include "ioctl_init.h"
 #include "WlanDrvIf.h"
 #include "Device1273.h"
 
+#define OS_API_MEM_ADDR		0x0000000
+#define OS_API_REG_ADDR		0x0300000
 
-#define OS_API_MEM_ADRR  	0x0000000
-#define OS_API_REG_ADRR  	0x300000
+static struct wifi_platform_data *wifi_control_data = NULL;
+static struct resource *wifi_irqres = NULL;
+
+static int wifi_probe( struct platform_device *pdev )
+{
+	struct wifi_platform_data *wifi_ctrl = (struct wifi_platform_data *)(pdev->dev.platform_data);
+
+	printk("%s\n", __FUNCTION__);
+	wifi_irqres = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "device_wifi_irq");
+	if (wifi_irqres) {
+		printk("wifi_irqres->start = %lu\n", (unsigned long)(wifi_irqres->start));
+		printk("wifi_irqres->flags = %lx\n", wifi_irqres->flags);
+	}
+
+	if( wifi_ctrl ) {
+		wifi_control_data = wifi_ctrl;
+		if( wifi_ctrl->set_power )
+			wifi_ctrl->set_power(1);	/* Power On */
+		if( wifi_ctrl->set_reset )
+			wifi_ctrl->set_reset(0);	/* Reset clear */
+		if( wifi_ctrl->set_carddetect )
+			wifi_ctrl->set_carddetect(1);	/* CardDetect (0->1) */
+	}
+	return 0;
+}
+											
+static int wifi_remove( struct platform_device *pdev )
+{
+	struct wifi_platform_data *wifi_ctrl = (struct wifi_platform_data *)(pdev->dev.platform_data);
+
+	printk("%s\n", __FUNCTION__);
+	if( wifi_ctrl ) {
+		if( wifi_ctrl->set_carddetect )
+			wifi_ctrl->set_carddetect(0);	/* CardDetect (1->0) */
+		if( wifi_ctrl->set_reset )
+			wifi_ctrl->set_reset(1);	/* Reset active */
+		if( wifi_ctrl->set_power )
+			wifi_ctrl->set_power(0);	/* Power Off */
+	}
+	return 0;
+}
+
+static struct platform_driver wifi_device = {
+	.probe          = wifi_probe,
+	.remove         = wifi_remove,
+	.suspend        = NULL,
+	.resume         = NULL,
+	.driver         = {
+		.name   = "device_wifi",
+	},
+};
+
+static int wifi_add_dev( void )
+{
+	printk("%s\n", __FUNCTION__);
+	return platform_driver_register( &wifi_device );
+}
+
+static void wifi_del_dev( void )
+{
+	printk("%s\n", __FUNCTION__);
+	platform_driver_unregister( &wifi_device );
+}
+
+int wifi_set_power( int on )
+{
+	printk("%s\n", __FUNCTION__);
+	if( wifi_control_data && wifi_control_data->set_power ) {
+		wifi_control_data->set_power(on);
+	}
+	return 0;
+}
+
+int wifi_set_reset( int on )
+{
+	printk("%s\n", __FUNCTION__);
+	if( wifi_control_data && wifi_control_data->set_reset ) {
+		wifi_control_data->set_reset(on);
+	}
+	return 0;
+}
+
 #if 0 /* needed for first time new host ramp*/ 
 static void dump_omap_registers(void);
 #endif
@@ -66,17 +150,6 @@ static void pad_config(unsigned long pad_addr, u32 andmask, u32 ormask)
 	iounmap(addr);
 }
 
-static int OMAP3430_TNETW_Power(int power_on)
-{
-	if (power_on) {
-		gpio_set_value(PMENA_GPIO, 1);
-	} else {
-		gpio_set_value(PMENA_GPIO, 0);
-	}
-
-	return 0;    
-}
-
 /*-----------------------------------------------------------------------------
 
 Routine Name:
@@ -91,49 +164,44 @@ Arguments:
 
         OsContext - our adapter context.
 
-
 Return Value:
 
         None
 
 -----------------------------------------------------------------------------*/
 
-int hPlatform_hardResetTnetw(void)
+int hPlatform_hardResetTnetw( void )
 {
 	int err;
 
-	/* Turn power OFF*/
-	if ((err = OMAP3430_TNETW_Power(0)) == 0) {
+	/* Turn power OFF */
+	if ((err = wifi_set_power(0)) == 0) {
 		mdelay(500);
 		/* Turn power ON*/
-		err = OMAP3430_TNETW_Power(1);
+		err = wifi_set_power(1);
 		mdelay(50);
 	}
 	return err;
 } /* hPlatform_hardResetTnetw() */
 
 /* Turn device power off */
-int hPlatform_DevicePowerOff (void)
+int hPlatform_DevicePowerOff( void )
 {
 	int err;
 
-	err = OMAP3430_TNETW_Power(0);
-
+	err = wifi_set_power(0);
 	mdelay(10);
-
 	return err;
 }
 
 /* Turn device power on */
-int hPlatform_DevicePowerOn (void)
+int hPlatform_DevicePowerOn( void )
 {
 	int err;
 
-	err = OMAP3430_TNETW_Power(1);
-
+	err = wifi_set_power(1);
 	/* Should not be changed, 50 msec cause failures */
 	mdelay(70);
-
 	return err;
 }
 
@@ -143,8 +211,7 @@ int hPlatform_Wlan_Hardware_Init(void *tnet_drv)
 {
 	TWlanDrvIfObj *drv = tnet_drv;
 
-	drv->irq = TNETW_IRQ;
-
+	printk("%s\n", __FUNCTION__);
 	/* choose gpio 101, pull up */
 	/* Setting MUX Mode 4 , Pull bits 0 */
 	/* Should set (x is don't change):	xxxx xxxx xxxx xxxx xxxx xxxx xxx1 1000 */
@@ -183,6 +250,16 @@ int hPlatform_Wlan_Hardware_Init(void *tnet_drv)
 #if 0 /* needed for first time new host ramp*/
 	dump_omap_registers();
 #endif
+	wifi_add_dev();
+	if (wifi_irqres) {
+		drv->irq = wifi_irqres->start;
+		drv->irq_flags = wifi_irqres->flags & IRQF_TRIGGER_MASK;
+	}
+	else {
+		drv->irq = TNETW_IRQ;
+		drv->irq_flags = (unsigned long)IRQF_TRIGGER_FALLING;
+	}
+	printk("%s: After wifi_add_dev()\n", __func__);
 	return 0;
 }
 
@@ -200,24 +277,24 @@ Arguments:
 
         tnet_drv - Golbal Tnet driver pointer.
 
-
 Return Value:
 
         status
 
 -----------------------------------------------------------------------------*/
 
-int hPlatform_initInterrupt(void *tnet_drv, void* handle_add)
+int hPlatform_initInterrupt( void *tnet_drv, void* handle_add )
 {
 	TWlanDrvIfObj *drv = tnet_drv;
 	int rc;
-
+	
 	if (drv->irq == 0 || handle_add == NULL)
 	{
 		print_err("hPlatform_initInterrupt() bad param drv->irq=%d handle_add=0x%x !!!\n",drv->irq,(int)handle_add);
 		return -EINVAL;
 	}
-	if ((rc = request_irq(drv->irq, handle_add, IRQF_TRIGGER_FALLING, drv->netdev->name, drv)))
+	printk("drv->irq = %u, %lx\n", drv->irq, drv->irq_flags);
+	if ((rc = request_irq(drv->irq, handle_add, drv->irq_flags, drv->netdev->name, drv)))
 	{
 		print_err("TIWLAN: Failed to register interrupt handler\n");
 		return rc;
@@ -228,7 +305,7 @@ int hPlatform_initInterrupt(void *tnet_drv, void* handle_add)
 
 /*--------------------------------------------------------------------------------------*/
 
-void hPlatform_freeInterrupt(void *tnet_drv)
+void hPlatform_freeInterrupt( void *tnet_drv )
 {
 	TWlanDrvIfObj *drv = tnet_drv;
 
@@ -248,7 +325,7 @@ NOTES:
 *****************************************************************************************/
 void *hPlatform_hwGetRegistersAddr(TI_HANDLE OsContext)
 {
-	return (void*)OS_API_REG_ADRR;
+	return (void *)OS_API_REG_ADDR;
 }
 
 /****************************************************************************************
@@ -264,12 +341,13 @@ NOTES:
 *****************************************************************************************/
 void *hPlatform_hwGetMemoryAddr(TI_HANDLE OsContext)
 {
-	return (void*)OS_API_MEM_ADRR;
+	return (void *)OS_API_MEM_ADDR;
 }
 
 
 void hPlatform_Wlan_Hardware_DeInit(void)
 {
+	wifi_del_dev();
 }
 
 #if 0/* needed for first time new host ramp*/

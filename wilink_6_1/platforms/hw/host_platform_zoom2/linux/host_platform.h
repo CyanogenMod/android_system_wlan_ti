@@ -89,10 +89,10 @@ hPlatform_hwGetMemoryAddr(
     TI_HANDLE OsContext
     );
 
-void hPlatform_freeInterrupt(void);
+void hPlatform_freeInterrupt(void *tnet_drv);
 
 int  hPlatform_hardResetTnetw(void);
-int  hPlatform_Wlan_Hardware_Init(void);
+int  hPlatform_Wlan_Hardware_Init(void *tnet_drv);
 void hPlatform_Wlan_Hardware_DeInit(void);
 int  hPlatform_DevicePowerOff(void);
 int  hPlatform_DevicePowerOn(void);

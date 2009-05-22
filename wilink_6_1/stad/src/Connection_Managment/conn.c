@@ -92,18 +92,19 @@ RETURN:     Handle to the connection module on success, NULL otherwise
 ************************************************************************/
 TI_HANDLE conn_create(TI_HANDLE hOs)
 {
-	conn_t			   *pConn;
+	conn_t *pConn;
 	fsm_stateMachine_t *pFsm;
 	TI_STATUS status;
 
 	pConn = os_memoryAlloc(hOs, sizeof(conn_t));
 	if (pConn == NULL)
-    {
+	{
 		return NULL;
-    }
+	}
 	
+	os_memoryZero(hOs, (void *)pConn, sizeof(conn_t));
 	/* Creating connection Ibss SM */
-    status = fsm_Create(hOs, &pFsm, CONN_IBSS_NUM_STATES, CONN_IBSS_NUM_EVENTS);
+	status = fsm_Create(hOs, &pFsm, CONN_IBSS_NUM_STATES, CONN_IBSS_NUM_EVENTS);
 	if (status != TI_OK)
 	{
 		release_module(pConn);
@@ -111,7 +112,7 @@ TI_HANDLE conn_create(TI_HANDLE hOs)
 	}
 	pConn->ibss_pFsm = pFsm;
 
-    /* Creating connection Infra SM */
+	/* Creating connection Infra SM */
    	status = fsm_Create(hOs, &pFsm, CONN_INFRA_NUM_STATES, CONN_INFRA_NUM_EVENTS);
 	if (status != TI_OK)
 	{
@@ -652,19 +653,19 @@ RETURN:     void
 static void release_module(conn_t *pConn)
 {
 	if (pConn->ibss_pFsm)
-    {
+	{
 		fsm_Unload (pConn->hOs, pConn->ibss_pFsm);
-    }
+	}
 
-    if (pConn->infra_pFsm)
-    {
+	if (pConn->infra_pFsm)
+	{
 		fsm_Unload (pConn->hOs, pConn->infra_pFsm);
-    }
+	}
 
 	if (pConn->hConnTimer)
-    {
+	{
 		tmr_DestroyTimer (pConn->hConnTimer);
-    }
+	}
 
 	os_memoryFree(pConn->hOs, pConn, sizeof(conn_t));
 }
@@ -682,7 +683,7 @@ static void conn_DisconnectComplete (conn_t *pConn, TI_UINT8  *data, TI_UINT8   
 	case CONNECTION_INFRA:
 		connInfra_DisconnectComplete(pConn, data, dataLength);
 
-    default:
+	default:
 		TRACE1(pConn->hReport, REPORT_SEVERITY_ERROR, "conn_DisconnectComplete, invalid type %d\n\n", pConn->currentConnType);
 		
 	}
