@@ -6,8 +6,8 @@ TNETW_INCS = \
     $(PLATFORMS)/os/common/inc \
     $(PLATFORMS)/os/linux/src \
     $(PLATFORMS)/os/linux/inc \
-    $(PLATFORMS)/hw/host_platform_$(HOST_PLATFORM) \
-    $(EXT_DRV)/$(HOST_PLATFORM)/Linux/$(BUS_DRV) \
+    $(PLATFORMS)/hw/linux \
+    $(EXT_DRV)/$(BUS_DRV)/linux \
     $(EXT_APP)/Linux/bmtrace/Export_Inc \
     $(TWD) \
     $(TWD)/Ctrl \
