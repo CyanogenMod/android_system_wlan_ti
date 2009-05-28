@@ -131,6 +131,8 @@ int wifi_set_reset( int on )
 #if 0 /* needed for first time new host ramp*/ 
 static void dump_omap_registers(void);
 #endif
+
+#if 0
 static void pad_config(unsigned long pad_addr, u32 andmask, u32 ormask)
 {
 	int val;
@@ -149,6 +151,7 @@ static void pad_config(unsigned long pad_addr, u32 andmask, u32 ormask)
 
 	iounmap(addr);
 }
+#endif
 
 /*-----------------------------------------------------------------------------
 
@@ -210,8 +213,44 @@ int hPlatform_DevicePowerOn( void )
 int hPlatform_Wlan_Hardware_Init(void *tnet_drv)
 {
 	TWlanDrvIfObj *drv = tnet_drv;
+	int val = 0;
 
 	printk("%s\n", __FUNCTION__);
+
+        /* WLAN_RESET  @ 0x480021E0 */
+#define CONTROL_PADCONF_SYS_CLKOUT2	0x480021E0
+        val= omap_readl(CONTROL_PADCONF_SYS_CLKOUT2);
+        val &=0xFFE4FFFF;
+        val |=0x40000;
+        omap_writel(val, CONTROL_PADCONF_SYS_CLKOUT2);
+
+        /* WLAN_HOST_WAKE  @ 0x480020D0 */
+#define CONTROL_PADCONF_GPMC_WAIT3	0x480020D0
+        val= omap_readl(CONTROL_PADCONF_GPMC_WAIT3);
+        val &=0xFFFCFFFF;
+        val |=0x011C0000;  // ON mode value
+	omap_writel(val,CONTROL_PADCONF_GPMC_WAIT3);
+
+	/* MMC2 CLK/ CMD @ 0x48002158 */
+#define CONTROL_PADCONF_MMC2_CLK	0x48002158
+	val= omap_readl(CONTROL_PADCONF_MMC2_CLK);
+	val &=0xFFF8FFFF;
+	val |=0x01180110;
+
+	/* MMC2 DATA 0 @ 0x4800215C */
+#define CONTROL_PADCONF_MMC2_DAT0	0x4800215C
+	val= omap_readl(CONTROL_PADCONF_MMC2_DAT0);
+	val &=0xFFF8FFF8;
+	val |=0x01180118;
+	omap_writel(val,CONTROL_PADCONF_MMC2_DAT0);
+
+	/* MMC2 DATA 2 @ 0x48002160 */
+#define CONTROL_PADCONF_MMC2_DAT2	0x48002160
+	val= omap_readl(CONTROL_PADCONF_MMC2_DAT2);
+	val &=0xFFF8FFF8;
+	val |=0x01180118;
+	omap_writel(val,CONTROL_PADCONF_MMC2_DAT2);
+#if 0
 	/* choose gpio 101, pull up */
 	/* Setting MUX Mode 4 , Pull bits 0 */
 	/* Should set (x is don't change):	xxxx xxxx xxxx xxxx xxxx xxxx xxx1 1000 */
@@ -221,7 +260,6 @@ int hPlatform_Wlan_Hardware_Init(void *tnet_drv)
 	/* Setting MUX Mode 4 , Pull bits 3 */
 	/* Should set (x is don't change):	xxxx xxxx xxxx xxxx xxxx xxxx xxx1 1100 */
 	pad_config(CONTROL_PADCONF_MCBSP1_CLKX, 0xFFFFFFF0, 0x0000011C);
-	
 	/*
 	  * set pull up on all SDIO lines
 	  * Setting MUX Mode of 0, and pull bits to 3
@@ -241,12 +279,13 @@ int hPlatform_Wlan_Hardware_Init(void *tnet_drv)
 	pad_config(CONTROL_PADCONF_MMC3_DAT2, 0xFFFFFFF0, 0x0000011A);
 
 	pad_config(CONTROL_PADCONF_MMC3_DAT3, 0xFFF0FFFF, 0x011A0000);
-	
+
 #define CONTROL_PADCONF_MMC2_DAT4       0x48002164    /* set AE4 to mmc2_dat4  set AH3 to mmc2_dat5 */
 	pad_config(CONTROL_PADCONF_MMC2_DAT4, 0xFFF0FFF0, 0x00180018);
 	
 #define CONTROL_PADCONF_MMC2_DAT6       0x48002168    /* set AF3 to mmc2_dat6  set AE3 to mmc2_dat7 */
 	pad_config(CONTROL_PADCONF_MMC2_DAT6, 0xFFF0FFF0, 0x00180018);
+#endif
 #if 0 /* needed for first time new host ramp*/
 	dump_omap_registers();
 #endif

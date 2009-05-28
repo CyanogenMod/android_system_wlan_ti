@@ -959,14 +959,18 @@ static void wlanDrvIf_Destroy (TWlanDrvIfObj *drv)
  * \sa     wlanDrvIf_Create, wlanDrvIf_Destroy
  */ 
 #ifndef TI_SDIO_STANDALONE
-extern int sdioDrv_init(void);
+static int sdc_ctrl = 2;
+module_param(sdc_ctrl, int, S_IRUGO | S_IWUSR | S_IWGRP);
+
+extern int sdioDrv_init(int sdcnum);
 extern void sdioDrv_exit(void);
 #endif
+
 static int __init wlanDrvIf_ModuleInit (void)
 {
     printk(KERN_INFO "TIWLAN: driver init\n");
 #ifndef TI_SDIO_STANDALONE
-    sdioDrv_init();
+    sdioDrv_init(sdc_ctrl);
 #endif
     return wlanDrvIf_Create ();
 }
@@ -979,7 +983,6 @@ static void __exit wlanDrvIf_ModuleExit (void)
 #endif
     printk (KERN_INFO "TI WLAN: driver unloaded\n");
 }
-
 
 module_init (wlanDrvIf_ModuleInit);
 module_exit (wlanDrvIf_ModuleExit);

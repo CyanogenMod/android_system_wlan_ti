@@ -46,9 +46,11 @@
 
 //OMAP343X_CTRL_BASE =  0x48002000
 
+#define OMAP_HSMMC1_BASE		0x4809C000
+#define OMAP_HSMMC2_BASE		0x480B4000
+#define OMAP_HSMMC3_BASE		0x480AD000
 
-#define OMAP_HSMMC3_BASE		0x480AD000	//0x480b4000
-
+#if 0
 #define CONTROL_PADCONF_CAM_D1		0x48002118	/* WLAN_EN */
 #define CONTROL_PADCONF_MCBSP1_CLKX	0x48002198	/* WLAN_IRQ */
 
@@ -58,15 +60,15 @@
 #define CONTROL_PADCONF_MMC3_DAT0	0x480025E4	/* mmc3_dat0, mmc3_dat1 */
 #define CONTROL_PADCONF_MMC3_DAT2	0x480025E8	/* mmc3_dat2 */
 #define CONTROL_PADCONF_MMC3_DAT3	0x480025E0	/* mmc3_dat3 */
+#endif
 
+#define INT_MMC2_IRQ			86
 #define INT_MMC3_IRQ			94
 
 #define PMENA_GPIO                      101
 #define IRQ_GPIO                        162
 
-//#include <asm/arch/hardware.h>
-
-#define MUXMODE_3                       3
+//#define MUXMODE_3                       3
 #define TNETW_IRQ                       (OMAP_GPIO_IRQ(IRQ_GPIO))
 #define TIWLAN_IRQ_POLL_INTERVAL	HZ/100
 #define HZ_IN_MSEC			HZ/1000
