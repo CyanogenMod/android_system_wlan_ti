@@ -19,10 +19,8 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
-#include <mach/io.h>
 #include <linux/types.h>
 #include <linux/dma-mapping.h>
-#include <mach/hardware.h>
 #include <linux/platform_device.h>
 #include <mach/hardware.h>
 #include <linux/i2c/twl4030.h>
@@ -175,7 +173,7 @@ static unsigned long OMAP_MMC_IRQ = INT_MMC3_IRQ;
 #define SDIO_CMD53_READ(v1,v2,v3,v4,v5,v6)  (SDIO_RWFLAG(v1)|SDIO_FUNCN(v2)|SDIO_BLKM(v3)| SDIO_OPCODE(v4)|SDIO_ADDRREG(v5)|(v6&0x1ff))
 #define SDIO_CMD53_WRITE(v1,v2,v3,v4,v5,v6) (SDIO_RWFLAG(v1)|SDIO_FUNCN(v2)|SDIO_BLKM(v3)| SDIO_OPCODE(v4)|SDIO_ADDRREG(v5)|(v6&0x1ff))
 
-#define SDIODRV_MAX_LOOPS 50000
+#define SDIODRV_MAX_LOOPS	50000
 
 /* Dm: Tmp #define CONFIG_OMAP3_PM */
 #if defined(CONFIG_OMAP3_PM)
@@ -225,8 +223,8 @@ typedef struct OMAP3430_sdiodrv
 
 module_param(g_sdio_debug_level, int, 0644);
 MODULE_PARM_DESC(g_sdio_debug_level, "debug level");
-int g_sdio_debug_level = SDIO_DEBUGLEVEL_ERR;
-EXPORT_SYMBOL( g_sdio_debug_level);
+int g_sdio_debug_level = SDIO_DEBUGLEVEL_DEBUG;
+EXPORT_SYMBOL(g_sdio_debug_level);
 
 OMAP3430_sdiodrv_t g_drv;
 
@@ -365,19 +363,20 @@ void sdiodrv_dma_shutdown(void)
 
 static u32 sdiodrv_poll_status(u32 reg_offset, u32 stat, unsigned int msecs)
 {
-    u32 status=0, loops=0;
+	u32 status=0, loops=0;
 
 	do
-    {
-	    status=OMAP_HSMMC_READ_OFFSET(reg_offset);
-	    if(( status & stat))
+	{
+		status = OMAP_HSMMC_READ_OFFSET(reg_offset);
+		if(( status & stat))
 		{
-		  break;
+			break;
 		}
 	} while (loops++ < SDIODRV_MAX_LOOPS);
 
 	return status;
 } /* sdiodrv_poll_status */
+
 void dumpreg(void)
 {
 	printk(KERN_ERR "\n MMCHS_SYSCONFIG   for mmc3 = %x  ", omap_readl( 0x480AD010 ));
@@ -408,7 +407,7 @@ void dumpreg(void)
 //cmd flow p. 3609 obc
 static int sdiodrv_send_command(u32 cmdreg, u32 cmdarg)
 {
-    OMAP_HSMMC_WRITE(STAT, OMAP_HSMMC_STAT_CLEAR);
+	OMAP_HSMMC_WRITE(STAT, OMAP_HSMMC_STAT_CLEAR);
 	OMAP_HSMMC_SEND_COMMAND(cmdreg, cmdarg);
 
 	return sdiodrv_poll_status(OMAP_HSMMC_STAT, CC, MMC_TIMEOUT_MS);
@@ -673,7 +672,7 @@ int sdioDrv_ExecuteCmd (unsigned int uCmd,
 	uStatus = sdiodrv_send_command(uCmdReg, uArg);
 
 	if (!(uStatus & CC)) 
-    {
+	{
 	    PERR("sdioDrv_ExecuteCmd() SDIO Command error status = 0x%x\n", uStatus);
 	    return -1;
 	}
@@ -997,13 +996,14 @@ int sdioDrv_acquire_clk(void)
         if(sdiodrv_iclk_ena && sdiodrv_fclk_ena && sdiodrv_fclk_got && sdiodrv_iclk_got)
                 return -1;
 
-    adhoc_mmc3.name = SDIO_DRIVER_NAME;
-    adhoc_mmc3.id = TIWLAN_MMC_CONTROLLER;
-    adhoc_mmc3.dev.bus = &platform_bus_type;
-    adhoc_mmc3.num_resources = 0;
-    adhoc_mmc3.resource = NULL;
+	printk("%s\n", __FUNCTION__);
+	adhoc_mmc3.name = SDIO_DRIVER_NAME;
+	adhoc_mmc3.id = TIWLAN_MMC_CONTROLLER;
+	adhoc_mmc3.dev.bus = &platform_bus_type;
+	adhoc_mmc3.num_resources = 0;
+	adhoc_mmc3.resource = NULL;
 
-    pdev = (struct platform_device*)(&adhoc_mmc3);
+	pdev = (struct platform_device*)(&adhoc_mmc3);
 
 	/* remember device struct for future DMA operations */
 	g_drv.dev = &pdev->dev;
@@ -1039,6 +1039,12 @@ int sdioDrv_acquire_clk(void)
 	sdiodrv_fclk_ena = 1;
 #ifdef CONFIG_OMAP3_PM /* Dm: Tmp */
 	omap3430_sdio_cnstr = constraint_get("sdio", &cnstr_id);
+#endif
+#if 0
+#define OMAP2_CONTROL_DEVCONF1	0x480022D8
+	omap_writel( (omap_readl(OMAP2_CONTROL_DEVCONF1) | (1 << 6)),OMAP2_CONTROL_DEVCONF1);
+	printk("%s: OMAP2_CONTROL_DEVCONF1 = 0x%lx\n", __FUNCTION__,
+		(unsigned long)omap_readl(OMAP2_CONTROL_DEVCONF1));
 #endif
 	OMAP3430_mmc_reset();
 

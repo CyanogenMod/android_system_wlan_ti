@@ -65,10 +65,16 @@
 #define INT_MMC2_IRQ			86
 #define INT_MMC3_IRQ			94
 
+/* Zoom2 */
 #define PMENA_GPIO                      101
 #define IRQ_GPIO                        162
 
-//#define MUXMODE_3                       3
+/* Sholes */
+/*
+#define PMENA_GPIO                      186
+#define IRQ_GPIO                        65
+*/
+
 #define TNETW_IRQ                       (OMAP_GPIO_IRQ(IRQ_GPIO))
 #define TIWLAN_IRQ_POLL_INTERVAL	HZ/100
 #define HZ_IN_MSEC			HZ/1000

@@ -112,65 +112,30 @@ static void wifi_del_dev( void )
 
 int wifi_set_power( int on )
 {
-	printk("%s\n", __FUNCTION__);
+	printk("%s = %d\n", __FUNCTION__, on);
 	if( wifi_control_data && wifi_control_data->set_power ) {
 		wifi_control_data->set_power(on);
+	}
+	else {
+		gpio_set_value(PMENA_GPIO, on);
 	}
 	return 0;
 }
 
 int wifi_set_reset( int on )
 {
-	printk("%s\n", __FUNCTION__);
+	printk("%s = %d\n", __FUNCTION__, on);
 	if( wifi_control_data && wifi_control_data->set_reset ) {
 		wifi_control_data->set_reset(on);
 	}
 	return 0;
 }
 
-#if 0 /* needed for first time new host ramp*/ 
-static void dump_omap_registers(void);
-#endif
-
-#if 0
-static void pad_config(unsigned long pad_addr, u32 andmask, u32 ormask)
-{
-	int val;
-	u32 *addr;
-
-	addr = (u32 *) ioremap(pad_addr, 4);
-	if (!addr) {
-		printk(KERN_ERR "OMAP3430_pad_config: ioremap failed with addr %lx\n", pad_addr);
-		return;
-	}
-
-	val =  __raw_readl(addr);
-	val &= andmask;
-	val |= ormask;
-	__raw_writel(val, addr);
-
-	iounmap(addr);
-}
-#endif
-
 /*-----------------------------------------------------------------------------
-
-Routine Name:
-
-        hPlatform_hardResetTnetw
-
-Routine Description:
-
-        set the GPIO to low after awaking the TNET from ELP.
-
-Arguments:
-
-        OsContext - our adapter context.
-
-Return Value:
-
-        None
-
+Routine Name: hPlatform_hardResetTnetw
+Routine Description: set the GPIO to low after awaking the TNET from ELP.
+Arguments: None
+Return Value: 0 - Ok
 -----------------------------------------------------------------------------*/
 
 int hPlatform_hardResetTnetw( void )
@@ -208,87 +173,13 @@ int hPlatform_DevicePowerOn( void )
 	return err;
 }
 
-/*--------------------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
 
 int hPlatform_Wlan_Hardware_Init(void *tnet_drv)
 {
 	TWlanDrvIfObj *drv = tnet_drv;
-	int val = 0;
 
 	printk("%s\n", __FUNCTION__);
-
-        /* WLAN_RESET  @ 0x480021E0 */
-#define CONTROL_PADCONF_SYS_CLKOUT2	0x480021E0
-        val= omap_readl(CONTROL_PADCONF_SYS_CLKOUT2);
-        val &=0xFFE4FFFF;
-        val |=0x40000;
-        omap_writel(val, CONTROL_PADCONF_SYS_CLKOUT2);
-
-        /* WLAN_HOST_WAKE  @ 0x480020D0 */
-#define CONTROL_PADCONF_GPMC_WAIT3	0x480020D0
-        val= omap_readl(CONTROL_PADCONF_GPMC_WAIT3);
-        val &=0xFFFCFFFF;
-        val |=0x011C0000;  // ON mode value
-	omap_writel(val,CONTROL_PADCONF_GPMC_WAIT3);
-
-	/* MMC2 CLK/ CMD @ 0x48002158 */
-#define CONTROL_PADCONF_MMC2_CLK	0x48002158
-	val= omap_readl(CONTROL_PADCONF_MMC2_CLK);
-	val &=0xFFF8FFFF;
-	val |=0x01180110;
-
-	/* MMC2 DATA 0 @ 0x4800215C */
-#define CONTROL_PADCONF_MMC2_DAT0	0x4800215C
-	val= omap_readl(CONTROL_PADCONF_MMC2_DAT0);
-	val &=0xFFF8FFF8;
-	val |=0x01180118;
-	omap_writel(val,CONTROL_PADCONF_MMC2_DAT0);
-
-	/* MMC2 DATA 2 @ 0x48002160 */
-#define CONTROL_PADCONF_MMC2_DAT2	0x48002160
-	val= omap_readl(CONTROL_PADCONF_MMC2_DAT2);
-	val &=0xFFF8FFF8;
-	val |=0x01180118;
-	omap_writel(val,CONTROL_PADCONF_MMC2_DAT2);
-#if 0
-	/* choose gpio 101, pull up */
-	/* Setting MUX Mode 4 , Pull bits 0 */
-	/* Should set (x is don't change):	xxxx xxxx xxxx xxxx xxxx xxxx xxx1 1000 */
-	pad_config(CONTROL_PADCONF_CAM_D1, 0xFFE0FFFF, 0x001C0000);
-
-	/* choose gpio 162, pull up, activated */
-	/* Setting MUX Mode 4 , Pull bits 3 */
-	/* Should set (x is don't change):	xxxx xxxx xxxx xxxx xxxx xxxx xxx1 1100 */
-	pad_config(CONTROL_PADCONF_MCBSP1_CLKX, 0xFFFFFFF0, 0x0000011C);
-	/*
-	  * set pull up on all SDIO lines
-	  * Setting MUX Mode of 0, and pull bits to 3
-	  */
-
-	/* set for mmc2_cmd - second half of the padconf register
-	  * Should set (x is don't change):  xxxx xxxx xxx1 1000 xxxx xxxx xxxx xxxx */
-	pad_config(CONTROL_PADCONF_MMC3_CMD, 0xFFFFFFF0, 0x0000011B);
-
-	pad_config(CONTROL_PADCONF_MMC3_CLK, 0xFFF0FFE0,0x001C011A);
-
-	
-	/* set for mmc3_dat0 and dat1 - both parts of the padconf register
-	  * Should set (x is don't change):  xxxx xxxx xxx1 1000 xxxx xxxx xxx1 1000 */
-	pad_config(CONTROL_PADCONF_MMC3_DAT0, 0xFFF0FFF0, 0x011A011A);
-
-	pad_config(CONTROL_PADCONF_MMC3_DAT2, 0xFFFFFFF0, 0x0000011A);
-
-	pad_config(CONTROL_PADCONF_MMC3_DAT3, 0xFFF0FFFF, 0x011A0000);
-
-#define CONTROL_PADCONF_MMC2_DAT4       0x48002164    /* set AE4 to mmc2_dat4  set AH3 to mmc2_dat5 */
-	pad_config(CONTROL_PADCONF_MMC2_DAT4, 0xFFF0FFF0, 0x00180018);
-	
-#define CONTROL_PADCONF_MMC2_DAT6       0x48002168    /* set AF3 to mmc2_dat6  set AE3 to mmc2_dat7 */
-	pad_config(CONTROL_PADCONF_MMC2_DAT6, 0xFFF0FFF0, 0x00180018);
-#endif
-#if 0 /* needed for first time new host ramp*/
-	dump_omap_registers();
-#endif
 	wifi_add_dev();
 	if (wifi_irqres) {
 		drv->irq = wifi_irqres->start;
@@ -298,7 +189,6 @@ int hPlatform_Wlan_Hardware_Init(void *tnet_drv)
 		drv->irq = TNETW_IRQ;
 		drv->irq_flags = (unsigned long)IRQF_TRIGGER_FALLING;
 	}
-	printk("%s: After wifi_add_dev()\n", __func__);
 	return 0;
 }
 
@@ -388,24 +278,3 @@ void hPlatform_Wlan_Hardware_DeInit(void)
 {
 	wifi_del_dev();
 }
-
-#if 0/* needed for first time new host ramp*/
-static void dump_omap_registers(void)
-{
-	printk(KERN_ERR "AE10 which is 0x%x= 0x%x\n", CONTROL_PADCONF_MMC3_CMD, omap_readl( CONTROL_PADCONF_MMC3_CMD ));
-	printk(KERN_ERR "AC3 which is addr 0x480021D0=%x\n", omap_readl( 0x480021D0 ));
-
-	printk(KERN_ERR "DAT0 addr 0x%x value is =%x\n", CONTROL_PADCONF_MMC3_DAT0, omap_readl( CONTROL_PADCONF_MMC3_DAT0 ));
-	printk(KERN_ERR "DAT2 addr 0x%x value is =%x\n", CONTROL_PADCONF_MMC3_DAT2, omap_readl( CONTROL_PADCONF_MMC3_DAT2 ));
-	printk(KERN_ERR "DAT3 addr 0x%x value is =%x\n", CONTROL_PADCONF_MMC3_DAT3, omap_readl( CONTROL_PADCONF_MMC3_DAT3 ));
-	printk(KERN_ERR "DAT4 addr 0x%x value is =%x\n", CONTROL_PADCONF_MMC2_DAT4, omap_readl( CONTROL_PADCONF_MMC2_DAT4 ));
-	printk(KERN_ERR "DAT6 addr 0x%x value is =%x\n", CONTROL_PADCONF_MMC2_DAT6, omap_readl( CONTROL_PADCONF_MMC2_DAT6 ));
-	printk(KERN_ERR "CAM_D1 addr 0x%x value is =%x\n", CONTROL_PADCONF_CAM_D1, omap_readl( CONTROL_PADCONF_CAM_D1 ));
-	printk(KERN_ERR "MCBSP1_CLKX addr 0x%x value is =%x\n", CONTROL_PADCONF_MCBSP1_CLKX, omap_readl( CONTROL_PADCONF_MCBSP1_CLKX ));
-	printk(KERN_ERR "CMD addr 0x%x value is =%x\n", CONTROL_PADCONF_MMC3_CMD, omap_readl( CONTROL_PADCONF_MMC3_CMD ));
-	printk(KERN_ERR "MCBSP1_CLKX addr 0x%x value is =%x\n", CONTROL_PADCONF_MCBSP1_CLKX, omap_readl( CONTROL_PADCONF_MCBSP1_CLKX ));
-	printk(KERN_ERR "CLK MCBSP1_CLKX addr 0x%x value is =%x\n", CONTROL_PADCONF_MMC3_CLK, omap_readl( CONTROL_PADCONF_MMC3_CLK ));
-	printk(KERN_ERR "0x480021E0 value is =%x\n", omap_readl( 0x480021E0 ));
-	return;
-}
-#endif
