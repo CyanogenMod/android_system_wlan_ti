@@ -16,6 +16,12 @@
  */
 /*-------------------------------------------------------------------*/
 #ifdef TIWLAN_MSM7000
+#include <linux/mm.h>
+#include <linux/vmalloc.h>
+#include <linux/pagemap.h>
+#include <asm/pgtable.h>
+#include <asm/cacheflush.h>
+
 #include <linux/delay.h>
 #include <linux/mmc/core.h>
 #include <linux/mmc/card.h>
@@ -36,6 +42,7 @@ static int sdio_reset_flag = 0;
 
 #define DMA_THRESHOLD_SIZE  64
 static void *sdio_dma_ptr = NULL;
+#define USE_SKETCHY_WRITES 0
 
 /*-------------------------------------------------------------------*/
 void SDIO_SetFunc( struct sdio_func *func )
@@ -111,46 +118,84 @@ SDIO_Status SDIO_Stop(SDIO_Handle Handle, unsigned long Wait_Window)
 	return SDIO_Reset(Handle);
 }
 
+static inline int spans_page(void *s, int len)
+{
+	if (((unsigned long) s + len) <= ((((unsigned long) s) & ~(PAGE_SIZE-1)) + PAGE_SIZE))
+		return 0;
+	return 1;
+}
+
+static void *vmalloc_to_unity(void *a)
+{
+	pte_t *pte;
+	unsigned long virt = (unsigned long) a;
+	unsigned long phys;
+
+	pte = pte_offset_map(pmd_offset(pgd_offset_k(virt), virt), virt);
+	phys = (pte_val(*pte) & ~(PAGE_SIZE -1)) | (virt & (PAGE_SIZE -1));
+	pte_unmap(pte);
+	return phys_to_virt(phys);
+}
+
 SDIO_Status SDIO_SyncRead(SDIO_Handle Handle, SDIO_Request_t *Req)
 {
 	struct sdio_func *func = (struct sdio_func *)Handle;
 	int rc;
+	void *tgt = Req->buffer;
 
-	if (Req->buffer_len < DMA_THRESHOLD_SIZE) {
-		rc = sdio_memcpy_fromio(func, Req->buffer,
-					Req->peripheral_addr, Req->buffer_len);
-        } else {
-		rc = sdio_memcpy_fromio(func, sdio_dma_ptr,
-					Req->peripheral_addr, Req->buffer_len);
-		memcpy(Req->buffer, sdio_dma_ptr, Req->buffer_len);
+	if (Req->buffer_len >= DMA_THRESHOLD_SIZE) {
+		if (is_vmalloc_addr(tgt)) {
+			if (!spans_page(tgt, Req->buffer_len)) {
+				tgt = vmalloc_to_unity(tgt);
+				dmac_flush_range(Req->buffer,
+						 Req->buffer + Req->buffer_len);
+			} else
+				tgt = sdio_dma_ptr;
+		}
 	}
 
-	if (!rc)
-		return SDIO_SUCCESS;
+	if ((rc = sdio_memcpy_fromio(func, tgt, Req->peripheral_addr,
+				     Req->buffer_len))) {
+		printk(KERN_ERR "%s: failed (%d)\n", __func__, rc);
+		return SDIO_FAILURE;
+	}
 
-	printk("SDIO Write failure (%d)\n", rc);
-	return SDIO_FAILURE;
+	if (tgt == sdio_dma_ptr)
+		memcpy(Req->buffer, sdio_dma_ptr, Req->buffer_len);
+
+	return SDIO_SUCCESS;
 }
 
 SDIO_Status SDIO_SyncWrite(SDIO_Handle Handle, SDIO_Request_t *Req)
 {
 	struct sdio_func *func = (struct sdio_func *)Handle;
 	int rc;
-	void *dma_ptr;
+	void *src = Req->buffer;
 
-	if (Req->buffer_len < DMA_THRESHOLD_SIZE)
-		dma_ptr = Req->buffer;
-	else {
-		dma_ptr = sdio_dma_ptr;
-		memcpy(dma_ptr, Req->buffer, Req->buffer_len);
+	if (Req->buffer_len >= DMA_THRESHOLD_SIZE) {
+#if USE_SKETCHY_WRITES
+		if (is_vmalloc_addr(src)) {
+			if (!spans_page(src, Req->buffer_len)) {
+				src = vmalloc_to_unity(src);
+				dmac_clean_range(Req->buffer,
+						 Req->buffer + Req->buffer_len);
+			} else {
+#endif
+				src = sdio_dma_ptr;
+				memcpy(src, Req->buffer, Req->buffer_len);
+#if USE_SKETCHY_WRITES
+			}
+		}
+#endif
 	}
 
-	rc = sdio_memcpy_toio(func, Req->peripheral_addr, dma_ptr,
+	rc = sdio_memcpy_toio(func, Req->peripheral_addr, src,
 			      Req->buffer_len);
+
 	if (!rc)
 		return SDIO_SUCCESS;
 
-	printk("SDIO Write failure (%d)\n", rc);
+	printk(KERN_ERR "%s: failed (%d)\n", __func__, rc);
 	return SDIO_FAILURE;
 }
 #endif
