@@ -1344,7 +1344,7 @@ static void *wpa_driver_tista_init( void *priv, const char *ifname )
 
     wpa_printf(MSG_DEBUG,"driver events socket is 0x%x...",myDrv->driverEventsSocket);
 
-    /* Signal that driver is not loaded yet */
+    /* Signal that driver is not stopped */
     myDrv->driver_is_loaded = TRUE;
 
     /* Set default scan type */
