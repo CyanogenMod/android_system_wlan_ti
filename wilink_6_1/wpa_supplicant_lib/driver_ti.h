@@ -34,6 +34,7 @@
 #include "driver_wext.h"
 #include "wpa.h"
 #include "wpa_ctrl.h"
+#include "wpa_supplicant_i.h"
 
 #include "cu_ostypes.h"
 #include "STADExternalIf.h"

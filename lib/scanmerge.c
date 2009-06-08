@@ -178,3 +178,32 @@ unsigned int scan_merge( struct wpa_driver_ti_data *mydrv,
     }
     return( number_items );
 }
+
+/*-----------------------------------------------------------------------------
+Routine Name: scan_get_by_bssid
+Routine Description: Gets scan_result pointer to item by bssid
+Arguments:
+   mydrv   - pointer to private driver data structure
+   bssid   - pointer to bssid value
+Return Value: pointer to scan_result item
+-----------------------------------------------------------------------------*/
+struct wpa_scan_result *scan_get_by_bssid( struct wpa_driver_ti_data *mydrv,
+                         u8 *bssid )
+{
+    SHLIST *head = &(mydrv->scan_merge_list);
+    SHLIST *item;
+    struct wpa_scan_result *cur_res;
+
+    item = shListGetFirstItem( head );  /* Add/Remove missing items */
+    if( item == NULL )
+        return( NULL );
+    do {
+        cur_res =
+          (struct wpa_scan_result *)&(((scan_merge_t *)(item->data))->scanres);
+        if( !os_memcmp(cur_res->bssid, bssid, ETH_ALEN) )
+            return( cur_res );
+        item = shListGetNextItem( head, item );
+    } while( item != NULL );
+
+    return( NULL );
+}
