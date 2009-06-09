@@ -1544,7 +1544,6 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
         if( ret == OK ) {
             /* Signal that driver is not loaded yet */
             myDrv->driver_is_loaded = TRUE;
-            myDrv->scan_channels = check_and_get_build_channels();
             wpa_msg(myDrv->hWpaSupplicant, MSG_INFO, WPA_EVENT_DRIVER_STATE "STARTED");
         }
         else

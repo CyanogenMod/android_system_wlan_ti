@@ -25,16 +25,43 @@
 #include "includes.h"
 #include <sys/ioctl.h>
 #include <net/if_arp.h>
-
+#ifdef ANDROID
+#include <cutils/properties.h>
+#endif
 #include "driver_ti.h"
 #include "scanmerge.h"
 
+/*-------------------------------------------------------------------*/
 #define TI2WPA_STATUS(s)	(((s) != 0) ? -1 : 0)
 #define TI_CHECK_DRIVER(f,r)	\
 	if( !(f) ) { \
 		wpa_printf(MSG_ERROR,"TI: Driver not initialized yet"); \
 		return( r ); \
 	}
+
+/*-----------------------------------------------------------------------------
+Routine Name: check_and_get_build_channels
+Routine Description: get number of allowed channels according to a build var.
+Arguments: None
+Return Value: Number of channels
+-----------------------------------------------------------------------------*/
+static int check_and_get_build_channels( void )
+{
+#ifdef ANDROID
+    char prop_status[PROPERTY_VALUE_MAX];
+    char *prop_name = "ro.wifi.channels";
+    int i, default_channels = NUMBER_SCAN_CHANNELS_ETSI;
+
+    if( property_get(prop_name, prop_status, NULL) ) {
+        i = atoi(prop_status);
+        if( i != 0 )
+            default_channels = i;
+    }
+    return( default_channels );
+#else
+    return( NUMBER_SCAN_CHANNELS_FCC );
+#endif
+}
 
 static int wpa_driver_tista_cipher2wext(int cipher)
 {
@@ -176,6 +203,35 @@ int wpa_driver_tista_parse_custom(void *ctx, const void *custom)
 	return 0;
 }
 
+static void ti_init_scan_params( scan_Params_t *pScanParams,
+                                 int scanType, int noOfChan )
+{
+	u8 i,j;
+
+	/* init application scan default params */
+	pScanParams->desiredSsid.len = 0;
+	/* all scan, we will use active scan */
+	pScanParams->scanType = scanType;
+	pScanParams->band = RADIO_BAND_2_4_GHZ;
+	pScanParams->probeReqNumber = 3;
+	pScanParams->probeRequestRate = RATE_MASK_UNSPECIFIED; /* Let the FW select */;
+	pScanParams->Tid = 0;
+	pScanParams->numOfChannels = noOfChan;
+	for ( i = 0; i < noOfChan; i++ )
+	{
+		for ( j = 0; j < 6; j++ )
+		{
+			pScanParams->channelEntry[ i ].normalChannelEntry.bssId[ j ] = 0xff;
+		}
+		pScanParams->channelEntry[ i ].normalChannelEntry.earlyTerminationEvent = SCAN_ET_COND_DISABLE;
+		pScanParams->channelEntry[ i ].normalChannelEntry.ETMaxNumOfAPframes = 0;
+		pScanParams->channelEntry[ i ].normalChannelEntry.maxChannelDwellTime = 30000;
+		pScanParams->channelEntry[ i ].normalChannelEntry.minChannelDwellTime = 30000;
+		pScanParams->channelEntry[ i ].normalChannelEntry.txPowerDbm = DEF_TX_POWER;
+		pScanParams->channelEntry[ i ].normalChannelEntry.channel = i + 1;
+	}
+}
+
 /*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_scan
 Routine Description: request scan from driver
@@ -188,11 +244,35 @@ Return Value: 0 on success, -1 on failure
 static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 {
 	struct wpa_driver_ti_data *drv = (struct wpa_driver_ti_data *)priv;
+	scan_Params_t scanParams;
+	int res;
 
 	wpa_printf(MSG_DEBUG, "%s", __func__);
         TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
+
+#if 1
+	os_memset(&scanParams, 0, sizeof(scan_Params_t));
+	/* Initialize scan parameters */
+	ti_init_scan_params(&scanParams, drv->scan_type, drv->scan_channels);
+
+	if( ssid && ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.str) ) {
+		os_memcpy(scanParams.desiredSsid.str, ssid, ssid_len);
+		scanParams.desiredSsid.len = ssid_len;
+	}
+
 	drv->last_scan = drv->scan_type; /* Remember scan type for last scan */
+
+	res = wpa_driver_tista_private_send(priv, TIWLN_802_11_START_APP_SCAN_SET, &scanParams, sizeof(scanParams), NULL, 0);
+
+	if( 0 != res )
+		wpa_printf(MSG_ERROR, "ERROR - Failed to do tista scan!");
+	else
+		wpa_printf(MSG_DEBUG, "wpa_driver_tista_scan success");
+
+	return res;
+#else
 	return wpa_driver_wext_scan(drv->wext, ssid, ssid_len);
+#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -529,7 +609,7 @@ void * wpa_driver_tista_init(void *ctx, const char *ifname)
 	scan_init(drv);
 
 	/* Set default amount of channels */
-	drv->scan_channels = 14;
+	drv->scan_channels = check_and_get_build_channels();
 
 	/* Link Speed will be set by the message from the driver */
 	drv->link_speed = 0;
