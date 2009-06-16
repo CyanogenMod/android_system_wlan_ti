@@ -1124,7 +1124,7 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
     switch( ((IPC_EVENT_PARAMS*)pData)->uEventType ) {
         case IPC_EVENT_ASSOCIATED:
             /* Associated event is called after successfull ASSOC_RSP packet is received */
-            wpa_printf(MSG_INFO,"wpa_supplicant - Associated");
+            wpa_printf(MSG_DEBUG,"wpa_supplicant - Associated");
 
             TI_GetBSSType( mySuppl->hDriver, &myBssType );
             wpa_printf(MSG_DEBUG,"myBssType = %d",myBssType);
@@ -1185,7 +1185,7 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
 
         case IPC_EVENT_DISASSOCIATED:
             if( mySuppl->block_disassoc_events != BLOCK_DISASSOC ) {
-               wpa_printf(MSG_INFO,"wpa_supplicant - Disassociated");
+               wpa_printf(MSG_DEBUG,"wpa_supplicant - Disassociated");
                wpa_supplicant_event( mySuppl->hWpaSupplicant, EVENT_DISASSOC, NULL );
             }
             else {
@@ -1194,7 +1194,7 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
             break;
 
         case IPC_EVENT_SCAN_COMPLETE:
-            wpa_printf(MSG_INFO,"wpa_supplicant - IPC_EVENT_SCAN_COMPLETE");
+            wpa_printf(MSG_DEBUG,"wpa_supplicant - IPC_EVENT_SCAN_COMPLETE");
             wpa_supplicant_event( mySuppl->hWpaSupplicant, EVENT_SCAN_RESULTS, NULL );
             break;
 
@@ -1203,14 +1203,14 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
             break;
 
         case IPC_EVENT_EAPOL:
-            wpa_printf(MSG_INFO,"wpa_supplicant - EAPOL");
+            wpa_printf(MSG_DEBUG,"wpa_supplicant - EAPOL");
             buf = pData->uBuffer;
             wpa_supplicant_rx_eapol( mySuppl->hWpaSupplicant, (UINT8 *)(buf + MAC_ADDR_LEN),
                                      (UINT8 *)(buf + ETHERNET_HDR_LEN), (pData->uBufferSize - ETHERNET_HDR_LEN) );
             break;
 
         case IPC_EVENT_MEDIA_SPECIFIC:
-            wpa_printf(MSG_INFO,"wpa_supplicant - Media_Specific");
+            wpa_printf(MSG_DEBUG,"wpa_supplicant - Media_Specific");
             bufLong = (UINT32 *)pData->uBuffer;
             /* Check for Authentication type messages from driver */
             if( (*bufLong) == os802_11StatusType_Authentication ) {
@@ -1229,15 +1229,15 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
 
         case IPC_EVENT_LINK_SPEED:
             bufLong = (UINT32 *)pData->uBuffer;
-            wpa_printf(MSG_INFO,"wpa_supplicant - Link Speed = %u MB/s", ((*bufLong) / 2));
+            wpa_printf(MSG_DEBUG,"wpa_supplicant - Link Speed = %u MB/s", ((*bufLong) / 2));
             /* wpa_msg(mySuppl->hWpaSupplicant, MSG_INFO, WPA_EVENT_LINK_SPEED "%u MB/s", ((*bufLong) / 2)); */
             mySuppl->link_speed = (unsigned)((*bufLong) / 2);
             break;
 
         case IPC_EVENT_WPA2_PREAUTHENTICATION:
-            wpa_printf(MSG_INFO,"wpa_supplicant - WPA2_PREAUTHENTICATION");
+            wpa_printf(MSG_DEBUG,"wpa_supplicant - WPA2_PREAUTHENTICATION");
             bufLong = (UINT32 *)pData->uBuffer;
-            wpa_printf(MSG_INFO,"Preauth Status Code = %u",*bufLong);
+            wpa_printf(MSG_DEBUG,"Preauth Status Code = %u",*bufLong);
             /* Dm: wpa_supplicant_event( mySuppl->hWpaSupplicant, EVENT_PMKID_CANDIDATE, &data); */
             break;
 
@@ -1245,13 +1245,16 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
         case IPC_EVENT_BT_COEX_MODE:
             btCoexStatus = (btCoexStatus_t *)pData->uBuffer;
             if( (btCoexStatus != NULL) && btCoexStatus->state ) {
-                wpa_printf(MSG_INFO,"wpa_supplicant - BT_COEX_MODE (SG is ON, minTxRate = %d)\n", btCoexStatus->minTxRate);
+                wpa_printf(MSG_DEBUG,"wpa_supplicant - BT_COEX_MODE (SG is ON, minTxRate = %d)\n", btCoexStatus->minTxRate);
             }
             else {
-                wpa_printf(MSG_INFO,"wpa_supplicant - BT_COEX_MODE (SG is OFF)\n");
+                wpa_printf(MSG_DEBUG,"wpa_supplicant - BT_COEX_MODE (SG is OFF)\n");
             }
             break;
 #endif
+        case IPC_EVENT_LOW_SNR:
+        case IPC_EVENT_LOW_RSSI:
+            break;
 
         default:
             wpa_printf(MSG_ERROR,"wpa_supplicant - Unhandled driver event: %d", ((IPC_EVENT_PARAMS*)pData)->uEventType);
@@ -1341,7 +1344,7 @@ static void *wpa_driver_tista_init( void *priv, const char *ifname )
     myDrv->driverEventsSocket = socket( PF_INET, SOCK_DGRAM, IPPROTO_UDP );
 
     if( myDrv->driverEventsSocket < 0 ) {
-        wpa_printf(MSG_ERROR,"Error: failed to create driver events socket...");
+        wpa_printf(MSG_ERROR,"Error: failed to create driver events socket... (%s)", strerror(errno));
         goto label_init_error_free;
     }
 
@@ -1351,7 +1354,7 @@ static void *wpa_driver_tista_init( void *priv, const char *ifname )
     echoserver.sin_port = htons(TI_DRIVER_MSG_PORT);  /* server port */
 
     if( bind(myDrv->driverEventsSocket, (struct sockaddr *) &echoserver, sizeof(echoserver)) < 0 ) {
-        wpa_printf(MSG_ERROR,"Error: failed to create driver events socket...");
+        wpa_printf(MSG_ERROR,"Error: failed to create driver events socket... (%s)", strerror(errno));
         close(myDrv->driverEventsSocket);
         goto label_init_error_free;
     }
@@ -1409,7 +1412,7 @@ static void wpa_driver_tista_unload( void *priv )
 {
     struct wpa_driver_ti_data *myDrv = (struct wpa_driver_ti_data *)priv;
 
-    wpa_printf(MSG_INFO,"wpa_driver_tista_unload called");
+    wpa_printf(MSG_DEBUG,"wpa_driver_tista_unload called");
     /* Unregister driver events */
     wpa_driver_tista_unregister_events( priv );
     /* Close connection socket */
