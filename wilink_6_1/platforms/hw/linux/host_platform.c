@@ -110,7 +110,7 @@ static void wifi_del_dev( void )
 	platform_driver_unregister( &wifi_device );
 }
 
-int wifi_set_power( int on )
+int wifi_set_power( int on, unsigned long msec )
 {
 	printk("%s = %d\n", __FUNCTION__, on);
 	if( wifi_control_data && wifi_control_data->set_power ) {
@@ -119,15 +119,19 @@ int wifi_set_power( int on )
 	else {
 		gpio_set_value(PMENA_GPIO, on);
 	}
+	if( msec )
+		mdelay(msec);
 	return 0;
 }
 
-int wifi_set_reset( int on )
+int wifi_set_reset( int on, unsigned long msec )
 {
 	printk("%s = %d\n", __FUNCTION__, on);
 	if( wifi_control_data && wifi_control_data->set_reset ) {
 		wifi_control_data->set_reset(on);
 	}
+	if( msec )
+		mdelay(msec);
 	return 0;
 }
 
@@ -143,11 +147,9 @@ int hPlatform_hardResetTnetw( void )
 	int err;
 
 	/* Turn power OFF */
-	if ((err = wifi_set_power(0)) == 0) {
-		mdelay(500);
+	if ((err = wifi_set_power(0, 15)) == 0) {
 		/* Turn power ON*/
-		err = wifi_set_power(1);
-		mdelay(50);
+		err = wifi_set_power(1, 70);
 	}
 	return err;
 } /* hPlatform_hardResetTnetw() */
@@ -157,8 +159,7 @@ int hPlatform_DevicePowerOff( void )
 {
 	int err;
 
-	err = wifi_set_power(0);
-	mdelay(10);
+	err = wifi_set_power(0, 15);
 	return err;
 }
 
@@ -167,9 +168,10 @@ int hPlatform_DevicePowerOn( void )
 {
 	int err;
 
-	err = wifi_set_power(1);
+	wifi_set_power(1, 15); /* Fixed power sequence */
+	wifi_set_power(0, 1);
 	/* Should not be changed, 50 msec cause failures */
-	mdelay(70);
+	err = wifi_set_power(1, 70);
 	return err;
 }
 
