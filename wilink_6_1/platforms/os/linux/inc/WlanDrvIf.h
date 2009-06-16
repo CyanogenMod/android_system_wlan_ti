@@ -53,8 +53,8 @@
 #include "windows_types.h"
 
 #define TIWLAN_DRV_NAME    "tiwlan"
+#define DRIVERWQ_NAME      "tiwlan_wq"
 #define TIWLAN_DRV_IF_NAME TIWLAN_DRV_NAME"%d"
-
 
 #ifdef TI_DBG
 #define ti_dprintf(log, fmt, args...) do { \
@@ -102,6 +102,7 @@ typedef struct
 
     int                      irq;       /* The OS IRQ handle */
     unsigned long            irq_flags; /* The IRQ flags */
+    struct workqueue_struct *tiwlan_wq; /* Work Queue */
     struct work_struct       tWork;     /* The OS work handle. */
     spinlock_t               lock;      /* The OS spinlock handle. */
     unsigned long            flags;     /* For saving the cpu flags during spinlock */

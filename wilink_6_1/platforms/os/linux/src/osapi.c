@@ -607,7 +607,7 @@ int os_RequestSchedule (TI_HANDLE OsContext)
    CL_TRACE_START_L3();
    CL_TRACE_END_L3("tiwlan_drv.ko", "OS", "TASK", "");
 
-   schedule_work(&drv->tWork);
+   queue_work(drv->tiwlan_wq, &drv->tWork);
 
    return TI_OK;
 }

@@ -788,8 +788,7 @@ static int wlanDrvIf_Create (void)
 
 	/* Allocate driver's structure */
 	drv = kmalloc (sizeof(TWlanDrvIfObj), GFP_KERNEL);
-	if (!drv)
-	{
+	if (!drv) {
 		return -ENOMEM;
 	}
 #ifdef TI_DBG
@@ -804,6 +803,13 @@ static int wlanDrvIf_Create (void)
 	/* Dm:    drv->irq = TNETW_IRQ; */
 	drv->tCommon.eDriverState = DRV_STATE_IDLE;
 
+	drv->tiwlan_wq = create_freezeable_workqueue(DRIVERWQ_NAME);
+	if (!drv->tiwlan_wq) {
+		kfree (drv);
+		ti_dprintf (TIWLAN_LOG_ERROR, "wlanDrvIf_Create(): Failed to create workQ!\n");
+		return TI_NOK;
+	}
+
 #if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
 	INIT_WORK(&drv->tWork, wlanDrvIf_DriverTask); // Dm: Kernel version !!!
 #else
@@ -813,8 +819,7 @@ static int wlanDrvIf_Create (void)
 
 	/* Setup driver network interface. */
 	rc = wlanDrvIf_SetupNetif (drv);
-	if (rc)
-	{
+	if (rc)	{
 		kfree (drv);
 		return rc;
 	}
@@ -825,8 +830,7 @@ static int wlanDrvIf_Create (void)
 #else
 	drv->wl_sock = netlink_kernel_create( NETLINK_USERSOCK, 0, NULL, THIS_MODULE );
 #endif
-	if (drv->wl_sock == NULL)
-	{
+	if (drv->wl_sock == NULL) {
 	        ti_dprintf (TIWLAN_LOG_ERROR, "netlink_kernel_create() failed !\n");
 	        return -EINVAL;
 	}
@@ -851,8 +855,7 @@ static int wlanDrvIf_Create (void)
 #else 
 	/* Normal mode: Interrupts (the default mode) */
 	rc = hPlatform_initInterrupt (drv, (void*)wlanDrvIf_HandleInterrupt);
-	if (rc)
-	{
+	if (rc)	{
 		ti_dprintf (TIWLAN_LOG_ERROR, "wlanDrvIf_Create(): Failed to register interrupt handler!\n");
 		return rc;
 	}
@@ -910,6 +913,9 @@ static void wlanDrvIf_Destroy (TWlanDrvIfObj *drv)
         hPlatform_freeInterrupt(drv);
     }
 #endif
+
+    if (drv->tiwlan_wq)
+        destroy_workqueue(drv->tiwlan_wq);
 
     /* 
      *  Free init files memory
