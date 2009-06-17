@@ -1058,7 +1058,7 @@ static int wpa_driver_tista_get_scan_results( void *priv,
         pBssid = (OS_802_11_BSSID_EX *)(((u8 *)pBssid) + pBssid->Length);
     }
     /* Merge new results with previous */
-    number_items = scan_merge( myDrv, results, number_items, max_size );
+    number_items = scan_merge( myDrv, results, 0, number_items, max_size );
 
     qsort( results, number_items, sizeof(struct wpa_scan_result),
            wpa_driver_tista_scan_result_compare );

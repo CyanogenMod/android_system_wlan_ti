@@ -125,7 +125,7 @@ Arguments:
 Return Value: Merged number of items
 -----------------------------------------------------------------------------*/
 unsigned int scan_merge( struct wpa_driver_ti_data *mydrv,
-                         struct wpa_scan_result *results,
+                         struct wpa_scan_result *results, int force_flag,
                          unsigned int number_items, unsigned int max_size )
 {
     SHLIST *head = &(mydrv->scan_merge_list);
@@ -133,7 +133,7 @@ unsigned int scan_merge( struct wpa_driver_ti_data *mydrv,
     scan_merge_t *scan_ptr;
     unsigned int i;
 
-    if( mydrv->last_scan == SCAN_TYPE_NORMAL_PASSIVE ) { /* Merge results */
+    if( (mydrv->last_scan == SCAN_TYPE_NORMAL_PASSIVE) || force_flag ) { /* Merge results */
         for(i=0;( i < number_items );i++) { /* Find/Add new items */
             item = shListFindItem( head, &(results[i]), scan_equal );
             if( item ) {
@@ -153,7 +153,8 @@ unsigned int scan_merge( struct wpa_driver_ti_data *mydrv,
             del_item = NULL;
             scan_ptr = (scan_merge_t *)(item->data);
             if( !scan_find( scan_ptr, results, number_items ) ) {
-                scan_ptr->count--;
+                if( !force_flag )
+                    scan_ptr->count--;
                 if( scan_ptr->count == 0 ) {
                     del_item = item;
                 }

@@ -255,9 +255,11 @@ static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 	/* Initialize scan parameters */
 	ti_init_scan_params(&scanParams, drv->scan_type, drv->scan_channels);
 
+	drv->force_merge_flag = 0;
 	if( ssid && ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.str) ) {
 		os_memcpy(scanParams.desiredSsid.str, ssid, ssid_len);
 		scanParams.desiredSsid.len = ssid_len;
+		drv->force_merge_flag = 1;
 	}
 
 	drv->last_scan = drv->scan_type; /* Remember scan type for last scan */
@@ -606,6 +608,7 @@ void * wpa_driver_tista_init(void *ctx, const char *ifname)
 
 	/* Set default scan type */
 	drv->scan_type = SCAN_TYPE_NORMAL_ACTIVE;
+	drv->force_merge_flag = 0;
 	scan_init(drv);
 
 	/* Set default amount of channels */
@@ -789,7 +792,7 @@ static int wpa_driver_tista_get_scan_results(void *priv,
 	wpa_printf(MSG_DEBUG, "Actual APs number %d", ap_num);
 
 	/* Merge new results with previous */
-        ap_num = scan_merge( drv, results, ap_num, max_size );
+        ap_num = scan_merge( drv, results, drv->force_merge_flag, ap_num, max_size );
 	wpa_printf(MSG_DEBUG, "After merge, APs number %d", ap_num);
 	qsort( results, ap_num, sizeof(struct wpa_scan_result),
 		wpa_driver_tista_scan_result_compare );

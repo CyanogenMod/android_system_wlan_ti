@@ -31,7 +31,7 @@ typedef struct SCANMERGE_STRUCT {
 void scan_init( struct wpa_driver_ti_data *mydrv );
 void scan_exit( struct wpa_driver_ti_data *mydrv );
 unsigned int scan_merge( struct wpa_driver_ti_data *mydrv,
-                         struct wpa_scan_result *results,
+                         struct wpa_scan_result *results, int force_flag,
                          unsigned int number_items, unsigned int max_size );
 struct wpa_scan_result *scan_get_by_bssid( struct wpa_driver_ti_data *mydrv,
                          u8 *bssid );

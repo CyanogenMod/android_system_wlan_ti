@@ -61,6 +61,7 @@ struct wpa_driver_ti_data {
 	u8 own_addr[ETH_ALEN];          /* MAC address of WLAN interface */
 	int driver_is_loaded;           /* TRUE/FALSE flag if driver is already loaded and can be accessed */
 	int scan_type;                  /* SCAN_TYPE_NORMAL_ACTIVE or  SCAN_TYPE_NORMAL_PASSIVE */
+	int force_merge_flag;		/* Force scan results merge */
 	int scan_channels;              /* Number of allowed scan channels */
 	unsigned int link_speed;        /* Link Speed */
 	u32 btcoex_mode;		/* BtCoex Mode */
