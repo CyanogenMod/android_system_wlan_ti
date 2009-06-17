@@ -115,6 +115,8 @@ void wpa_driver_tista_event_receive( IPC_EV_DATA *pData )
     echoserver.sin_port = htons(TI_DRIVER_MSG_PORT);     /* server port */
 
     res = sendto(mySuppl->driverEventsSocket, pData, msg_size, 0, (struct sockaddr *)&echoserver, sizeof(echoserver));
+    echoserver.sin_port = htons(TI_DRIVER_MSG_PORT + 1);
+    res = sendto(mySuppl->driverEventsSocket, pData, msg_size, 0, (struct sockaddr *)&echoserver, sizeof(echoserver));
 }
 
 /*-----------------------------------------------------------------------------
