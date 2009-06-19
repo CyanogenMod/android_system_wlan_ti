@@ -613,14 +613,45 @@ int wlanDrvIf_Start (struct net_device *dev)
     /* enable resources/clock */
     sdioDrv_acquire_clk();
 
-    /* 
+    /*
      *  Insert Start command in DrvMain action queue, request driver scheduling 
      *      and wait for action completion (all init process).
      */
     drvMain_InsertAction (drv->tCommon.hDrvMain, ACTION_TYPE_START);
 
-
+#if 0
     /* 
+     *  Finalize network interface setup
+     */
+    drv->netdev->hard_start_xmit = wlanDrvIf_Xmit;
+    drv->netdev->addr_len = MAC_ADDR_LEN;
+    netif_start_queue (dev);
+
+    /* register 3430 PM hooks in our SDIO driver */
+#if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
+    sdioDrv_register_pm(wlanDrvIf_pm_resume, wlanDrvIf_pm_suspend);
+#endif
+#endif /* Dm: */
+    return 0;
+}
+
+int wlanDrvIf_Open (struct net_device *dev)
+{
+    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
+
+    ti_dprintf (TIWLAN_LOG_OTHER, "wlanDrvIf_Open()\n");
+
+    if (!drv->tCommon.hDrvMain)
+    {
+        ti_dprintf (TIWLAN_LOG_ERROR, "wlanDrvIf_Open() Driver not created!\n");
+        return -ENODEV;
+    }
+
+    if (drv->tCommon.eDriverState != DRV_STATE_RUNNING) {
+        wlanDrvIf_Start(dev);
+    }
+
+    /*
      *  Finalize network interface setup
      */
     drv->netdev->hard_start_xmit = wlanDrvIf_Xmit;
@@ -653,10 +684,10 @@ int wlanDrvIf_Stop (struct net_device *dev)
     TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
 
     ti_dprintf (TIWLAN_LOG_OTHER, "wlanDrvIf_Stop()\n");
-
+#if 0
     /* Disable network interface queue */
     netif_stop_queue (dev);
-
+#endif /* Dm: */
     /* 
      *  Insert Stop command in DrvMain action queue, request driver scheduling 
      *      and wait for Stop process completion.
@@ -666,6 +697,27 @@ int wlanDrvIf_Stop (struct net_device *dev)
     /* disable clock; we are going down */
     sdiodrv_shutdown();
 
+    return 0;
+}
+
+int wlanDrvIf_Release (struct net_device *dev)
+{
+    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
+
+    ti_dprintf (TIWLAN_LOG_OTHER, "wlanDrvIf_Release()\n");
+
+    /* Disable network interface queue */
+    netif_stop_queue (dev);
+#if 0
+    /*
+     *  Insert Stop command in DrvMain action queue, request driver scheduling 
+     *      and wait for Stop process completion.
+     */
+    drvMain_InsertAction (drv->tCommon.hDrvMain, ACTION_TYPE_STOP);
+
+    /* disable clock; we are going down */
+    sdiodrv_shutdown();
+#endif /* Dm: */
     return 0;
 }
 
@@ -721,8 +773,8 @@ static int wlanDrvIf_SetupNetif (TWlanDrvIfObj *drv)
    drv->netdev = dev;
    strcpy (dev->name, TIWLAN_DRV_IF_NAME);
    netif_carrier_off (dev);
-   dev->open = wlanDrvIf_Start;
-   dev->stop = wlanDrvIf_Stop;
+   dev->open = wlanDrvIf_Open;
+   dev->stop = wlanDrvIf_Release;
    dev->hard_start_xmit = wlanDrvIf_XmitDummy;
    dev->get_stats = wlanDrvIf_NetGetStat;
    dev->tx_queue_len = 100;
@@ -884,72 +936,65 @@ static int wlanDrvIf_Create (void)
  */ 
 static void wlanDrvIf_Destroy (TWlanDrvIfObj *drv)
 {
-    /* Release the driver network interface */
-    if (drv->netdev)
-    {
-        netif_stop_queue  (drv->netdev);
-        unregister_netdev (drv->netdev);
-    }
-
+	/* Release the driver network interface */
+	if (drv->netdev) {
+		netif_stop_queue  (drv->netdev);
+		wlanDrvIf_Stop    (drv->netdev);
+		unregister_netdev (drv->netdev);
+	}
 	/* Destroy all driver modules */
-    if (drv->tCommon.hDrvMain)
-    {
-        drvMain_Destroy (drv->tCommon.hDrvMain);
-    }
+	if (drv->tCommon.hDrvMain) {
+		drvMain_Destroy (drv->tCommon.hDrvMain);
+	}
 
-    /* close the ipc_kernel socket*/
-    if (drv && drv->wl_sock) 
-    {
-        sock_release (drv->wl_sock->sk_socket);
-    }
-
-    /* Release the driver interrupt (or polling timer) */
+	/* close the ipc_kernel socket*/
+	if (drv && drv->wl_sock) {
+		sock_release (drv->wl_sock->sk_socket);
+	}
+	/* Release the driver interrupt (or polling timer) */
 #ifdef PRIODIC_INTERRUPT
-    os_timerDestroy (drv, drv->hPollTimer);
+	os_timerDestroy (drv, drv->hPollTimer);
 #else
-    if (drv->irq)
-    {
-//Dm:        free_irq (drv->irq, drv);
-        hPlatform_freeInterrupt(drv);
-    }
+	if (drv->irq) {
+		hPlatform_freeInterrupt(drv);
+	}
 #endif
+	if (drv->tiwlan_wq)
+		destroy_workqueue(drv->tiwlan_wq);
 
-    if (drv->tiwlan_wq)
-        destroy_workqueue(drv->tiwlan_wq);
-
-    /* 
-     *  Free init files memory
-     */
-    if (drv->tCommon.tFwImage.pImage)
-    {
-        os_memoryFree (drv, drv->tCommon.tFwImage.pImage, drv->tCommon.tFwImage.uSize);
-        #ifdef TI_MEM_ALLOC_TRACE        
-          os_printf ("MTT:%s:%d ::kfree(0x%p) : %d\n", 
-              __FUNCTION__, __LINE__, drv->tCommon.tFwImage.uSize, -drv->tCommon.tFwImage.uSize);
-        #endif
-    }
-    if (drv->tCommon.tNvsImage.pImage)
-    {
-        kfree (drv->tCommon.tNvsImage.pImage);
-        #ifdef TI_MEM_ALLOC_TRACE        
-          os_printf ("MTT:%s:%d ::kfree(0x%p) : %d\n", 
-              __FUNCTION__, __LINE__, drv->tCommon.tNvsImage.uSize, -drv->tCommon.tNvsImage.uSize);
-        #endif
-    }
-    if (drv->tCommon.tIniFile.pImage)
-    {
-        kfree (drv->tCommon.tIniFile.pImage);
-        #ifdef TI_MEM_ALLOC_TRACE        
-          os_printf ("MTT:%s:%d ::kfree(0x%p) : %d\n", 
-              __FUNCTION__, __LINE__, drv->tCommon.tIniFile.uSize, -drv->tCommon.tIniFile.uSize);
-        #endif
-    }
+	/* 
+	 *  Free init files memory
+	 */
+	if (drv->tCommon.tFwImage.pImage) {
+		os_memoryFree (drv, drv->tCommon.tFwImage.pImage, drv->tCommon.tFwImage.uSize);
+#ifdef TI_MEM_ALLOC_TRACE
+		os_printf ("MTT:%s:%d ::kfree(0x%p) : %d\n", 
+			__FUNCTION__, __LINE__, drv->tCommon.tFwImage.uSize,
+			-drv->tCommon.tFwImage.uSize);
+#endif
+	}
+	if (drv->tCommon.tNvsImage.pImage) {
+		kfree (drv->tCommon.tNvsImage.pImage);
+#ifdef TI_MEM_ALLOC_TRACE
+		os_printf ("MTT:%s:%d ::kfree(0x%p) : %d\n", 
+			__FUNCTION__, __LINE__, drv->tCommon.tNvsImage.uSize,
+			-drv->tCommon.tNvsImage.uSize);
+#endif
+	}
+	if (drv->tCommon.tIniFile.pImage) {
+		kfree (drv->tCommon.tIniFile.pImage);
+#ifdef TI_MEM_ALLOC_TRACE
+		os_printf ("MTT:%s:%d ::kfree(0x%p) : %d\n", 
+			__FUNCTION__, __LINE__, drv->tCommon.tIniFile.uSize,
+			-drv->tCommon.tIniFile.uSize);
+#endif
+	}
 
     /* Free the driver object */
 #ifdef TI_DBG
-    tb_destroy();
-#endif	
-    kfree (drv);
+	tb_destroy();
+#endif
+	kfree (drv);
 }
 
 
