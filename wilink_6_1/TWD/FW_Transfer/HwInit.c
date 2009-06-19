@@ -56,7 +56,10 @@
 #include "eventMbox_api.h"
 #include "CmdBld.h"
 #include "CmdMBox_api.h"
-
+#ifdef TI_RANDOM_DEFAULT_MAC
+#include <linux/random.h>
+#include <linux/jiffies.h>
+#endif
 
 /* remove the chipID check when WL6-PG1.0 becomes obsolete (temporary global variable!!) */
 TI_BOOL bChipIs1273Pg10 = TI_TRUE;
@@ -411,6 +414,9 @@ TI_STATUS hwInit_Init (TI_HANDLE      hHwInit,
 {
     THwInit   *pHwInit = (THwInit *)hHwInit;
     TTxnStruct* pTxn;
+#ifdef TI_RANDOM_DEFAULT_MAC
+    u32 rand_mac;
+#endif
 
     /* Configure modules handles */
     pHwInit->hReport    = hReport;
@@ -422,6 +428,14 @@ TI_STATUS hwInit_Init (TI_HANDLE      hHwInit,
     pHwInit->hFinalizeDownload 	= hFinalizeDownload;
 
     SET_DEF_NVS(pHwInit->aDefaultNVS)
+#ifdef TI_RANDOM_DEFAULT_MAC
+    /* Create random MAC address: offset 3, 4 and 5 */
+    srandom32((u32)jiffies);
+    rand_mac = random32();
+    pHwInit->aDefaultNVS[3] = (u8)rand_mac;
+    pHwInit->aDefaultNVS[4] = (u8)(rand_mac >> 8);
+    pHwInit->aDefaultNVS[5] = (u8)(rand_mac >> 16);
+#endif
 
     for (pHwInit->uTxnIndex=0;pHwInit->uTxnIndex<MAX_HW_INIT_CONSECUTIVE_TXN;pHwInit->uTxnIndex++)
     {

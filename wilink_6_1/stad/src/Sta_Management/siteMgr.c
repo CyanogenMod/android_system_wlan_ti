@@ -2824,22 +2824,22 @@ RETURN:
 ************************************************************************/
 void siteMgr_printPrimarySiteDesc(TI_HANDLE hSiteMgr )
 {
-    siteMgr_t *pSiteMgr = (siteMgr_t*) hSiteMgr;
+	siteMgr_t *pSiteMgr = (siteMgr_t*) hSiteMgr;
 
-    siteEntry_t *pPrimarySite = pSiteMgr->pSitesMgmtParams->pPrimarySite;
+	siteEntry_t *pPrimarySite = pSiteMgr->pSitesMgmtParams->pPrimarySite;
 
-    /* the driver logger can't print %s
-     * TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_CONSOLE, "-- SSID  = %s \n",pPrimarySite->ssid.str); 
-     */
-    TRACE6(pSiteMgr->hReport, REPORT_SEVERITY_CONSOLE,"-- BSSID = %x-%x-%x-%x-%x-%x\n",
-                    pPrimarySite->bssid[0], pPrimarySite->bssid[1], pPrimarySite->bssid[2], pPrimarySite->bssid[3], 
-                    pPrimarySite->bssid[4], pPrimarySite->bssid[5]);
+	/* the driver logger can't print %s
+	 * TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_CONSOLE, "-- SSID  = %s \n",pPrimarySite->ssid.str); 
+	 */
+	TRACE6(pSiteMgr->hReport, REPORT_SEVERITY_CONSOLE,"-- BSSID = %02x-%02x-%02x-%02x-%02x-%02x\n",
+		pPrimarySite->bssid[0], pPrimarySite->bssid[1], pPrimarySite->bssid[2], pPrimarySite->bssid[3], 
+		pPrimarySite->bssid[4], pPrimarySite->bssid[5]);
 
 
 	WLAN_OS_REPORT(("-- SSID  = %s \n",pPrimarySite->ssid.str));
-	WLAN_OS_REPORT(("-- BSSID = %x-%x-%x-%x-%x-%x\n",
-					pPrimarySite->bssid[0], pPrimarySite->bssid[1], pPrimarySite->bssid[2], pPrimarySite->bssid[3], 
-					pPrimarySite->bssid[4], pPrimarySite->bssid[5]));
+	WLAN_OS_REPORT(("-- BSSID = %02x-%02x-%02x-%02x-%02x-%02x\n",
+		pPrimarySite->bssid[0], pPrimarySite->bssid[1], pPrimarySite->bssid[2], pPrimarySite->bssid[3], 
+		pPrimarySite->bssid[4], pPrimarySite->bssid[5]));
 }
 #endif
 
