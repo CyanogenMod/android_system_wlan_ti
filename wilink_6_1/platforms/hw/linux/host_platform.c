@@ -62,12 +62,14 @@ static int wifi_probe( struct platform_device *pdev )
 
 	if( wifi_ctrl ) {
 		wifi_control_data = wifi_ctrl;
+#if 0
 		if( wifi_ctrl->set_power )
 			wifi_ctrl->set_power(1);	/* Power On */
 		if( wifi_ctrl->set_reset )
 			wifi_ctrl->set_reset(0);	/* Reset clear */
 		if( wifi_ctrl->set_carddetect )
 			wifi_ctrl->set_carddetect(1);	/* CardDetect (0->1) */
+#endif
 	}
 	return 0;
 }
@@ -108,6 +110,15 @@ static void wifi_del_dev( void )
 {
 	printk("%s\n", __FUNCTION__);
 	platform_driver_unregister( &wifi_device );
+}
+
+int wifi_set_carddetect( int on )
+{
+	printk("%s = %d\n", __FUNCTION__, on);
+	if( wifi_control_data && wifi_control_data->set_carddetect ) {
+		wifi_control_data->set_carddetect(on);
+	}
+	return 0;
 }
 
 int wifi_set_power( int on, unsigned long msec )

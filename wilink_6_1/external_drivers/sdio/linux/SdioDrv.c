@@ -36,6 +36,9 @@ typedef void *	TI_HANDLE;
 #include "SdioDrvDbg.h"
 #include "SdioDrv.h"
 
+#define TI_SDIO_DEBUG
+
+#ifndef CONFIG_MMC_EMBEDDED_SDIO
 /*
  * HSMMC Address and DMA Settings
  */
@@ -699,15 +702,22 @@ int sdioDrv_ReadSync (unsigned int uFunc,
 	int          iStatus;
 
 //	printk(KERN_INFO "in sdioDrv_ReadSync\n");
-
 	uCmdArg = SDIO_CMD53_READ(0, uFunc, 0, bIncAddr, uHwAddr, uLen);
 
 	iStatus = sdiodrv_data_xfer_sync(OMAP_HSMMC_CMD53_READ, uCmdArg, pData, uLen, BRE);
-	if (iStatus != 0)
-	{
-        PERR("sdioDrv_ReadSync() FAILED!!\n");
+	if (iStatus != 0) {
+		PERR("sdioDrv_ReadSync() FAILED!!\n");
 	}
-
+#ifdef TI_SDIO_DEBUG
+	if (uLen == 1)
+		printk(KERN_INFO "R53: [0x%x](%u) = 0x%x\n", uHwAddr, uLen, (unsigned)(*(char *)pData));
+	else if (uLen == 2)
+		printk(KERN_INFO "R53: [0x%x](%u) = 0x%x\n", uHwAddr, uLen, (unsigned)(*(short *)pData));
+	else if (uLen == 4)
+		printk(KERN_INFO "R53: [0x%x](%u) = 0x%x\n", uHwAddr, uLen, (unsigned)(*(long *)pData));
+	else
+		printk(KERN_INFO "R53: [0x%x](%u)\n", uHwAddr, uLen);
+#endif
 	return iStatus;
 }
 
@@ -722,16 +732,21 @@ int sdioDrv_ReadAsync (unsigned int uFunc,
 {
 	int          iStatus;
 	unsigned int uCmdArg;
-    unsigned int uNumBlks;
-    unsigned int uDmaBlockCount;
-    unsigned int uNumOfElem;
+	unsigned int uNumBlks;
+	unsigned int uDmaBlockCount;
+	unsigned int uNumOfElem;
 	void         *dma_buffer;
 	dma_addr_t dma_bus_address;
+
+#ifdef TI_SDIO_DEBUG
+	printk(KERN_INFO "R53: [0x%x](%u) F[%d]\n", uHwAddr, uLen, uFunc);
+#endif
+
 #ifdef CONFIG_OMAP3_PM /* Dm: Tmp */
 	constraint_set(omap3430_sdio_cnstr, CO_LATENCY_WFI);	
 #endif
 	//printk(KERN_INFO "in sdioDrv_ReadAsync\n");
-	
+
     if (bBlkMode)
     {
         /* For block mode use number of blocks instead of length in bytes */
@@ -820,16 +835,26 @@ int sdioDrv_WriteSync (unsigned int uFunc,
 {
 	unsigned int uCmdArg;
 	int          iStatus;
+
 //	printk(KERN_INFO "in sdioDrv_WriteSync\n");
 
-    uCmdArg = SDIO_CMD53_WRITE(1, uFunc, 0, bIncAddr, uHwAddr, uLen);
+	uCmdArg = SDIO_CMD53_WRITE(1, uFunc, 0, bIncAddr, uHwAddr, uLen);
 
 	iStatus = sdiodrv_data_xfer_sync(OMAP_HSMMC_CMD53_WRITE, uCmdArg, pData, uLen, BWE);
 	if (iStatus != 0)
 	{
-        PERR("sdioDrv_WriteSync() FAILED!!\n");
+		PERR("sdioDrv_WriteSync() FAILED!!\n");
 	}
-
+#ifdef TI_SDIO_DEBUG
+	if (uLen == 1)
+		printk(KERN_INFO "W53: [0x%x](%u) < 0x%x\n", uHwAddr, uLen, (unsigned)(*(char *)pData));
+	else if (uLen == 2)
+		printk(KERN_INFO "W53: [0x%x](%u) < 0x%x\n", uHwAddr, uLen, (unsigned)(*(short *)pData));
+	else if (uLen == 4)
+		printk(KERN_INFO "W53: [0x%x](%u) < 0x%x\n", uHwAddr, uLen, (unsigned)(*(long *)pData));
+	else
+		printk(KERN_INFO "W53: [0x%x](%u)\n", uHwAddr, uLen);
+#endif
 	return iStatus;
 }
 
@@ -844,10 +869,15 @@ int sdioDrv_WriteAsync (unsigned int uFunc,
 {
 	int          iStatus;
 	unsigned int uCmdArg;
-    unsigned int uNumBlks;
-    unsigned int uDmaBlockCount;
-    unsigned int uNumOfElem;
+	unsigned int uNumBlks;
+	unsigned int uDmaBlockCount;
+	unsigned int uNumOfElem;
 	dma_addr_t dma_bus_address;
+
+#ifdef TI_SDIO_DEBUG
+	printk(KERN_INFO "W53: [0x%x](%u) F[%d]\n", uHwAddr, uLen, uFunc);
+#endif
+
 #ifdef CONFIG_OMAP3_PM /* Dm: */
 	constraint_set(omap3430_sdio_cnstr, CO_LATENCY_WFI);	
 #endif
@@ -927,27 +957,26 @@ int sdioDrv_ReadSyncBytes (unsigned int  uFunc,
 	unsigned int i;
 	int          iStatus;
 
-    for (i = 0; i < uLen; i++) 
-    {
-        uCmdArg = SDIO_CMD52_READ(0, uFunc, 0, uHwAddr);
+	for (i = 0; i < uLen; i++) {
+		uCmdArg = SDIO_CMD52_READ(0, uFunc, 0, uHwAddr);
 
-        iStatus = sdiodrv_send_command(OMAP_HSMMC_CMD52_READ, uCmdArg);
+		iStatus = sdiodrv_send_command(OMAP_HSMMC_CMD52_READ, uCmdArg);
 
-        if (!(iStatus & CC)) 
-        {
-            PERR("sdioDrv_ReadSyncBytes() SDIO Command error status = 0x%x\n", iStatus);
-            return -1;
-        }
-        else
-        {
-            *pData = (unsigned char)(OMAP_HSMMC_READ(RSP10));
-        }
-
+		if (!(iStatus & CC)) {
+			PERR("sdioDrv_ReadSyncBytes() SDIO Command error status = 0x%x\n", iStatus);
+			return -1;
+		}
+		else {
+			*pData = (unsigned char)(OMAP_HSMMC_READ(RSP10));
+		}
+#ifdef TI_SDIO_DEBUG
+		printk(KERN_INFO "R52: [0x%x](%u) = 0x%x\n", uHwAddr, uLen, (unsigned)*pData);
+#endif
 		uHwAddr++;
-        pData++;
-    }
+		pData++;
+	}
 
-    return 0;
+	return 0;
 }
 
 /*--------------------------------------------------------------------------------------*/
@@ -962,23 +991,22 @@ int sdioDrv_WriteSyncBytes (unsigned int  uFunc,
 	unsigned int i;
 	int          iStatus;
 
-    for (i = 0; i < uLen; i++) 
-    {
-        uCmdArg = SDIO_CMD52_WRITE(1, uFunc, 0, uHwAddr, *pData);
+	for (i = 0; i < uLen; i++) {
+#ifdef TI_SDIO_DEBUG
+		printk(KERN_INFO "W52: [0x%x](%u) < 0x%x\n", uHwAddr, uLen, (unsigned)*pData);
+#endif
+		uCmdArg = SDIO_CMD52_WRITE(1, uFunc, 0, uHwAddr, *pData);
 
-        iStatus = sdiodrv_send_command(OMAP_HSMMC_CMD52_WRITE, uCmdArg);
-
-        if (!(iStatus & CC)) 
-        {
-            PERR("sdioDrv_WriteSyncBytes() SDIO Command error status = 0x%x\n", iStatus);
-            return -1;
-        }
-
+		iStatus = sdiodrv_send_command(OMAP_HSMMC_CMD52_WRITE, uCmdArg);
+		if (!(iStatus & CC)) {
+			PERR("sdioDrv_WriteSyncBytes() SDIO Command error status = 0x%x\n", iStatus);
+			return -1;
+		}
 		uHwAddr++;
-        pData++;
-    }
+		pData++;
+	}
 
-    return 0;
+	return 0;
 }
 
 struct platform_device adhoc_mmc3;
@@ -1334,3 +1362,4 @@ MODULE_DESCRIPTION("TI WLAN SDIO driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS(SDIO_DRIVER_NAME);
 MODULE_AUTHOR("Texas Instruments Inc");
+#endif

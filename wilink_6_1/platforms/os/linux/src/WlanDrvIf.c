@@ -611,7 +611,9 @@ int wlanDrvIf_Start (struct net_device *dev)
     }
 
     /* enable resources/clock */
+#ifndef CONFIG_MMC_EMBEDDED_SDIO
     sdioDrv_acquire_clk();
+#endif
 
     /*
      *  Insert Start command in DrvMain action queue, request driver scheduling 
@@ -629,7 +631,9 @@ int wlanDrvIf_Start (struct net_device *dev)
 
     /* register 3430 PM hooks in our SDIO driver */
 #if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
+#ifndef CONFIG_MMC_EMBEDDED_SDIO
     sdioDrv_register_pm(wlanDrvIf_pm_resume, wlanDrvIf_pm_suspend);
+#endif
 #endif
 #endif /* Dm: */
     return 0;
@@ -660,7 +664,9 @@ int wlanDrvIf_Open (struct net_device *dev)
 
     /* register 3430 PM hooks in our SDIO driver */
 #if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
+#ifndef CONFIG_MMC_EMBEDDED_SDIO
     sdioDrv_register_pm(wlanDrvIf_pm_resume, wlanDrvIf_pm_suspend);
+#endif
 #endif
 
     return 0;
@@ -695,8 +701,9 @@ int wlanDrvIf_Stop (struct net_device *dev)
     drvMain_InsertAction (drv->tCommon.hDrvMain, ACTION_TYPE_STOP);
 
     /* disable clock; we are going down */
+#ifndef CONFIG_MMC_EMBEDDED_SDIO
     sdiodrv_shutdown();
-
+#endif
     return 0;
 }
 
@@ -716,7 +723,9 @@ int wlanDrvIf_Release (struct net_device *dev)
     drvMain_InsertAction (drv->tCommon.hDrvMain, ACTION_TYPE_STOP);
 
     /* disable clock; we are going down */
+#ifndef CONFIG_MMC_EMBEDDED_SDIO
     sdiodrv_shutdown();
+#endif
 #endif /* Dm: */
     return 0;
 }
@@ -1021,7 +1030,9 @@ static int __init wlanDrvIf_ModuleInit (void)
 {
     printk(KERN_INFO "TIWLAN: driver init\n");
 #ifndef TI_SDIO_STANDALONE
+#ifndef CONFIG_MMC_EMBEDDED_SDIO
     sdioDrv_init(sdc_ctrl);
+#endif
 #endif
     return wlanDrvIf_Create ();
 }
@@ -1030,7 +1041,9 @@ static void __exit wlanDrvIf_ModuleExit (void)
 {
     wlanDrvIf_Destroy (pDrvStaticHandle);
 #ifndef TI_SDIO_STANDALONE
+#ifndef CONFIG_MMC_EMBEDDED_SDIO
     sdioDrv_exit();
+#endif
 #endif
     printk (KERN_INFO "TI WLAN: driver unloaded\n");
 }

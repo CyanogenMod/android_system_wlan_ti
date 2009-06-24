@@ -1,47 +1,226 @@
 /*
  * SdioAdapter.c
  *
- * Copyright(c) 1998 - 2009 Texas Instruments. All rights reserved.      
- * All rights reserved.                                                  
- *                                                                       
- * Redistribution and use in source and binary forms, with or without    
- * modification, are permitted provided that the following conditions    
- * are met:                                                              
- *                                                                       
- *  * Redistributions of source code must retain the above copyright     
- *    notice, this list of conditions and the following disclaimer.      
- *  * Redistributions in binary form must reproduce the above copyright  
- *    notice, this list of conditions and the following disclaimer in    
- *    the documentation and/or other materials provided with the         
- *    distribution.                                                      
- *  * Neither the name Texas Instruments nor the names of its            
- *    contributors may be used to endorse or promote products derived    
- *    from this software without specific prior written permission.      
- *                                                                       
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS   
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT     
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT  
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT      
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT   
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * Copyright(c) 1998 - 2009 Texas Instruments. All rights reserved.
+ * Copyright(c) 2008 - 2009 Google, Inc. All rights reserved.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *  * Neither the name Texas Instruments nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
- 
- 
-/** \file   SdioAdapter.c 
- *  \brief  The SDIO driver adapter. Platform dependent. 
- * 
- * An adaptation layer between the lower SDIO driver (in BSP) and the upper SdioBusDrv.
+
+/** \file   SdioAdapter.c
+ *  \brief  The SDIO driver adapter. Platform dependent.
+ *
+ * An adaptation layer between the lower SDIO driver (in BSP) and the upper Sdio
  * Used for issuing all SDIO transaction types towards the lower SDIO-driver.
- * Makes the decision whether to use Sync or Async transaction, and reflects it to the caller
+ * Makes the decision whether to use Sync or Async transaction, and reflects it
  *     by the return value and calling its callback in case of Async.
- *  
+ *
  *  \see    SdioAdapter.h, SdioDrv.c & h
  */
+
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+#include <linux/kernel.h>
+#include <linux/mutex.h>
+#include <linux/mmc/core.h>
+#include <linux/mmc/card.h>
+#include <linux/mmc/sdio_func.h>
+#include <linux/mmc/sdio_ids.h>
+#include "TxnDefs.h"
+
+#define TI_SDIO_DEBUG
+
+int wifi_set_carddetect( int on );
+
+static struct sdio_func *tiwlan_func = NULL;
+static struct completion sdio_wait;
+
+ETxnStatus sdioAdapt_TransactBytes (unsigned int  uFuncId,
+                                    unsigned int  uHwAddr,
+                                    void *        pHostAddr,
+                                    unsigned int  uLength,
+                                    unsigned int  bDirection,
+                                    unsigned int  bMore);
+
+static int sdio_wifi_probe(struct sdio_func *func,
+                           const struct sdio_device_id *id)
+{
+        int rc;
+
+        printk("%s: %d\n", __FUNCTION__, func->class);
+
+        if (func->class != SDIO_CLASS_WLAN)
+                return -EINVAL;
+
+        sdio_claim_host(func);
+
+        rc = sdio_enable_func(func);
+        if (rc)
+                goto err1;
+        rc = sdio_set_block_size(func, 512);
+
+        if (rc) {
+                printk("%s: Unable to set blocksize\n", __FUNCTION__);
+                goto err2;
+        }
+
+        tiwlan_func = func;
+        complete(&sdio_wait);
+        return 0;
+err2:
+        sdio_disable_func(func);
+err1:
+        sdio_release_host(func);
+        complete(&sdio_wait);
+        return rc;
+}
+
+static void sdio_wifi_remove(struct sdio_func *func)
+{
+}
+
+static const struct sdio_device_id sdio_wifi_ids[] = {
+        { SDIO_DEVICE_CLASS(SDIO_CLASS_WLAN)    },
+        {                                       },
+};
+
+MODULE_DEVICE_TABLE(sdio, sdio_wifi_ids);
+
+static struct sdio_driver sdio_wifi_driver = {
+        .probe          = sdio_wifi_probe,
+        .remove         = sdio_wifi_remove,
+        .name           = "sdio_wifi",
+        .id_table       = sdio_wifi_ids,
+};
+
+int sdioAdapt_ConnectBus (void *        fCbFunc,
+                          void *        hCbArg,
+                          unsigned int  uBlkSizeShift,
+                          unsigned int  uSdioThreadPriority)
+{
+	int rc;
+
+	printk("%s\n",__func__);
+	init_completion(&sdio_wait);
+	wifi_set_carddetect( 1 );
+	rc = sdio_register_driver(&sdio_wifi_driver);
+	if (rc < 0) {
+		printk(KERN_ERR "%s: Fail to register sdio_wifi_driver\n", __func__);
+		return rc;
+	}
+	if (!wait_for_completion_timeout(&sdio_wait, msecs_to_jiffies(10000))) {
+		printk(KERN_ERR "%s: Timed out waiting for device detect\n", __func__);
+		sdio_unregister_driver(&sdio_wifi_driver);
+		return -ENODEV;
+	}
+	return 0;
+}
+
+int sdioAdapt_DisconnectBus (void)
+{
+	printk("%s\n",__func__);
+	if (tiwlan_func) {
+		sdio_disable_func( tiwlan_func );
+		sdio_release_host( tiwlan_func );
+	}
+	wifi_set_carddetect( 0 );
+	sdio_unregister_driver(&sdio_wifi_driver);
+	return 0;
+}
+
+ETxnStatus sdioAdapt_Transact (unsigned int  uFuncId,
+                               unsigned int  uHwAddr,
+                               void *        pHostAddr,
+                               unsigned int  uLength,
+                               unsigned int  bDirection,
+                               unsigned int  bBlkMode,
+                               unsigned int  bFixedAddr,
+                               unsigned int  bMore)
+{
+	int rc;
+
+	if (bDirection) {
+		rc = sdio_memcpy_fromio(tiwlan_func, pHostAddr, uHwAddr, uLength);
+	}
+	else {
+		rc = sdio_memcpy_toio(tiwlan_func, uHwAddr, pHostAddr, uLength);
+	}
+#ifdef TI_SDIO_DEBUG
+	if (uLength == 1)
+	        printk(KERN_INFO "%c53: [0x%x](%u) = 0x%x\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, (unsigned)(*(char *)pHostAddr));
+	else if (uLength == 2)
+	        printk(KERN_INFO "%c53: [0x%x](%u) = 0x%x\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, (unsigned)(*(short *)pHostAddr));
+	else if (uLength == 4)
+	        printk(KERN_INFO "%c53: [0x%x](%u) = 0x%x\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, (unsigned)(*(long *)pHostAddr));
+	else
+		printk(KERN_INFO "%c53: [0x%x](%u) = %d\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, rc);
+#endif
+	/* If failed return ERROR, if succeeded return COMPLETE */
+	if (rc) {
+		return TXN_STATUS_ERROR;
+	}
+	return TXN_STATUS_COMPLETE;
+}
+
+ETxnStatus sdioAdapt_TransactBytes (unsigned int  uFuncId,
+                                    unsigned int  uHwAddr,
+                                    void *        pHostAddr,
+                                    unsigned int  uLength,
+                                    unsigned int  bDirection,
+                                    unsigned int  bMore)
+{
+	unsigned char *pData = pHostAddr;
+	unsigned int i;
+	int rc = 0, final_rc = 0;
+
+	for (i = 0; i < uLength; i++) {
+		if( bDirection ) {
+			*pData = (unsigned char)sdio_readb(tiwlan_func, uHwAddr, &rc);
+		}
+		else {
+			sdio_writeb(tiwlan_func, *pData, uHwAddr, &rc);
+		}
+		if( rc ) {
+			final_rc = rc;
+		}
+#ifdef TI_SDIO_DEBUG
+		printk(KERN_INFO "%c52: [0x%x](%u) = 0x%x\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, (unsigned)*pData);
+#endif
+		uHwAddr++;
+		pData++;
+	}
+	/* If failed return ERROR, if succeeded return COMPLETE */
+	if (final_rc) {
+		return TXN_STATUS_ERROR;
+	}
+	return TXN_STATUS_COMPLETE;
+}
+
+#else
 
 #include "SdioDrvDbg.h"
 #include "TxnDefs.h"
@@ -54,9 +233,6 @@
 #else
 #define SDIO_BITS_CODE   0x82 /* 4 bits */
 #endif
-
-/* remove it after moving SdioAdapter into Sdio driver */ 
-int g_ssd_debug_level=4;
 
 /************************************************************************
  * Defines
@@ -81,22 +257,22 @@ int sdioAdapt_ConnectBus (void *        fCbFunc,
                           unsigned int  uSdioThreadPriority)
 {
 	unsigned char  uByte;
-    unsigned long  uLong;
-    unsigned long  uCount = 0;
-    unsigned int   uBlkSize = 1 << uBlkSizeShift;
+	unsigned long  uLong;
+	unsigned long  uCount = 0;
+	unsigned int   uBlkSize = 1 << uBlkSizeShift;
 	int            iStatus;
 
-    if (uBlkSize < SYNC_ASYNC_LENGTH_THRESH) 
-    {
-        PERR1("%s(): Block-Size should be bigger than SYNC_ASYNC_LENGTH_THRESH!!\n", __FUNCTION__ );
-    }
+	if (uBlkSize < SYNC_ASYNC_LENGTH_THRESH) 
+	{
+		PERR1("%s(): Block-Size should be bigger than SYNC_ASYNC_LENGTH_THRESH!!\n", __FUNCTION__ );
+	}
 
-    /* Init SDIO driver and HW */
-    iStatus = sdioDrv_ConnectBus (fCbFunc, hCbArg, uBlkSizeShift, uSdioThreadPriority);
+	/* Init SDIO driver and HW */
+	iStatus = sdioDrv_ConnectBus (fCbFunc, hCbArg, uBlkSizeShift, uSdioThreadPriority);
 	if (iStatus) { return iStatus; }
 
   
-    /* Send commands sequence: 0, 5, 3, 7 */
+	/* Send commands sequence: 0, 5, 3, 7 */
 	iStatus = sdioDrv_ExecuteCmd (SD_IO_GO_IDLE_STATE, 0, MMC_RSP_NONE, &uByte, sizeof(uByte));
 	if (iStatus)
         {
@@ -314,3 +490,4 @@ ETxnStatus sdioAdapt_TransactBytes (unsigned int  uFuncId,
     }
     return TXN_STATUS_COMPLETE;
 }
+#endif
