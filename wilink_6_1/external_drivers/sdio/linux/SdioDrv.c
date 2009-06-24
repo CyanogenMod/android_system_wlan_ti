@@ -36,7 +36,7 @@ typedef void *	TI_HANDLE;
 #include "SdioDrvDbg.h"
 #include "SdioDrv.h"
 
-#define TI_SDIO_DEBUG
+/* #define TI_SDIO_DEBUG */
 
 #ifndef CONFIG_MMC_EMBEDDED_SDIO
 /*
