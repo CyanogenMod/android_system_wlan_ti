@@ -423,6 +423,125 @@ static int wpa_driver_tista_get_bt_coe_status(void *priv, u32 *mode)
 }
 
 /*-----------------------------------------------------------------------------
+Routine Name: prepare_filter_struct
+Routine Description: fills rx data filter structure according to parameter type
+Arguments:
+   priv - pointer to private data structure
+   type - type of mac address
+   dfreq_ptr - pointer to TRxDataFilterRequest structure
+Return Value: 0 - success, -1 - error
+-----------------------------------------------------------------------------*/
+static int prepare_filter_struct( void *priv, int type,
+					TRxDataFilterRequest *dfreq_ptr )
+{
+	const u8 *macaddr = NULL;
+	size_t len = 0;
+	u8 mask;
+	int ret = -1;
+
+	wpa_printf(MSG_DEBUG, "filter type=%d", type);
+	switch (type) {
+	case RX_SELF_FILTER:
+		macaddr = wpa_driver_tista_get_mac_addr(priv);
+		len = MAC_ADDR_LEN;
+		mask = 0x3F; /* 6 bytes */
+		break;
+	case RX_BROADCAST_FILTER:
+		macaddr = (const u8 *)"\xFF\xFF\xFF\xFF\xFF\xFF";
+		len = MAC_ADDR_LEN;
+		mask = 0x3F; /* 6 bytes */
+		break;
+	case RX_IPV4_MULTICAST_FILTER:
+		macaddr = (const u8 *)"\x01\x00\x5E";
+		len = 3;
+		mask = 0x7; /* 3 bytes */
+		break;
+	case RX_IPV6_MULTICAST_FILTER:
+		macaddr = (const u8 *)"\x33\x33";
+		len = 2;
+		mask = 0x3; /* 2 bytes */
+		break;
+	}
+
+	if (macaddr != NULL) {
+		dfreq_ptr->offset = 0;
+		dfreq_ptr->maskLength = 1;
+		dfreq_ptr->mask[0] = mask;
+		dfreq_ptr->patternLength = len;
+		os_memcpy( dfreq_ptr->pattern, macaddr, MAC_ADDR_LEN );
+		ret = 0;
+	}
+	return ret;
+}
+
+static int wpa_driver_tista_driver_rx_data_filter( void *priv, TRxDataFilterRequest *dfreq_ptr, u8 is_add )
+{
+	struct wpa_driver_ti_data *drv = (struct wpa_driver_ti_data *)priv;
+	int cmd, res;
+
+	if (is_add) { /* add rx data filter */
+		cmd = TIWLN_ADD_RX_DATA_FILTER;
+		wpa_printf(MSG_DEBUG, "Add RX data filter");
+	}
+	else { /* remove rx data filter */
+		cmd = TIWLN_REMOVE_RX_DATA_FILTER;
+		wpa_printf(MSG_DEBUG, "Remove RX data filter");
+	}
+
+	res = wpa_driver_tista_private_send(priv, cmd, dfreq_ptr, sizeof(TRxDataFilterRequest), NULL, 0);
+	if (0 != res)
+		wpa_printf(MSG_ERROR, "ERROR - Failed to handle rx data filter command!");
+	else
+		wpa_printf(MSG_DEBUG, "%s success", __func__);
+	return res;
+}
+
+static int wpa_driver_tista_driver_enable_rx_data_filter( void *priv )
+{
+	struct wpa_driver_ti_data *drv = (struct wpa_driver_ti_data *)priv;
+	u32 val = TRUE;
+	int res;
+
+	res = wpa_driver_tista_private_send(priv, TIWLN_ENABLE_DISABLE_RX_DATA_FILTERS,
+						&val, sizeof(u32), NULL, 0);
+	if (0 != res)
+		wpa_printf(MSG_ERROR, "ERROR - Failed to enable RX data filter!");
+	else
+		wpa_printf(MSG_DEBUG, "%s success", __func__);
+	return res;
+}
+
+static int wpa_driver_tista_driver_disable_rx_data_filter( void *priv )
+{
+	struct wpa_driver_ti_data *drv = (struct wpa_driver_ti_data *)priv;
+	u32 val = FALSE;
+	int res;
+
+	res = wpa_driver_tista_private_send(priv, TIWLN_ENABLE_DISABLE_RX_DATA_FILTERS,
+						&val, sizeof(u32), NULL, 0);
+	if (0 != res)
+		wpa_printf(MSG_ERROR, "ERROR - Failed to disable RX data filter!");
+	else
+		wpa_printf(MSG_DEBUG, "%s success", __func__);
+	return res;
+}
+
+static int wpa_driver_tista_driver_rx_data_filter_statistics( void *priv,
+				TCuCommon_RxDataFilteringStatistics *stats )
+{
+	struct wpa_driver_ti_data *drv = (struct wpa_driver_ti_data *)priv;
+	int res;
+
+	res = wpa_driver_tista_private_send(priv, TIWLN_GET_RX_DATA_FILTERS_STATISTICS,
+		NULL, 0, stats, sizeof(TCuCommon_RxDataFilteringStatistics));
+	if (0 != res)
+		wpa_printf(MSG_ERROR, "ERROR - Failed to get RX data filter statistics!");
+	else
+		wpa_printf(MSG_DEBUG, "%s success", __func__);
+	return res;
+}
+
+/*-----------------------------------------------------------------------------
 Routine Name: wpa_driver_tista_driver_cmd
 Routine Description: executes driver-specific commands
 Arguments: 
@@ -580,6 +699,65 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 		if( ret == 0 ) {
 			ret = sprintf(buf, "btcoexstatus = 0x%x\n", status);
 			wpa_printf(MSG_DEBUG, "buf %s", buf);
+		}
+	}
+	else if( os_strcasecmp(cmd, "rxfilter-start") == 0 ) {
+		wpa_printf(MSG_DEBUG,"Rx Data Filter Start command");
+		ret = wpa_driver_tista_driver_enable_rx_data_filter( priv );
+	}
+	else if( os_strcasecmp(cmd, "rxfilter-stop") == 0 ) {
+		wpa_printf(MSG_DEBUG,"Rx Data Filter Stop command");
+		ret = wpa_driver_tista_driver_disable_rx_data_filter( priv );
+	}
+	else if( os_strcasecmp(cmd, "rxfilter-statistics") == 0 ) {
+		TCuCommon_RxDataFilteringStatistics stats;
+		int len, i;
+
+		wpa_printf(MSG_DEBUG,"Rx Data Filter Statistics command");
+		ret = wpa_driver_tista_driver_rx_data_filter_statistics( priv, &stats );
+		if( ret == 0 ) {
+			ret = snprintf(buf, buf_len, "RxFilterStat: %u", (u32)stats.unmatchedPacketsCount);
+			for(i=0;( i < MAX_DATA_FILTERS );i++) {
+				ret += snprintf(&buf[ret], buf_len-ret, " %u", (u32)stats.matchedPacketsCount[i]);
+			}
+			ret += snprintf(&buf[ret], buf_len-ret, "\n");
+			if (ret >= (int)buf_len) {
+				ret = -1;
+			}
+		}
+	}
+	else if( os_strncasecmp(cmd, "rxfilter-add", 12) == 0 ) {
+		TRxDataFilterRequest dfreq;
+		char *cp = cmd + 12;
+		char *endp;
+		int type;
+
+		if (*cp != '\0') {
+			type = (int)strtol(cp, &endp, 0);
+			if (endp != cp) {
+				wpa_printf(MSG_DEBUG,"Rx Data Filter Add [%d] command", type);
+				ret = prepare_filter_struct( priv, type, &dfreq );
+				if( ret == 0 ) {
+					ret = wpa_driver_tista_driver_rx_data_filter( priv, &dfreq, 1 );
+				}
+			}
+		}
+	}
+	else if( os_strncasecmp(cmd, "rxfilter-remove",15) == 0 ) {
+		TRxDataFilterRequest dfreq;
+		char *cp = cmd + 15;
+		char *endp;
+		int type;
+
+		if (*cp != '\0') {
+			type = (int)strtol(cp, &endp, 0);
+			if (endp != cp) {
+				wpa_printf(MSG_DEBUG,"Rx Data Filter remove [%d] command", type);
+				ret = prepare_filter_struct( priv, type, &dfreq );
+				if( ret == 0 ) {
+					ret = wpa_driver_tista_driver_rx_data_filter( priv, &dfreq, 0 );
+				}
+			}
 		}
 	}
 	else {
