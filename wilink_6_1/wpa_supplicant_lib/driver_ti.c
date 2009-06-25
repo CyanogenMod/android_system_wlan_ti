@@ -207,11 +207,16 @@ static void ti_init_scan_params( scan_Params_t *pScanParams,
                                  int scanType, int noOfChan )
 {
 	u8 i,j;
+	int maxDwellTime;
 
 	/* init application scan default params */
 	pScanParams->desiredSsid.len = 0;
 	/* all scan, we will use active scan */
 	pScanParams->scanType = scanType;
+	if (scanType == SCAN_TYPE_NORMAL_ACTIVE)
+		maxDwellTime = 30000;
+	else
+		maxDwellTime = 110000;
 	pScanParams->band = RADIO_BAND_2_4_GHZ;
 	pScanParams->probeReqNumber = 3;
 	pScanParams->probeRequestRate = RATE_MASK_UNSPECIFIED; /* Let the FW select */;
@@ -225,8 +230,8 @@ static void ti_init_scan_params( scan_Params_t *pScanParams,
 		}
 		pScanParams->channelEntry[ i ].normalChannelEntry.earlyTerminationEvent = SCAN_ET_COND_DISABLE;
 		pScanParams->channelEntry[ i ].normalChannelEntry.ETMaxNumOfAPframes = 0;
-		pScanParams->channelEntry[ i ].normalChannelEntry.maxChannelDwellTime = 30000;
-		pScanParams->channelEntry[ i ].normalChannelEntry.minChannelDwellTime = 30000;
+		pScanParams->channelEntry[ i ].normalChannelEntry.maxChannelDwellTime = maxDwellTime;
+		pScanParams->channelEntry[ i ].normalChannelEntry.minChannelDwellTime = maxDwellTime;
 		pScanParams->channelEntry[ i ].normalChannelEntry.txPowerDbm = DEF_TX_POWER;
 		pScanParams->channelEntry[ i ].normalChannelEntry.channel = i + 1;
 	}
@@ -308,21 +313,28 @@ const u8 *wpa_driver_tista_get_mac_addr( void *priv )
 
 static int wpa_driver_tista_get_rssi(void *priv, int *rssi_data, int *rssi_beacon)
 {
+	u8 bssid[ETH_ALEN];
 	struct wpa_driver_ti_data *drv = (struct wpa_driver_ti_data *)priv;
 	TCuCommon_RoamingStatisticsTable buffer;
 
-	if(0 != wpa_driver_tista_private_send(priv, TIWLN_802_11_RSSI, NULL, 0,
-		&buffer, sizeof(TCuCommon_RoamingStatisticsTable)))
-	{
-		wpa_printf(MSG_ERROR, "ERROR - Failed to get rssi level");
-		*rssi_data = 0;
-		*rssi_beacon = 0;
+	*rssi_data = 0;
+	*rssi_beacon = 0;
+	if (wpa_driver_tista_get_bssid(priv, bssid) == 0 &&
+		os_memcmp(bssid, "\x00\x00\x00\x00\x00\x00", ETH_ALEN) != 0) {
+		if(0 != wpa_driver_tista_private_send(priv, TIWLN_802_11_RSSI, NULL, 0,
+				&buffer, sizeof(TCuCommon_RoamingStatisticsTable))) {
+			wpa_printf(MSG_ERROR, "ERROR - Failed to get rssi level");
+			return -1;
+		}
+		*rssi_data = (s8)buffer.rssi;
+		*rssi_beacon = (s8)buffer.rssiBeacon;
+		wpa_printf(MSG_DEBUG, "wpa_driver_tista_get_rssi data %d beacon %d success",
+						*rssi_data, *rssi_beacon);
+	}
+	else {
+		wpa_printf(MSG_DEBUG, "no WiFi link.");
 		return -1;
 	}
-	*rssi_data = (s8)buffer.rssi;
-	*rssi_beacon = (s8)buffer.rssiBeacon;
-	wpa_printf(MSG_DEBUG, "wpa_driver_tista_get_rssi data %d beacon %d success", *rssi_data, *rssi_beacon);
-
 	return 0;
 }
 
@@ -464,7 +476,10 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 		ret = 0;
 	}
 	else if( os_strcasecmp(cmd, "linkspeed") == 0 ) {
-		wpa_printf(MSG_DEBUG,"Link Speed command");
+		struct wpa_supplicant *wpa_s = (struct wpa_supplicant *)(drv->ctx);
+
+ 		wpa_printf(MSG_DEBUG,"Link Speed command");
+		drv->link_speed = wpa_s->link_speed / 1000000;
 		ret = sprintf(buf,"LinkSpeed %u\n", drv->link_speed);
 		wpa_printf(MSG_DEBUG, "buf %s", buf);
 	}
