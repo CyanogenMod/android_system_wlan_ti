@@ -96,9 +96,9 @@ extern void cmdBld_FinalizeDownload (TI_HANDLE hCmdBld, TBootAttr *pBootAttr, Fw
 
 /* Maximal block size in a single SDIO transfer --> Firmware image load chunk size */
 #ifdef _VLCT_
-#define MAX_SDIO_BLOCK					(4000)	
+#define MAX_SDIO_BLOCK					(4000)
 #else
-#define MAX_SDIO_BLOCK					(500)	
+#define MAX_SDIO_BLOCK					(500)
 #endif
 
 #define ACX_EEPROMLESS_IND_REG        (SCR_PAD4)

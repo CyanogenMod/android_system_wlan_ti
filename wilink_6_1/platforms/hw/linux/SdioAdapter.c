@@ -52,7 +52,7 @@
 #include <linux/mmc/sdio_ids.h>
 #include "TxnDefs.h"
 
-#define TI_SDIO_DEBUG
+/* #define TI_SDIO_DEBUG */
 
 int wifi_set_carddetect( int on );
 
@@ -117,14 +117,21 @@ static struct sdio_driver sdio_wifi_driver = {
         .id_table       = sdio_wifi_ids,
 };
 
+ETxnStatus sdioAdapt_TransactBytes (unsigned int  uFuncId,
+                                    unsigned int  uHwAddr,
+                                    void *        pHostAddr,
+                                    unsigned int  uLength,
+                                    unsigned int  bDirection,
+                                    unsigned int  bMore);
+
 int sdioAdapt_ConnectBus (void *        fCbFunc,
                           void *        hCbArg,
                           unsigned int  uBlkSizeShift,
                           unsigned int  uSdioThreadPriority)
 {
 	int rc;
+	short ch;
 
-	printk("%s\n",__func__);
 	init_completion(&sdio_wait);
 	wifi_set_carddetect( 1 );
 	rc = sdio_register_driver(&sdio_wifi_driver);
@@ -142,7 +149,6 @@ int sdioAdapt_ConnectBus (void *        fCbFunc,
 
 int sdioAdapt_DisconnectBus (void)
 {
-	printk("%s\n",__func__);
 	if (tiwlan_func) {
 		sdio_disable_func( tiwlan_func );
 		sdio_release_host( tiwlan_func );
@@ -150,40 +156,6 @@ int sdioAdapt_DisconnectBus (void)
 	wifi_set_carddetect( 0 );
 	sdio_unregister_driver(&sdio_wifi_driver);
 	return 0;
-}
-
-ETxnStatus sdioAdapt_Transact (unsigned int  uFuncId,
-                               unsigned int  uHwAddr,
-                               void *        pHostAddr,
-                               unsigned int  uLength,
-                               unsigned int  bDirection,
-                               unsigned int  bBlkMode,
-                               unsigned int  bFixedAddr,
-                               unsigned int  bMore)
-{
-	int rc;
-
-	if (bDirection) {
-		rc = sdio_memcpy_fromio(tiwlan_func, pHostAddr, uHwAddr, uLength);
-	}
-	else {
-		rc = sdio_memcpy_toio(tiwlan_func, uHwAddr, pHostAddr, uLength);
-	}
-#ifdef TI_SDIO_DEBUG
-	if (uLength == 1)
-	        printk(KERN_INFO "%c53: [0x%x](%u) = 0x%x\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, (unsigned)(*(char *)pHostAddr));
-	else if (uLength == 2)
-	        printk(KERN_INFO "%c53: [0x%x](%u) = 0x%x\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, (unsigned)(*(short *)pHostAddr));
-	else if (uLength == 4)
-	        printk(KERN_INFO "%c53: [0x%x](%u) = 0x%x\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, (unsigned)(*(long *)pHostAddr));
-	else
-		printk(KERN_INFO "%c53: [0x%x](%u) = %d\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, rc);
-#endif
-	/* If failed return ERROR, if succeeded return COMPLETE */
-	if (rc) {
-		return TXN_STATUS_ERROR;
-	}
-	return TXN_STATUS_COMPLETE;
 }
 
 ETxnStatus sdioAdapt_TransactBytes (unsigned int  uFuncId,
@@ -199,22 +171,72 @@ ETxnStatus sdioAdapt_TransactBytes (unsigned int  uFuncId,
 
 	for (i = 0; i < uLength; i++) {
 		if( bDirection ) {
-			*pData = (unsigned char)sdio_readb(tiwlan_func, uHwAddr, &rc);
+			if (uFuncId == 0)
+				*pData = (unsigned char)sdio_f0_readb(tiwlan_func, uHwAddr, &rc);
+			else
+				*pData = (unsigned char)sdio_readb(tiwlan_func, uHwAddr, &rc);
 		}
 		else {
-			sdio_writeb(tiwlan_func, *pData, uHwAddr, &rc);
+			if (uFuncId == 0)
+				sdio_f0_writeb(tiwlan_func, *pData, uHwAddr, &rc);
+			else
+				sdio_writeb(tiwlan_func, *pData, uHwAddr, &rc);
 		}
 		if( rc ) {
 			final_rc = rc;
 		}
 #ifdef TI_SDIO_DEBUG
-		printk(KERN_INFO "%c52: [0x%x](%u) = 0x%x\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, (unsigned)*pData);
+		printk(KERN_INFO "%c52: [0x%x](%u) %c 0x%x\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, (bDirection ? '=' : '<'), (unsigned)*pData);
 #endif
 		uHwAddr++;
 		pData++;
 	}
 	/* If failed return ERROR, if succeeded return COMPLETE */
 	if (final_rc) {
+		return TXN_STATUS_ERROR;
+	}
+	return TXN_STATUS_COMPLETE;
+}
+
+ETxnStatus sdioAdapt_Transact (unsigned int  uFuncId,
+                               unsigned int  uHwAddr,
+                               void *        pHostAddr,
+                               unsigned int  uLength,
+                               unsigned int  bDirection,
+                               unsigned int  bBlkMode,
+                               unsigned int  bFixedAddr,
+                               unsigned int  bMore)
+{
+	int rc;
+
+	if (uFuncId == 0)
+		return sdioAdapt_TransactBytes (uFuncId, uHwAddr, pHostAddr,
+						uLength, bDirection, bMore);
+	if (bDirection) {
+		if (bFixedAddr)
+			rc = sdio_memcpy_fromio(tiwlan_func, pHostAddr, uHwAddr, uLength);
+		else
+			rc = sdio_readsb(tiwlan_func, pHostAddr, uHwAddr, uLength);
+
+	}
+	else {
+		if (bFixedAddr)
+			rc = sdio_memcpy_toio(tiwlan_func, uHwAddr, pHostAddr, uLength);
+		else
+			rc = sdio_writesb(tiwlan_func, pHostAddr, uHwAddr, uLength);
+	}
+#ifdef TI_SDIO_DEBUG
+	if (uLength == 1)
+	        printk(KERN_INFO "%c53: [0x%x](%u) %c 0x%x\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, (bDirection ? '=' : '<'), (unsigned)(*(char *)pHostAddr));
+	else if (uLength == 2)
+	        printk(KERN_INFO "%c53: [0x%x](%u) %c 0x%x\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, (bDirection ? '=' : '<'), (unsigned)(*(short *)pHostAddr));
+	else if (uLength == 4)
+	        printk(KERN_INFO "%c53: [0x%x](%u) %c 0x%x\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, (bDirection ? '=' : '<'), (unsigned)(*(long *)pHostAddr));
+	else
+		printk(KERN_INFO "%c53: [0x%x](%u) F[%d] B[%d] I[%d] = %d\n", (bDirection ? 'R' : 'W'), uHwAddr, uLength, uFuncId, bBlkMode, bFixedAddr, rc);
+#endif
+	/* If failed return ERROR, if succeeded return COMPLETE */
+	if (rc) {
 		return TXN_STATUS_ERROR;
 	}
 	return TXN_STATUS_COMPLETE;

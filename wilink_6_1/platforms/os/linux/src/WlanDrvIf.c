@@ -91,8 +91,8 @@ MODULE_LICENSE("GPL");
 extern void disable_irq(unsigned int);
 
 /* exported clk function */
-int sdioDrv_acquire_clk(void);
-void sdiodrv_shutdown(void);
+//DM: int sdioDrv_acquire_clk(void);
+//void sdiodrv_shutdown(void);
 
 /** 
  * \fn     wlanDrvIf_Xmit
@@ -612,7 +612,7 @@ int wlanDrvIf_Start (struct net_device *dev)
 
     /* enable resources/clock */
 #ifndef CONFIG_MMC_EMBEDDED_SDIO
-    sdioDrv_acquire_clk();
+//Dm:    sdioDrv_acquire_clk();
 #endif
 
     /*
@@ -702,7 +702,7 @@ int wlanDrvIf_Stop (struct net_device *dev)
 
     /* disable clock; we are going down */
 #ifndef CONFIG_MMC_EMBEDDED_SDIO
-    sdiodrv_shutdown();
+//Dm:    sdiodrv_shutdown();
 #endif
     return 0;
 }
@@ -724,7 +724,7 @@ int wlanDrvIf_Release (struct net_device *dev)
 
     /* disable clock; we are going down */
 #ifndef CONFIG_MMC_EMBEDDED_SDIO
-    sdiodrv_shutdown();
+//    sdiodrv_shutdown();
 #endif
 #endif /* Dm: */
     return 0;
