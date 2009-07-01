@@ -135,18 +135,18 @@ NOTES:
 void os_printf(const char *format ,...)
 {
 	static int from_new_line = 1;		/* Used to save the last message EOL */
-   va_list ap;
-    static char msg[MAX_MESSAGE_SIZE];
+	va_list ap;
+	static char msg[MAX_MESSAGE_SIZE];
 	char *p_msg = msg;					/* Pointer to the message */
 	TI_UINT16 message_len;					
-   TI_UINT32 sec = 0;
-   TI_UINT32 uSec = 0;
-    os_memoryZero(NULL,msg, MAX_MESSAGE_SIZE);
-   
+	TI_UINT32 sec = 0;
+	TI_UINT32 uSec = 0;
+	os_memoryZero(NULL,msg, MAX_MESSAGE_SIZE);
+
 	/* Format the message and keep the message length */
-   va_start(ap,format);
+	va_start(ap,format);
 	message_len = vsnprintf(&msg[0], sizeof(msg) -1 , format, ap);
-       if( from_new_line )
+	if( from_new_line )
         {
             if (msg[1] == '$')
             {
@@ -165,7 +165,7 @@ void os_printf(const char *format ,...)
         }
         
         from_new_line = ( msg[message_len] == '\n' );
-    }
+}
 
 /****************************************************************************************
  *                        																*
@@ -482,6 +482,10 @@ TI_BOOL os_receivePacket (TI_HANDLE OsContext, void* pPacket, TI_UINT16 Length)
    {
        CL_TRACE_START_L1();
 
+       os_protectLock(OsContext, NULL);
+       drv->wl_packet = 1;
+       os_protectUnlock(OsContext, NULL);
+
        netif_rx_ni(skb);
 
        /* Note: Don't change this trace (needed to exclude OS processing from Rx CPU utilization) */
@@ -587,6 +591,94 @@ void os_InterruptServiced (TI_HANDLE OsContext)
 	/* To be implemented with Level IRQ */
 }
 
+/*-----------------------------------------------------------------------------
+Routine Name:  os_wake_lock_timeout
+
+Routine Description: Called to prevent system from suspend for some time
+
+Arguments:     OsContext - handle to OS context
+
+Return Value:  packet counter
+-----------------------------------------------------------------------------*/
+int os_wake_lock_timeout (TI_HANDLE OsContext)
+{
+	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
+	int ret = 0;
+
+	os_protectLock(OsContext, NULL);
+	if (drv) {
+		ret = drv->wl_packet;
+		if (drv->wl_packet) {
+			drv->wl_packet = 0;
+#ifdef CONFIG_HAS_WAKELOCK
+			wake_lock_timeout(&drv->wl_rxwake, (HZ >> 1));
+#endif
+		}
+	}
+	os_protectUnlock(OsContext, NULL);
+	/* printk("%s: %d\n", __func__, ret); */
+	return ret;
+}
+
+/*-----------------------------------------------------------------------------
+Routine Name:  os_wake_lock
+
+Routine Description: Called to prevent system from suspend
+
+Arguments:     OsContext - handle to OS context
+
+Return Value:  wake_lock counter
+-----------------------------------------------------------------------------*/
+int os_wake_lock (TI_HANDLE OsContext)
+{
+	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
+	int ret = 0;
+
+	os_protectLock(OsContext, NULL);
+	if (drv) {
+		if (drv->wl_count == 0) {
+#ifdef CONFIG_HAS_WAKELOCK
+			wake_lock(&drv->wl_wifi);
+#endif
+		}
+		drv->wl_count++;
+		ret = drv->wl_count;
+	}
+	os_protectUnlock(OsContext, NULL);
+	/* printk("%s: %d\n", __func__, ret); */
+	return ret;
+}
+
+/*-----------------------------------------------------------------------------
+Routine Name:  os_wake_unlock
+
+Routine Description: Called to allow system to suspend
+
+Arguments:     OsContext - handle to OS context
+
+Return Value:  wkae_lock counter
+-----------------------------------------------------------------------------*/
+int os_wake_unlock (TI_HANDLE OsContext)
+{
+	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
+	int ret = 0;
+
+	os_protectLock(OsContext, NULL);
+	if (drv) {
+		if (drv->wl_count) {
+			drv->wl_count--;
+			if (!drv->wl_count) {
+#ifdef CONFIG_HAS_WAKELOCK
+				wake_unlock(&drv->wl_wifi);
+#endif
+			}
+		}
+		ret = drv->wl_count;
+	}
+	os_protectUnlock(OsContext, NULL);
+	/* printk("%s: %d\n", __func__, ret); */
+	return ret;
+}
 
 /*-----------------------------------------------------------------------------
 Routine Name:  os_RequestSchedule
@@ -599,17 +691,21 @@ Return Value:  TI_OK
 -----------------------------------------------------------------------------*/
 int os_RequestSchedule (TI_HANDLE OsContext)
 {
-   TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
+	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
 
-   /* Note: The performance trace below doesn't inclose the schedule itself because the rescheduling  
-    *         can occur immediately and call os_RequestSchedule again which will confuse the trace tools
-    */
-   CL_TRACE_START_L3();
-   CL_TRACE_END_L3("tiwlan_drv.ko", "OS", "TASK", "");
+	/* Note: The performance trace below doesn't inclose the schedule
+	 *   itself because the rescheduling can occur immediately and call
+	 *   os_RequestSchedule again which will confuse the trace tools */
+	CL_TRACE_START_L3();
+	CL_TRACE_END_L3("tiwlan_drv.ko", "OS", "TASK", "");
 
-   queue_work(drv->tiwlan_wq, &drv->tWork);
+	os_wake_lock(drv);
+	if( !queue_work(drv->tiwlan_wq, &drv->tWork) ) {
+		os_wake_unlock(drv);
+		return TI_NOK;
+	}
 
-   return TI_OK;
+	return TI_OK;
 }
 
 
@@ -805,7 +901,3 @@ void os_Trace (TI_HANDLE OsContext, TI_UINT32 uLevel, TI_UINT32 uFileId, TI_UINT
 void os_SetDrvThreadPriority (TI_HANDLE OsContext, TI_UINT32 uWlanDrvThreadPriority)
 {
 }
-
-
-
-

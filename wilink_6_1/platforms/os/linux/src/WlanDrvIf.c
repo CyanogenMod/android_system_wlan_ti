@@ -347,6 +347,8 @@ static void wlanDrvIf_DriverTask (void *hDrv)
     #endif
 
     os_profile (drv, 1, 0);
+    os_wake_lock_timeout(drv);
+    os_wake_unlock(drv);
 }
 
 
@@ -870,7 +872,12 @@ static int wlanDrvIf_Create (void)
 		ti_dprintf (TIWLAN_LOG_ERROR, "wlanDrvIf_Create(): Failed to create workQ!\n");
 		return TI_NOK;
 	}
-
+	drv->wl_packet = 0;
+	drv->wl_count = 0;
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock_init(&drv->wl_wifi, WAKE_LOCK_SUSPEND, "wifi_wake");
+	wake_lock_init(&drv->wl_rxwake, WAKE_LOCK_SUSPEND, "wifi_rx_wake");
+#endif
 #if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
 	INIT_WORK(&drv->tWork, wlanDrvIf_DriverTask); // Dm: Kernel version !!!
 #else
@@ -971,6 +978,10 @@ static void wlanDrvIf_Destroy (TWlanDrvIfObj *drv)
 	if (drv->tiwlan_wq)
 		destroy_workqueue(drv->tiwlan_wq);
 
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock_destroy(&drv->wl_wifi);
+	wake_lock_destroy(&drv->wl_rxwake);
+#endif
 	/* 
 	 *  Free init files memory
 	 */

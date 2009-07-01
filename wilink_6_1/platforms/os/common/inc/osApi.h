@@ -529,6 +529,10 @@ void os_protectLock (TI_HANDLE OsContext, TI_HANDLE ProtectContext);
  */
 void os_protectUnlock (TI_HANDLE OsContext, TI_HANDLE ProtectContext);
 
+int os_wake_lock (TI_HANDLE OsContext);
+int os_wake_unlock (TI_HANDLE OsContext);
+int os_wake_lock_timeout (TI_HANDLE OsContext);
+
 #define os_profile(hos,fn,par)
 
 

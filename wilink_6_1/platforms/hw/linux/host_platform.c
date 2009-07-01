@@ -241,6 +241,7 @@ int hPlatform_initInterrupt( void *tnet_drv, void* handle_add )
 		print_err("TIWLAN: Failed to register interrupt handler\n");
 		return rc;
 	}
+	set_irq_wake(drv->irq, 1);	
 	return rc;
 
 } /* hPlatform_initInterrupt() */

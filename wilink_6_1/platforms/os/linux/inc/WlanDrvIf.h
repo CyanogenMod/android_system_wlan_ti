@@ -45,6 +45,9 @@
 #include <linux/netdevice.h>
 #include <linux/workqueue.h>
 #include <mach/gpio.h>
+#ifdef CONFIG_HAS_WAKELOCK
+#include <linux/wakelock.h>
+#endif
 
 #include "tidef.h"
 #include "WlanDrvCommon.h"
@@ -77,7 +80,7 @@
 
 #define ti_nodprintf(log, fmt, args...)
 
-typedef enum 
+typedef enum
 {
    TIWLAN_LOG_ERROR,
    TIWLAN_LOG_INFO,
@@ -96,7 +99,7 @@ typedef struct
 
 
 /* Driver object */
-typedef struct 
+typedef struct
 {
     TWlanDrvIfCommon         tCommon;   /* The driver object common part */
 
@@ -110,8 +113,13 @@ typedef struct
     struct net_device_stats  stats;     /* The driver's statistics for OS reports. */
     struct sock             *wl_sock;   /* The OS socket used for sending it the driver events */
     struct net_device       *netdev;    /* The OS handle for the driver interface. */
-
-    NDIS_HANDLE		         ConfigHandle;/* Temp - For Windows compatibility */
+    int                      wl_packet; /* Remember to stay awake */
+    int                      wl_count;  /* Wifi wakelock counter */
+#ifdef CONFIG_HAS_WAKELOCK
+    struct wake_lock         wl_wifi;   /* Wifi wakelock */
+    struct wake_lock         wl_rxwake; /* Wifi rx wakelock */
+#endif
+    NDIS_HANDLE              ConfigHandle;/* Temp - For Windows compatibility */
 
 } TWlanDrvIfObj, *TWlanDrvIfObjPtr;
 

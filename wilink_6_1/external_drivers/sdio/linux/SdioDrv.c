@@ -1171,8 +1171,8 @@ static int sdioDrv_resume(struct platform_device *pdev)
 		return 0;
 }
 #else
-#define omap_mmc_suspend	NULL
-#define omap_mmc_resume		NULL
+#define sdioDrv_suspend		NULL
+#define sdioDrv_resume		NULL
 #endif
 
 static struct platform_driver sdioDrv_struct = {
