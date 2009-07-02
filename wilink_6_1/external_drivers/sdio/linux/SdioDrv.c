@@ -241,8 +241,8 @@ static int sdiodrv_irq_requested = 0;
 static int sdiodrv_iclk_got = 0;
 static int sdiodrv_fclk_got = 0;
 
-static int sdioDrv_clk_enable(void);
-static void sdioDrv_clk_disable(void);
+int sdioDrv_clk_enable(void);
+void sdioDrv_clk_disable(void);
 static void sdioDrv_hsmmc_save_ctx(void);
 static void sdioDrv_hsmmc_restore_ctx(void);
 
@@ -657,30 +657,30 @@ int sdiodrv_data_xfer_sync(u32 cmd, u32 cmdarg, void *data, int length, u32 buff
 	}
 	status  = sdiodrv_poll_status(OMAP_HSMMC_STAT, TC, MMC_TIMEOUT_MS);
 	if(!(status & TC)) 
-    {
+	{
 	    PERR("sdiodrv_data_xfer_sync() transfer error! STAT = 0x%x\n", status);
 	    return -1;
 	}
 
-    return 0;
+	return 0;
 
 } /* sdiodrv_data_xfer_sync() */
 
 int sdioDrv_ConnectBus (void *fCbFunc, void *hCbArg, unsigned int uBlkSizeShift, unsigned int uSdioThreadPriority)
 {
-    g_drv.BusTxnCB      = fCbFunc;
-    g_drv.BusTxnHandle  = hCbArg;
-    g_drv.uBlkSizeShift = uBlkSizeShift;  
-    g_drv.uBlkSize      = 1 << uBlkSizeShift;
+	g_drv.BusTxnCB      = fCbFunc;
+	g_drv.BusTxnHandle  = hCbArg;
+	g_drv.uBlkSizeShift = uBlkSizeShift;  
+	g_drv.uBlkSize      = 1 << uBlkSizeShift;
 
 	INIT_WORK(&sdiodrv_work, sdiodrv_task);
 
-    return sdioDrv_InitHw ();
+	return sdioDrv_InitHw ();
 }
 
 int sdioDrv_DisconnectBus (void)
 {
-    return 0;
+	return 0;
 }
 
 //p.3609 cmd flow
@@ -695,6 +695,8 @@ int sdioDrv_ExecuteCmd (unsigned int uCmd,
 	unsigned int uResponse = 0;
 
 	PDEBUG("sdioDrv_ExecuteCmd() starting cmd %02x arg %08x\n", (int)uCmd, (int)uArg);
+
+	sdioDrv_clk_enable(); /* To make sure we have clocks enable */
 
 	uCmdReg = (uCmd << 24) | (uRespType << 16) ;
 
@@ -711,8 +713,7 @@ int sdioDrv_ExecuteCmd (unsigned int uCmd,
 		memcpy (pResponse, (char *)&uResponse, uLen);
 		PDEBUG("sdioDrv_ExecuteCmd() response = 0x%x\n", uResponse);
 	}
-
-    return 0;
+	return 0;
 }
 
 /*--------------------------------------------------------------------------------------*/
@@ -1133,6 +1134,7 @@ static int sdioDrv_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int sdioDrv_suspend(struct platform_device *pdev, pm_message_t state)
 {
+#if 0
 	int rc = 0;
 	
 	/* Tell WLAN driver to suspend, if a suspension function has been registered */
@@ -1143,20 +1145,19 @@ static int sdioDrv_suspend(struct platform_device *pdev, pm_message_t state)
 			return rc;
 	}
 
-	printk(KERN_INFO "TISDIO: sdioDrv is suspending\n");
-
 	sdiodrv_shutdown();
-
-	return rc;
+#endif
+	printk(KERN_INFO "TISDIO: sdioDrv is suspending\n");
+	return 0;
 }
 
 /* Routine to resume the MMC device */
 static int sdioDrv_resume(struct platform_device *pdev)
 {
-	int rc;
+//	int rc;
 	
 	printk(KERN_INFO "TISDIO: sdioDrv is resuming\n");
-	
+#if 0	
 	rc = sdioDrv_probe(pdev);
 	if (rc != 0) {
 		printk(KERN_ERR "TISDIO: resume error\n");
@@ -1167,8 +1168,8 @@ static int sdioDrv_resume(struct platform_device *pdev)
 		printk(KERN_INFO "TISDIO: Asking TIWLAN to resume\n");
 		return(g_drv.wlanDrvIf_pm_resume());
 	}
-	else
-		return 0;
+#endif
+	return 0;
 }
 #else
 #define sdioDrv_suspend		NULL
@@ -1192,7 +1193,7 @@ void sdioDrv_register_pm(int (*wlanDrvIf_Start)(void),
 	g_drv.wlanDrvIf_pm_suspend = wlanDrvIf_Stop;
 }
 
-static int sdioDrv_clk_enable(void)
+int sdioDrv_clk_enable(void)
 {
        unsigned long flags;
        int ret = 0;
@@ -1223,9 +1224,10 @@ clk_en_err1 :
        return ret;
 }
 
-static void sdioDrv_clk_disable(void)
+void sdioDrv_clk_disable(void)
 {
        unsigned long flags;
+
        spin_lock_irqsave(&g_drv.clk_lock, flags);
        if (!g_drv.ifclks_enabled)
                goto done;

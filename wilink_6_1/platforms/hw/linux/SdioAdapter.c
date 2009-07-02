@@ -270,8 +270,10 @@ ETxnStatus sdioAdapt_Transact (unsigned int  uFuncId,
 
 /* For block mode configuration */
 #define FN0_FBR2_REG_108                    0x210
-#define FN0_FBR2_REG_108_BIT_MASK           0xFFF 
+#define FN0_FBR2_REG_108_BIT_MASK           0xFFF
 
+int sdioDrv_clk_enable(void);
+void sdioDrv_clk_disable(void);
 
 int sdioAdapt_ConnectBus (void *        fCbFunc,
                           void *        hCbArg,
@@ -495,6 +497,11 @@ ETxnStatus sdioAdapt_TransactBytes (unsigned int  uFuncId,
 {
     int iStatus;
 
+    if (bMore == 1)
+    {
+        sdioDrv_clk_enable();
+    }
+
     /* Call read or write bytes Sync method */
     if (bDirection) 
     {
@@ -503,6 +510,11 @@ ETxnStatus sdioAdapt_TransactBytes (unsigned int  uFuncId,
     else 
     {
         iStatus = sdioDrv_WriteSyncBytes (uFuncId, uHwAddr, pHostAddr, uLength, bMore);
+    }
+
+    if (bMore == 0)
+    {
+        sdioDrv_clk_disable();
     }
 
     /* If failed return ERROR, if succeeded return COMPLETE */
