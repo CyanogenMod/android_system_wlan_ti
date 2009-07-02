@@ -320,14 +320,14 @@ ETxHwQueStatus txHwQueue_AllocResources (TI_HANDLE hTxHwQueue, TTxCtrlBlk *pTxCt
     /***********************************************************************/
 
     /* Divide length by 256 instead of 252 (block size) to save CPU */
-    uNumBlksToAlloc = pTxCtrlBlk->tTxDescriptor.length >> 8;
+    uNumBlksToAlloc = ( pTxCtrlBlk->tTxDescriptor.length + 20 ) >> 8;
 
     /* The length not yet included in the uNumBlksToAlloc is the sum of:
         1) 4 bytes per block as a result of using 256 instead of 252 block size.
         2) The remainder of the division by 256. 
         3) Overhead due to header translation, security and LLC header (subtracting ethernet header).
     */
-    uExcludedLength = (uNumBlksToAlloc << 2) + (pTxCtrlBlk->tTxDescriptor.length & 0xFF) + MAX_HEADER_SIZE - 14;
+    uExcludedLength = (uNumBlksToAlloc << 2) + ((pTxCtrlBlk->tTxDescriptor.length + 20) & 0xFF) + MAX_HEADER_SIZE - 14;
 
     /* Add 1 or 2 blocks for the excluded length, according to its size */
     uNumBlksToAlloc += (uExcludedLength > 252) ? 2 : 1;

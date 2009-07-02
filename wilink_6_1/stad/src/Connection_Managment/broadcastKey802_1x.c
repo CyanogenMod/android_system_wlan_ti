@@ -328,6 +328,8 @@ TI_STATUS broadcastKey802_1x_distribute(struct _broadcastKey_t *pBroadcastKey)
 	status = pBroadcastKey->pParent->reportBcastStatus(pBroadcastKey->pParent, TI_OK);
     }
 
+	mainKeys_reAuth(pBroadcastKey->pParent);
+
 	return status;
 }
 

@@ -57,6 +57,7 @@
 #include "mainSecNull.h"
 #include "mainSecKeysOnly.h"
 #include "mainKeysSm.h"
+#include "externalSec.h"
 
 /* Constants */
 
@@ -135,10 +136,11 @@ mainSec_t* mainSec_create(TI_HANDLE hOs)
     }
 
     pHandle->pKeyParser = pHandle->pMainKeys->pKeyParser;
-
-    
     pHandle->hOs = hOs;
     
+    /* created only for external security mode */
+    pHandle->pExternalSec = externalSec_create(hOs);
+
     return pHandle;
 }
 
@@ -182,17 +184,24 @@ TI_STATUS mainSec_config (mainSec_t *pMainSec,
 
     TRACE4(pMainSec->hReport, REPORT_SEVERITY_SM, "MainSec SM: config, authProtocol = %d, keyExchangeProtocol=%d, unicastSuite=%d, broadcastSuite=%d\n", pInitData->pPaeConfig->authProtocol, pInitData->pPaeConfig->keyExchangeProtocol, pInitData->pPaeConfig->unicastSuite, pInitData->pPaeConfig->broadcastSuite);
 
-    switch (pInitData->pPaeConfig->keyExchangeProtocol)
+    if (TI_TRUE == pMainSec->pParent->bRsnExternalMode)
     {
-    case RSN_KEY_MNG_NONE:
-        status = mainSecSmNull_config(pMainSec, pInitData->pPaeConfig);
-        break;
-    case RSN_KEY_MNG_802_1X:
-        status = mainSecKeysOnly_config(pMainSec, pInitData->pPaeConfig);
-        break;
-    default:
-        status = mainSecSmNull_config(pMainSec, pInitData->pPaeConfig);
-        break;
+            status = externalSec_config(pMainSec);
+    }
+    else
+    {
+         switch (pInitData->pPaeConfig->keyExchangeProtocol)
+         {
+            case RSN_KEY_MNG_NONE:
+                status = mainSecSmNull_config(pMainSec, pInitData->pPaeConfig);
+                break;
+            case RSN_KEY_MNG_802_1X:
+                status = mainSecKeysOnly_config(pMainSec, pInitData->pPaeConfig);
+                break;
+            default:
+                status = mainSecSmNull_config(pMainSec, pInitData->pPaeConfig);
+                break;
+         }
     }
 
     status  = mainKeys_config (pMainSec->pMainKeys, 

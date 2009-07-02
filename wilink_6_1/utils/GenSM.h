@@ -63,6 +63,26 @@ typedef  struct
  */
 typedef TGenSM_actionCell *TGenSM_matrix;
 
+
+/* generic state machine object structure */
+typedef struct
+{
+    TI_HANDLE       hOS;               /**< OS handle */ 
+    TI_HANDLE       hReport;           /**< report handle */ 
+    TGenSM_matrix   tMatrix;           /**< next state/action matrix */
+    TI_UINT32       uStateNum;         /**< Number of states in the matrix */
+    TI_UINT32       uEventNum;         /**< Number of events in the matrix */
+    TI_UINT32       uCurrentState;     /**< Current state */
+    TI_UINT32       uEvent;            /**< Last event sent */
+    void            *pData;            /**< Last event data */
+    TI_BOOL         bEventPending;     /**< Event pending indicator */
+    TI_BOOL         bInAction;         /**< Evenet execution indicator */
+    TI_UINT32       uModuleLogIndex;   /**< Module index to use for printouts */
+    TI_INT8         *pGenSMName;       /**< state machine name */
+    TI_INT8         **pStateDesc;      /**< State description strings */
+    TI_INT8         **pEventDesc;      /**< Event description strings */
+} TGenSM;
+
 TI_HANDLE   genSM_Create (TI_HANDLE hOS);
 void        genSM_Unload (TI_HANDLE hGenSM);
 void        genSM_Init (TI_HANDLE hGenSM, TI_HANDLE hReport);

@@ -79,6 +79,9 @@ typedef struct
     U8 client_cert[WPACORE_MAX_CERT_FILE_NAME_LENGTH];
     U8 password[WPACORE_MAX_CERT_PASSWORD_LENGTH];
     U8 anyWpaMode;
+#ifdef XCC_MODULE_INCLUDED
+    U16 XCC;
+#endif
 } TWpaCore_WpaSupplParams;
 
 typedef struct 
@@ -166,6 +169,17 @@ VOID WpaCore_Destroy(THandle hWpaCore)
 
 	os_MemoryFree(pWpaCore);
 }
+
+#ifdef XCC_MODULE_INCLUDED
+S32 WpaCore_SetXCC(THandle hWpaCore, U16 XCCConfig)
+{
+    TWpaCore* pWpaCore = (TWpaCore*)hWpaCore;
+
+    pWpaCore->WpaSupplParams.XCC = XCCConfig;
+
+    return TI_OK;
+}
+#endif
 
 S32 WpaCore_SetAuthMode(THandle hWpaCore, OS_802_11_AUTHENTICATION_MODE AuthMode)
 {
@@ -599,6 +613,13 @@ S32 WpaCore_SetSsid(THandle hWpaCore, OS_802_11_SSID* ssid, TMacAddr bssid)
 	else if (pWpaCore->WpaSupplParams.key_mgmt == WPA_KEY_MGMT_PSK)
 		os_sprintf(cmd, (PS8)"SET_NETWORK %d key_mgmt WPA-PSK", NetworkID);
 	else if (pWpaCore->WpaSupplParams.key_mgmt == WPA_KEY_MGMT_IEEE8021X)
+#ifdef XCC_MODULE_INCLUDED
+       if((pWpaCore->WpaSupplParams.XCC == OS_XCC_CONFIGURATION_ENABLE_CCKM)||(pWpaCore->WpaSupplParams.XCC == OS_XCC_CONFIGURATION_ENABLE_ALL))
+       {
+        os_sprintf(cmd, (PS8)"SET_NETWORK %d key_mgmt WPA-EAP CCKM", NetworkID);
+       }
+       else
+#endif
        os_sprintf(cmd, (PS8)"SET_NETWORK %d key_mgmt WPA-EAP", NetworkID);
    else if (pWpaCore->WpaSupplParams.key_mgmt == WPA_KEY_MGMT_WPA_NONE)
 		os_sprintf(cmd, (PS8)"SET_NETWORK %d key_mgmt WPA-NONE", NetworkID);

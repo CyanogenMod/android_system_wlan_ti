@@ -175,6 +175,7 @@ struct _rsn_t
 
     TI_UINT32              rsnStartedTs;
     TI_UINT32              rsnCompletedTs;
+    TI_BOOL                bRsnExternalMode;
 };
 
 /* Structures */
@@ -199,6 +200,7 @@ TI_STATUS rsn_setDefaultKeyId(rsn_t *pMainSec, TI_UINT8 keyId);
 
 TI_STATUS rsn_setDefaultKeys(rsn_t *pHandle);
 
+TI_BOOL rsn_getPortStatus(rsn_t *pRsn);
 
 #endif
 

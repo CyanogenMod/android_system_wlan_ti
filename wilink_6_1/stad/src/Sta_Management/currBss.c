@@ -71,6 +71,7 @@
 
 #define __FILE_ID__  FILE_ID_65
 #include "currBss.h"
+#include "currBssApi.h"
 #include "osApi.h"
 #include "report.h"
 #include "802_11Defs.h"
@@ -86,7 +87,7 @@
 #include "EvHandler.h"
 #include "DrvMainModules.h"
 #include "siteMgrApi.h"
-
+#include "roamingMngrTypes.h"
 
 /* Constants */
 #define TRIGGER_LOW_RSSI_PACING 1000
@@ -105,63 +106,30 @@ typedef TI_UINT8 (*currBSS_beaconRxCallb_t) (TI_HANDLE hModule, TI_UINT64 staTSF
 
 /* Structures */
 
-/**
-* Current BSS control block 
-* Following structure defines parameters that can be configured externally,
-* internal variables, and handlers of other modules used by Current BSS module
-*/
-typedef struct _currBSS_t
-{
-    /* Internal variables and configurable parameters */
-    ScanBssType_e type;                   /**< Set by SME module; EBSS, IBSS or none */
-    ERadioBand  band;                   /**< Set by SME module */
-    TI_UINT8    channel;                /**< Set by AP Connection, SME and Switch Channel modules */
-    TI_BOOL     isConnected;            /**< Default: not connected */
-    bssEntry_t  currAPInfo;             /**< Set by SME upon request from AP Connection */
-
-    TI_INT8     lowRssiThreshold;       /**< Last configured threshold for Low-RSSI */
-    TI_INT8     lowSnrThreshold;        /**< Last configured threshold Low-SNR */
-    TI_INT8     lowQualityForBkgrdScan; /**< Indicator used to increase the background scan period when quality is low */
-    TI_INT8     highQualityForBkgrdScan;/**< Indicator used to reduce the background scan period when quality is normal */
-    TI_UINT8    numExpectedTbttForBSSLoss;/**< last configured value without Soft Gemini compensation */
-    TI_UINT8    maxTxRetryThreshold;    /**< last configured threshold for max Tx retry */
-
-    TI_BOOL     bUseSGParams;           /**< Whether to use the Soft Gemini compensation on the roaming triggers (currently: BSS Loss) */
-                                        /**< This compensation is needed since BT Activity might over-run beacons                       */
-    TI_UINT32   SGcompensationPercent;  /**< the percentage of increasing the TbttForBSSLoss value when SG is enabled */
-    TI_UINT8    uDefaultKeepAlivePeriod;/**< The default keep-alive period in seconds */
-    TI_UINT8    keepAliveBuffer[ WLAN_WITH_SNAP_QOS_HEADER_MAX_SIZE ];
-                                        /**< Buffer to store null-data keep-alive template */
-
-    /* Handlers of other modules used by AP Connection */
-    TI_HANDLE   hOs;
-    TI_HANDLE   hPowerMngr;
-    TI_HANDLE   hAPConn;
-    TI_HANDLE   hSme;
-    TI_HANDLE   hTWD;
-    TI_HANDLE   hMlme;
-    TI_HANDLE   hReport;
-    TI_HANDLE   hRegulatoryDomain;
-    TI_HANDLE   hSiteMgr;
-    TI_HANDLE   hScanMngr;
-    TI_HANDLE   hEvHandler;
-    TI_HANDLE   hTxCtrl;
-} currBSS_t;
-
  
 /* Internal functions prototypes */
 
 static void currBSS_lowRssiThrCrossed(currBSS_t *hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
 static void currBSS_lowSnrThrCrossed(currBSS_t *hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
-static void currBSS_consecTxErrors(currBSS_t *hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
 static void currBSS_BackgroundScanQuality(TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
-static void currBSS_RssiSnrUserTrigger0 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
-static void currBSS_RssiSnrUserTrigger1 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
+static void currBSS_consecTxErrors(currBSS_t *hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
 static void currBSS_BssLost (currBSS_t *hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
 static void currBSS_reportRoamingEvent(currBSS_t *hCurrBSS, apConn_roamingTrigger_e roamingEventType, roamingEventData_u *pRoamingEventData);
 static void currBSS_updateBSSLoss(currBSS_t *pCurrBSS);
 
+static TI_STATUS currBss_HandleTriggerEvent(TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength, TI_UINT8 eventID);
+static triggerDesc_t* currBss_findEmptyUserTrigger(TI_HANDLE hCurrBSS, TI_UINT16 clientID, TI_UINT8* triggerIdx);
+static void currBSS_RssiSnrTrigger0 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
+static void currBSS_RssiSnrTrigger1 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
+static void currBSS_RssiSnrTrigger2 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
+static void currBSS_RssiSnrTrigger3 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
+static void currBSS_RssiSnrTrigger4 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
+static void currBSS_RssiSnrTrigger5 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
+static void currBSS_RssiSnrTrigger6 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
+static void currBSS_RssiSnrTrigger7 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
+
 /* Public functions implementation */
+
 
 
 /**
@@ -253,7 +221,8 @@ TI_STATUS currBSS_unload(TI_HANDLE hCurrBSS)
 void currBSS_init (TStadHandlesList *pStadHandles)
 {
     currBSS_t *pCurrBSS = (currBSS_t *)(pStadHandles->hCurrBss);
-        
+    int i=0;
+
     pCurrBSS->hAPConn       = pStadHandles->hAPConnection;
     pCurrBSS->hTWD          = pStadHandles->hTWD;
     pCurrBSS->hMlme         = pStadHandles->hMlmeSm;
@@ -264,6 +233,15 @@ void currBSS_init (TStadHandlesList *pStadHandles)
     pCurrBSS->hScanMngr     = pStadHandles->hScanMngr;
     pCurrBSS->hEvHandler    = pStadHandles->hEvHandler;
     pCurrBSS->hTxCtrl       = pStadHandles->hTxCtrl;
+
+    for (i=0; i< MAX_NUM_OF_RSSI_SNR_TRIGGERS ; i++)
+    {
+        pCurrBSS->aTriggersDesc[i].clientID = 0;
+        pCurrBSS->aTriggersDesc[i].fCB = NULL;
+		pCurrBSS->aTriggersDesc[i].hCB = NULL;
+        pCurrBSS->aTriggersDesc[i].WasRegisteredByApp = TI_FALSE;
+
+    }
 }
 
 
@@ -291,6 +269,9 @@ TI_STATUS currBSS_SetDefaults (TI_HANDLE hCurrBSS, TCurrBssInitParams *pInitPara
     TRroamingTriggerParams params;
     RssiSnrTriggerCfg_t tTriggerCfg;
     
+    /* save the roaming operational mode */
+    pCurrBSS->RoamingOperationalMode = pInitParams->RoamingOperationalMode;
+
     /* Registration succeeded, continue with init procedure */
     pCurrBSS->band = RADIO_BAND_2_4_GHZ;
     pCurrBSS->channel = 0;
@@ -299,75 +280,78 @@ TI_STATUS currBSS_SetDefaults (TI_HANDLE hCurrBSS, TCurrBssInitParams *pInitPara
     pCurrBSS->currAPInfo.RSSI = 0;
     pCurrBSS->bUseSGParams = TI_FALSE;
     pCurrBSS->uDefaultKeepAlivePeriod = pInitParams->uNullDataKeepAlivePeriod; 
+
+
+    /* register the static callbacks */
+    TWD_RegisterEvent(pCurrBSS->hTWD,TWD_OWN_EVENT_RSSI_SNR_TRIGGER_0,(void*) currBSS_RssiSnrTrigger0, pCurrBSS);
+    TWD_RegisterEvent(pCurrBSS->hTWD,TWD_OWN_EVENT_RSSI_SNR_TRIGGER_1,(void*) currBSS_RssiSnrTrigger1, pCurrBSS);
+    TWD_RegisterEvent(pCurrBSS->hTWD,TWD_OWN_EVENT_RSSI_SNR_TRIGGER_2,(void*) currBSS_RssiSnrTrigger2, pCurrBSS);
+    TWD_RegisterEvent(pCurrBSS->hTWD,TWD_OWN_EVENT_RSSI_SNR_TRIGGER_3,(void*) currBSS_RssiSnrTrigger3, pCurrBSS);
+    TWD_RegisterEvent(pCurrBSS->hTWD,TWD_OWN_EVENT_RSSI_SNR_TRIGGER_4,(void*) currBSS_RssiSnrTrigger4, pCurrBSS);
+    TWD_RegisterEvent(pCurrBSS->hTWD,TWD_OWN_EVENT_RSSI_SNR_TRIGGER_5,(void*) currBSS_RssiSnrTrigger5, pCurrBSS);
+    TWD_RegisterEvent(pCurrBSS->hTWD,TWD_OWN_EVENT_RSSI_SNR_TRIGGER_6,(void*) currBSS_RssiSnrTrigger6, pCurrBSS);
+    TWD_RegisterEvent(pCurrBSS->hTWD,TWD_OWN_EVENT_RSSI_SNR_TRIGGER_7,(void*) currBSS_RssiSnrTrigger7, pCurrBSS);
+
+    if (ROAMING_OPERATIONAL_MODE_AUTO == pCurrBSS->RoamingOperationalMode)
+    {
+        /* Configure and enable the Low RSSI, the Low SNR and the Missed beacon events */
+        currBSS_RegisterTriggerEvent(hCurrBSS, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_0, 0, (void*)currBSS_lowRssiThrCrossed, hCurrBSS);
+        currBSS_RegisterTriggerEvent(hCurrBSS, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_1, 0, (void*)currBSS_lowSnrThrCrossed, hCurrBSS);
+        currBSS_RegisterTriggerEvent(hCurrBSS, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_4, 0, (void*)currBSS_BackgroundScanQuality, hCurrBSS);
+
+        pCurrBSS->lowRssiThreshold = RSSI_DEFAULT_THRESHOLD;
+        tTriggerCfg.index     = TRIGGER_EVENT_LOW_RSSI;
+        tTriggerCfg.threshold = pCurrBSS->lowRssiThreshold;
+        tTriggerCfg.pacing    = TRIGGER_LOW_RSSI_PACING;
+        tTriggerCfg.metric    = METRIC_EVENT_RSSI_BEACON;
+        tTriggerCfg.type      = RX_QUALITY_EVENT_LEVEL;
+        tTriggerCfg.direction = RSSI_EVENT_DIR_LOW;
+        tTriggerCfg.hystersis = 0;
+        tTriggerCfg.enable    = TI_TRUE;
+        TWD_CfgRssiSnrTrigger (pCurrBSS->hTWD, &tTriggerCfg);
     
-    /* Configure and enable the Low RSSI, the Low SNR and the Missed beacon events */
-    TWD_RegisterEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_0, (void *)currBSS_lowRssiThrCrossed, pCurrBSS); 
-    TWD_EnableEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_0);
+        pCurrBSS->lowSnrThreshold = SNR_DEFAULT_THRESHOLD;
+        tTriggerCfg.index     = TRIGGER_EVENT_LOW_SNR;
+        tTriggerCfg.threshold = pCurrBSS->lowSnrThreshold;
+        tTriggerCfg.pacing    = TRIGGER_LOW_SNR_PACING;
+        tTriggerCfg.metric    = METRIC_EVENT_SNR_BEACON;
+        tTriggerCfg.type      = RX_QUALITY_EVENT_LEVEL;
+        tTriggerCfg.direction = RSSI_EVENT_DIR_LOW;
+        tTriggerCfg.hystersis = 0;
+        tTriggerCfg.enable    = TI_TRUE;
+        TWD_CfgRssiSnrTrigger (pCurrBSS->hTWD, &tTriggerCfg);
 
-    TWD_RegisterEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_1, (void *)currBSS_lowSnrThrCrossed, pCurrBSS); 
-    TWD_EnableEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_1);
+        pCurrBSS->highQualityForBkgrdScan = RSSI_DEFAULT_THRESHOLD;
+        pCurrBSS->lowQualityForBkgrdScan = RSSI_DEFAULT_THRESHOLD;
+        tTriggerCfg.index     = TRIGGER_EVENT_BG_SCAN;
+        tTriggerCfg.threshold = pCurrBSS->lowQualityForBkgrdScan;
+        tTriggerCfg.pacing    = TRIGGER_BG_SCAN_PACING;
+        tTriggerCfg.metric    = METRIC_EVENT_RSSI_DATA;
+        tTriggerCfg.type      = RX_QUALITY_EVENT_EDGE;
+        tTriggerCfg.direction = RSSI_EVENT_DIR_BIDIR;
+        tTriggerCfg.hystersis = TRIGGER_BG_SCAN_HYSTERESIS;
+        tTriggerCfg.enable    = TI_TRUE;
+        TWD_CfgRssiSnrTrigger (pCurrBSS->hTWD, &tTriggerCfg);
 
-    TWD_RegisterEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_4, (void *)currBSS_BackgroundScanQuality, pCurrBSS); 
-    TWD_EnableEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_4);
+         /* Register for 'BSS-Loss' event */
+        TWD_RegisterEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_BSS_LOSE, (void *)currBSS_BssLost, pCurrBSS);
+        TWD_EnableEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_BSS_LOSE);
 
-    TWD_RegisterEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_5, (void *)currBSS_RssiSnrUserTrigger0, pCurrBSS); 
-    TWD_EnableEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_5);
+        /* save last configured value for handling Soft Gemini changes */ 
+        pCurrBSS->numExpectedTbttForBSSLoss = OUT_OF_SYNC_DEFAULT_THRESHOLD;
+        params.TsfMissThreshold = OUT_OF_SYNC_DEFAULT_THRESHOLD;
+        params.BssLossTimeout = NO_BEACON_DEFAULT_TIMEOUT;
+        TWD_CfgConnMonitParams (pCurrBSS->hTWD, &params);
 
-    TWD_RegisterEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_6, (void *)currBSS_RssiSnrUserTrigger1, pCurrBSS); 
-    TWD_EnableEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_6);
+         /* Register for 'Consec. Tx error' */
+        TWD_RegisterEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_MAX_TX_RETRY, (void *)currBSS_consecTxErrors, pCurrBSS);
+        TWD_EnableEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_MAX_TX_RETRY);
 
-    pCurrBSS->lowRssiThreshold = RSSI_DEFAULT_THRESHOLD;
-    tTriggerCfg.index     = TRIGGER_EVENT_LOW_RSSI;
-    tTriggerCfg.threshold = pCurrBSS->lowRssiThreshold;
-    tTriggerCfg.pacing    = TRIGGER_LOW_RSSI_PACING;
-    tTriggerCfg.metric    = METRIC_EVENT_RSSI_BEACON;
-    tTriggerCfg.type      = RX_QUALITY_EVENT_LEVEL;
-    tTriggerCfg.direction = RSSI_EVENT_DIR_LOW;
-    tTriggerCfg.hystersis = 0;
-    tTriggerCfg.enable    = TI_TRUE;
-    TWD_CfgRssiSnrTrigger (pCurrBSS->hTWD, &tTriggerCfg);
+        pCurrBSS->maxTxRetryThreshold = NO_ACK_DEFAULT_THRESHOLD;
+        params.maxTxRetry = NO_ACK_DEFAULT_THRESHOLD;
+        TWD_CfgMaxTxRetry (pCurrBSS->hTWD, &params);
+    }
 
-    pCurrBSS->lowSnrThreshold = SNR_DEFAULT_THRESHOLD;
-    tTriggerCfg.index     = TRIGGER_EVENT_LOW_SNR;
-    tTriggerCfg.threshold = pCurrBSS->lowSnrThreshold;
-    tTriggerCfg.pacing    = TRIGGER_LOW_SNR_PACING;
-    tTriggerCfg.metric    = METRIC_EVENT_SNR_BEACON;
-    tTriggerCfg.type      = RX_QUALITY_EVENT_LEVEL;
-    tTriggerCfg.direction = RSSI_EVENT_DIR_LOW;
-    tTriggerCfg.hystersis = 0;
-    tTriggerCfg.enable    = TI_TRUE;
-    TWD_CfgRssiSnrTrigger (pCurrBSS->hTWD, &tTriggerCfg);
-
-    pCurrBSS->highQualityForBkgrdScan = RSSI_DEFAULT_THRESHOLD;
-    pCurrBSS->lowQualityForBkgrdScan = RSSI_DEFAULT_THRESHOLD;
-    tTriggerCfg.index     = TRIGGER_EVENT_BG_SCAN;
-    tTriggerCfg.threshold = pCurrBSS->lowQualityForBkgrdScan;
-    tTriggerCfg.pacing    = TRIGGER_BG_SCAN_PACING;
-    tTriggerCfg.metric    = METRIC_EVENT_RSSI_DATA;
-    tTriggerCfg.type      = RX_QUALITY_EVENT_EDGE;
-    tTriggerCfg.direction = RSSI_EVENT_DIR_BIDIR;
-    tTriggerCfg.hystersis = TRIGGER_BG_SCAN_HYSTERESIS;
-    tTriggerCfg.enable    = TI_TRUE;
-    TWD_CfgRssiSnrTrigger (pCurrBSS->hTWD, &tTriggerCfg);
-    
-    /* Register for 'BSS-Loss' event */
-    TWD_RegisterEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_BSS_LOSE, (void *)currBSS_BssLost, pCurrBSS);
-    TWD_EnableEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_BSS_LOSE);
-
-    /* save last configured value for handling Soft Gemini changes */ 
-    pCurrBSS->numExpectedTbttForBSSLoss = OUT_OF_SYNC_DEFAULT_THRESHOLD;
-    params.TsfMissThreshold = OUT_OF_SYNC_DEFAULT_THRESHOLD;
-    params.BssLossTimeout = NO_BEACON_DEFAULT_TIMEOUT;
-    TWD_CfgConnMonitParams (pCurrBSS->hTWD, &params);
-    
-    /* Register for 'Consec. Tx error' */
-    TWD_RegisterEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_MAX_TX_RETRY, (void *)currBSS_consecTxErrors, pCurrBSS);
-    TWD_EnableEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_MAX_TX_RETRY);
-
-    pCurrBSS->maxTxRetryThreshold = NO_ACK_DEFAULT_THRESHOLD;
-    params.maxTxRetry = NO_ACK_DEFAULT_THRESHOLD;
-    TWD_CfgMaxTxRetry (pCurrBSS->hTWD, &params);
-    
     return TI_OK;
 }
 
@@ -1100,12 +1084,153 @@ static void currBSS_BackgroundScanQuality(TI_HANDLE hCurrBSS,
 
 }
 
+/* EMP specific functions - lior*/
+
+
+/**
+*
+* currBss_findEmptyUserTrigger
+*
+* \b Description:
+*
+* Called be EventMBox upon Background Scan Quality Trigger.
+*
+* \b ARGS:
+*
+*  I   - hCurrBSS - Current BSS handle \n
+*
+* \b RETURNS:
+*
+*  None.
+*
+* \sa
+*/
+static triggerDesc_t* currBss_findEmptyUserTrigger(TI_HANDLE hCurrBSS, TI_UINT16 clientID, TI_UINT8* triggerIdx)
+{
+    currBSS_t       *pCurrBSS = (currBSS_t *)hCurrBSS;
+	TI_UINT8        i=0;
+
+    for (i=0; i< MAX_NUM_OF_RSSI_SNR_TRIGGERS ; i++)
+    {
+        if (clientID == pCurrBSS->aTriggersDesc[i].clientID || /* if the same client ID found, overwrite this trigger*/
+            (pCurrBSS->aTriggersDesc[i].WasRegisteredByApp == TI_FALSE && pCurrBSS->aTriggersDesc[i].fCB == NULL))
+        {
+            *triggerIdx = i;
+            return &pCurrBSS->aTriggersDesc[i];
+        }
+    }
+
+    return NULL;
+}
+
 
 /** 
- * \fn     currBSS_RssiSnrUserTrigger0 & 1 
- * \brief  User Defined Trigger 0 & 1 callbacks
+ * \fn     currBSS_RegisterTriggerEvent
+ * \brief  register the event in the currBss static table.
+ *
+ * \Args:
+ * \param  hCurrBSS   - Current BSS handle
+ * \param  triggerID  - The RSSI/SNR trigger ID as defined in the TWD. this arg is the table index.
+ * \param  clientID - The client ID, '0' value means internal driver module client
+ * \param  fCB - the trigger event handler. NULL value will be set for external app registration.
+ * \return >= 0 if the empty Trigger event ID (index table) has been found and occupied
+    else -1 to signal an error
+* \sa
+*/
+TI_INT8 currBSS_RegisterTriggerEvent (TI_HANDLE hCurrBSS, TI_UINT8 triggerID,TI_UINT16 clientID, void* fCB, TI_HANDLE hCB)
+{
+    currBSS_t       *pCurrBSS = (currBSS_t *)hCurrBSS;
+	triggerDesc_t   *pEmptyTrigger;
+    TI_UINT8        emptyTriggerIdx = 0;
+
+    if (triggerID >= MAX_NUM_OF_RSSI_SNR_TRIGGERS)
+    {
+        TRACE1(pCurrBSS->hReport, REPORT_SEVERITY_ERROR , "currBSS_RegisterTriggerEvent: triggerID=%d is not in legal range \n", triggerID);
+        return -1;
+    }
+
+    TRACE3(pCurrBSS->hReport, REPORT_SEVERITY_INFORMATION, "currBSS_RegisterTriggerEvent: triggerID=%d, clientID=%d , fCB=%d. \n",triggerID, clientID ,fCB);
+
+    if(clientID > 0) /* this event is registered by application */
+    {
+        pEmptyTrigger = currBss_findEmptyUserTrigger(hCurrBSS, clientID, &emptyTriggerIdx);
+        if (pEmptyTrigger != NULL)
+        {
+            pEmptyTrigger->clientID = clientID;
+            pEmptyTrigger->fCB = NULL;
+			pEmptyTrigger->hCB = NULL;
+            pEmptyTrigger->WasRegisteredByApp = TI_TRUE;
+        }
+        else
+        {
+            TRACE0(pCurrBSS->hReport, REPORT_SEVERITY_ERROR , "currBSS_RegisterTriggerEvent: Table is full!. no Empty trigger is available! \n");
+            return -1;
+        }
+    }
+    else
+    {
+        pCurrBSS->aTriggersDesc[triggerID].clientID = 0;
+        pCurrBSS->aTriggersDesc[triggerID].fCB = fCB;
+		pCurrBSS->aTriggersDesc[triggerID].hCB = hCB;
+        pCurrBSS->aTriggersDesc[triggerID].WasRegisteredByApp = TI_FALSE;
+    }
+
+    TWD_EnableEvent (pCurrBSS->hTWD, triggerID);
+    return emptyTriggerIdx;
+}
+
+
+
+
+/**
+ * \fn     currBss_HandleTriggerEvent
+ * \brief  called by the user trigger event callbcack.
+ *
+ * \Args:
+ * \param  hCurrBSS   - Current BSS handle
+ * \param  data       - The event data
+ * \param  dataLength - The event data length
+ * \param  eventID -    The event ID
+ * \return TI_STATUS
+* \sa
+*/
+static TI_STATUS currBss_HandleTriggerEvent(TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength, TI_UINT8 eventID)
+{
+    triggerDesc_t *pTrigger;
+    triggerDataEx_t triggerInfo;
+    currBSS_t *pCurrBSS = (currBSS_t *)hCurrBSS;
+
+    TRACE1(pCurrBSS->hReport ,REPORT_SEVERITY_INFORMATION,  "currBss_HandleTriggerEvent(). eventID =%d \n",eventID);
+
+    if (eventID < MAX_NUM_OF_RSSI_SNR_TRIGGERS)
+    {
+        pTrigger = &pCurrBSS->aTriggersDesc[eventID];
+    }
+    else
+    {
+       return TI_NOK;
+    }
+
+    if (TI_FALSE == pTrigger->WasRegisteredByApp)
+    {
+        ((TCurrBssDataCb)pTrigger->fCB)(pTrigger->hCB, data, dataLength);
+    }
+    else
+    {
+        triggerInfo.pData =  data;
+        triggerInfo.dataLength = dataLength;
+        triggerInfo.clientID = pTrigger->clientID;
+        EvHandlerSendEvent(pCurrBSS->hEvHandler, IPC_EVENT_RSSI_SNR_TRIGGER, (TI_UINT8*)&triggerInfo, sizeof(triggerDataEx_t));
+    }
+
+    return TI_OK;
+}
+
+/**
+ * \fn     currBSS_RssiSnrTrigger0-7
+ * \brief  User Defined Trigger 0-7 callbacks
  * 
- * Called by EventMBox upon User Defined Trigger 0 or 1.
+ * Called by EventMBox upon User Defined Trigger 0 - 7.
  * 
  * \note    
  * \param  hCurrBSS   - Current BSS handle
@@ -1114,16 +1239,206 @@ static void currBSS_BackgroundScanQuality(TI_HANDLE hCurrBSS,
  * \return void  
 * \sa 
 */
-static void currBSS_RssiSnrUserTrigger0 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength)
+
+static void currBSS_RssiSnrTrigger0 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength)
 {
-    currBSS_t *pCurrBSS = (currBSS_t *)hCurrBSS;
-    EvHandlerSendEvent(pCurrBSS->hEvHandler, IPC_EVENT_RSSI_SNR_TRIGGER_0, data, dataLength);
+	TI_UINT8 eventID = TWD_OWN_EVENT_RSSI_SNR_TRIGGER_0;
+	currBss_HandleTriggerEvent (hCurrBSS, data, dataLength,  eventID);
+}
+static void currBSS_RssiSnrTrigger1 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength)
+{
+	TI_UINT8 eventID = TWD_OWN_EVENT_RSSI_SNR_TRIGGER_1;
+	currBss_HandleTriggerEvent (hCurrBSS, data, dataLength,  eventID);
+}
+static void currBSS_RssiSnrTrigger2 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength)
+{
+	TI_UINT8 eventID = TWD_OWN_EVENT_RSSI_SNR_TRIGGER_2;
+	currBss_HandleTriggerEvent (hCurrBSS, data, dataLength,  eventID);
+}
+static void currBSS_RssiSnrTrigger3 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength)
+{
+	TI_UINT8 eventID = TWD_OWN_EVENT_RSSI_SNR_TRIGGER_3;
+	currBss_HandleTriggerEvent (hCurrBSS, data, dataLength,  eventID);
+}
+static void currBSS_RssiSnrTrigger4 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength)
+{
+	TI_UINT8 eventID = TWD_OWN_EVENT_RSSI_SNR_TRIGGER_4;
+	currBss_HandleTriggerEvent (hCurrBSS, data, dataLength,  eventID);
+}
+static void currBSS_RssiSnrTrigger5 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength)
+{
+	TI_UINT8 eventID = TWD_OWN_EVENT_RSSI_SNR_TRIGGER_5;
+	currBss_HandleTriggerEvent (hCurrBSS, data, dataLength,  eventID);
+}
+static void currBSS_RssiSnrTrigger6 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength)
+{
+	TI_UINT8 eventID = TWD_OWN_EVENT_RSSI_SNR_TRIGGER_6;
+	currBss_HandleTriggerEvent (hCurrBSS, data, dataLength,  eventID);
+}
+static void currBSS_RssiSnrTrigger7 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength)
+{
+	TI_UINT8 eventID = TWD_OWN_EVENT_RSSI_SNR_TRIGGER_7;
+	currBss_HandleTriggerEvent (hCurrBSS, data, dataLength,  eventID);
 }
 
-static void currBSS_RssiSnrUserTrigger1 (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength)
+
+static TI_STATUS currBSS_BssLossThresholdCrossed(TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength)
 {
-    currBSS_t *pCurrBSS = (currBSS_t *)hCurrBSS;
-    EvHandlerSendEvent(pCurrBSS->hEvHandler, IPC_EVENT_RSSI_SNR_TRIGGER_1, data, dataLength);
+	currBSS_t *pCurrBSS = (currBSS_t *)hCurrBSS;
+	triggerDataEx_t triggerInfo;
+
+	triggerInfo.pData =  data;
+	triggerInfo.dataLength = dataLength;
+	triggerInfo.clientID = pCurrBSS->BssLossClientID;
+	EvHandlerSendEvent(pCurrBSS->hEvHandler, IPC_EVENT_BSS_LOSS, (TI_UINT8*)&triggerInfo, sizeof(triggerDataEx_t));
+
+    currBSS_reportRoamingEvent(hCurrBSS, ROAMING_TRIGGER_BSS_LOSS, NULL);
+    return TI_OK;
+}
+
+static TI_STATUS currBSS_MaxTxRetryThresholdCrossed(TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength)
+{
+	currBSS_t *pCurrBSS = (currBSS_t *)hCurrBSS;
+	triggerDataEx_t triggerInfo;
+
+	triggerInfo.pData =  data;
+	triggerInfo.dataLength = dataLength;
+	triggerInfo.clientID = pCurrBSS->TxRetryClientID;
+	EvHandlerSendEvent(pCurrBSS->hEvHandler, IPC_EVENT_TX_RETRY_FALIURE, (TI_UINT8*)&triggerInfo, sizeof(triggerDataEx_t));
+
+    currBSS_reportRoamingEvent(hCurrBSS, ROAMING_TRIGGER_BSS_LOSS, NULL);
+    return TI_OK;
 }
 
 
+
+TI_STATUS currBss_registerBssLossEvent(TI_HANDLE hCurrBSS,TI_UINT32  uNumOfBeacons, TI_UINT16 uClientID)
+{
+    TRroamingTriggerParams params;
+    currBSS_t *pCurrBSS = (currBSS_t *)hCurrBSS;
+
+    TRACE2(pCurrBSS->hReport,REPORT_SEVERITY_INFORMATION , "currBss_registerBssLossEvent() uNumOfBeacons=%d,uClientID =%d \n", uNumOfBeacons,uClientID );
+
+    /* Register for 'BSS-Loss' event */
+    TWD_RegisterEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_BSS_LOSE, (void *)currBSS_BssLossThresholdCrossed, pCurrBSS);
+    TWD_EnableEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_BSS_LOSE);
+
+   /* save the client ID for this event registration */
+    pCurrBSS->BssLossClientID = uClientID;
+
+    pCurrBSS->numExpectedTbttForBSSLoss = uNumOfBeacons;
+    params.TsfMissThreshold = uNumOfBeacons; /* number of missing beacon allowed before out-of-sync event is issued*/
+    params.BssLossTimeout = NO_BEACON_DEFAULT_TIMEOUT;
+    TWD_CfgConnMonitParams (pCurrBSS->hTWD, &params);
+
+    return TI_OK;
+}
+
+TI_STATUS currBss_registerTxRetryEvent(TI_HANDLE hCurrBSS,TI_UINT8 uMaxTxRetryThreshold, TI_UINT16 uClientID)
+{
+    TRroamingTriggerParams params;
+    currBSS_t *pCurrBSS = (currBSS_t *)hCurrBSS;
+
+    TRACE2(pCurrBSS->hReport,REPORT_SEVERITY_INFORMATION , "currBss_registerTxRetryEvent() uMaxTxRetryThreshold=%d,uClientID =%d \n", uMaxTxRetryThreshold,uClientID );
+   /* Register for 'Consec. Tx error' */
+    TWD_RegisterEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_MAX_TX_RETRY, (void *)currBSS_MaxTxRetryThresholdCrossed, pCurrBSS);
+    TWD_EnableEvent (pCurrBSS->hTWD, TWD_OWN_EVENT_MAX_TX_RETRY);
+
+    pCurrBSS->maxTxRetryThreshold = uMaxTxRetryThreshold;
+    params.maxTxRetry = uMaxTxRetryThreshold;
+    TWD_CfgMaxTxRetry (pCurrBSS->hTWD, &params);
+
+    return TI_OK;
+}
+
+
+
+
+
+TI_STATUS currBSS_setParam(TI_HANDLE hCurrBSS, paramInfo_t *pParam)
+{
+    currBSS_t *pCurrBSS = (currBSS_t *)hCurrBSS;
+    TI_STATUS status = TI_OK;
+
+    if (pParam == NULL)
+    {
+        TRACE0(pCurrBSS->hReport, REPORT_SEVERITY_ERROR , " currBSS_setParam(): pParam is NULL!\n");
+        return TI_NOK;
+    }
+
+    TRACE1(pCurrBSS->hReport,REPORT_SEVERITY_INFORMATION , "currBSS_setParam() %X \n", pParam->paramType);
+
+    switch (pParam->paramType)
+    {
+	    case CURR_BSS_REGISTER_LINK_QUALITY_EVENT_PARAM:
+            {
+                TUserDefinedQualityTrigger *pUserTrigger = &pParam->content.rssiSnrTrigger;
+                RssiSnrTriggerCfg_t         tTriggerCfg;
+                TI_INT8                     triggerID = 0;
+
+                TRACE8(pCurrBSS->hReport, REPORT_SEVERITY_INFORMATION , "currBSS_setParam - USER_DEFINED_TRIGGER: \n index = %d, \n	 threshold = %d, \n pacing = %d, \n metric = %d, \n type = %d, \n direction = %d, \n hystersis = %d, \n enable = %d \n",pUserTrigger->uIndex,pUserTrigger->iThreshold,pUserTrigger->uPacing,pUserTrigger->uMetric,pUserTrigger->uType,pUserTrigger->uDirection,pUserTrigger->uHystersis,pUserTrigger->uEnable);
+                /* Copy from user structure to driver structure */
+                tTriggerCfg.index     = pUserTrigger->uIndex;
+                tTriggerCfg.threshold = pUserTrigger->iThreshold;
+                tTriggerCfg.pacing    = pUserTrigger->uPacing;
+                tTriggerCfg.metric    = pUserTrigger->uMetric;
+                tTriggerCfg.type      = pUserTrigger->uType;
+                tTriggerCfg.direction = pUserTrigger->uDirection;
+                tTriggerCfg.hystersis = pUserTrigger->uHystersis;
+                tTriggerCfg.enable    = pUserTrigger->uEnable;
+
+                /* the registration request is not from EMP (clientID must be greater than 0)
+                   so it is probably external user mode application like the CLI that sends always '0' as client ID*/
+                if (pUserTrigger->uClientID == 0) 
+                {
+                    pUserTrigger->uClientID = pUserTrigger->uIndex + 1; /* use the index (starting from '0') as positive client ID*/
+                }
+                /* Register the event and enable it before configuration.  */
+                triggerID = currBSS_RegisterTriggerEvent(hCurrBSS, (TI_UINT8)0, pUserTrigger->uClientID, (void*)0, hCurrBSS);
+
+                if (triggerID < 0)
+                {
+                    TRACE0(pCurrBSS->hReport, REPORT_SEVERITY_ERROR , "currBSS_setParam: RSSI/SNR user trigger registration FAILED!! \n");
+                    return TI_NOK;
+                }
+                else
+                {
+                    tTriggerCfg.index = (uint8)triggerID; /* the index is used for the eventMBox triggerID mapping*/
+                }
+                /* Send user defined trigger to FW (the related FW events are handled by the currBSS) */
+                status = TWD_CfgRssiSnrTrigger (pCurrBSS->hTWD, &tTriggerCfg);
+
+            }
+            break;
+
+        default:
+            TRACE1(pCurrBSS->hReport, REPORT_SEVERITY_ERROR, "currBSS_setParam bad param=  %X\n", pParam->paramType);
+            break;
+    }
+
+    return status;
+}
+
+
+TI_STATUS currBSS_getParam(TI_HANDLE hCurrBSS, paramInfo_t *pParam)
+{
+    return TI_NOK;
+}
+
+void currBss_DbgPrintTriggersTable(TI_HANDLE hCurrBSS)
+{
+    int i=0;
+    currBSS_t *pCurrBSS = (currBSS_t *)hCurrBSS;
+
+    WLAN_OS_REPORT(("\n -------------------  Triggers Table -------------------------- \n"));
+
+    for (i=0; i< MAX_NUM_OF_RSSI_SNR_TRIGGERS ; i++)
+    {
+        WLAN_OS_REPORT(("\n TriggerIdx[%d]: clientID=%d , fCB=%d, WasRegisteredByApp=%d. \n",
+                        i,
+                        pCurrBSS->aTriggersDesc[i].clientID,
+                        pCurrBSS->aTriggersDesc[i].fCB,
+                        pCurrBSS->aTriggersDesc[i].WasRegisteredByApp));
+    }
+    WLAN_OS_REPORT(("\n --------------------------------------------------------------- \n"));
+}

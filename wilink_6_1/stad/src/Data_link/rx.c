@@ -61,6 +61,7 @@
 #include "RxBuf.h"
 #include "DrvMainModules.h" 
 #include "bmtrace_api.h"
+#include "PowerMgr_API.h"
 
 
 #define EAPOL_PACKET                    0x888E
@@ -79,7 +80,7 @@
 /* CallBack for recieving packet from rxXfer */
 static void rxData_ReceivePacket (TI_HANDLE   hRxData,  void  *pBuffer);
 
-static ERxBufferStatus rxData_RequestForBuffer (TI_HANDLE   hRxData, void **pBuf, TI_UINT16 aLength, TI_UINT32 uEncryptionFlag);
+static ERxBufferStatus rxData_RequestForBuffer (TI_HANDLE   hRxData, void **pBuf, TI_UINT16 aLength, TI_UINT32 uEncryptionFlag,PacketClassTag_e ePacketClassTag);
 
 #if 0
 static TI_STATUS rxData_checkBssIdAndBssType(TI_HANDLE hRxData, 
@@ -109,6 +110,9 @@ static void rxData_rcvPacketIapp(TI_HANDLE hRxData, void *pBuffer, TRxAttr* pRxA
 static void rxData_printRxThroughput(TI_HANDLE hRxData, TI_BOOL bTwdInitOccured);
 #endif
 
+static void rxData_StartReAuthActiveTimer(TI_HANDLE hRxData);
+static void reAuthTimeout(TI_HANDLE hRxData, TI_BOOL bTwdInitOccured);
+static void rxData_ReauthEnablePriority(TI_HANDLE hRxData);
 
 
 /*************************************************************************
@@ -178,6 +182,7 @@ void rxData_init (TStadHandlesList *pStadHandles)
     pRxData->hXCCMgr    = pStadHandles->hXCCMngr;
     pRxData->hEvHandler = pStadHandles->hEvHandler;
     pRxData->hTimer     = pStadHandles->hTimer;
+    pRxData->hPowerMgr  = pStadHandles->hPowerMgr;
     
     pRxData->rxDataExcludeUnencrypted = DEF_EXCLUDE_UNENCYPTED; 
     pRxData->rxDataExludeBroadcastUnencrypted = DEF_EXCLUDE_UNENCYPTED;
@@ -250,6 +255,17 @@ TI_STATUS rxData_SetDefaults (TI_HANDLE hRxData, rxDataInitParams_t * rxDataInit
         }
     }
 
+	pRxData->reAuthActiveTimer = tmr_CreateTimer (pRxData->hTimer);
+	if (pRxData->reAuthActiveTimer == NULL)
+	{
+        WLAN_OS_REPORT(("rxData_SetDefaults(): Failed to create reAuthActiveTimer!\n"));
+		return TI_NOK;
+	}
+
+    pRxData->reAuthActiveTimeout = rxDataInitParams->reAuthActiveTimeout;
+
+	rxData_SetReAuthInProgress(pRxData, TI_FALSE);
+
 #ifdef TI_DBG
     /* reset counters */
     rxData_resetCounters(pRxData);
@@ -285,26 +301,33 @@ TI_STATUS rxData_SetDefaults (TI_HANDLE hRxData, rxDataInitParams_t * rxDataInit
 ***************************************************************************/
 TI_STATUS rxData_unLoad(TI_HANDLE hRxData)
 {
-	rxData_t *pRxData = (rxData_t *)hRxData;
+    rxData_t *pRxData = (rxData_t *)hRxData;
 
-	/* check parameters validity */
-	if (pRxData == NULL)
-	{
-		TRACE0(pRxData->hReport, REPORT_SEVERITY_ERROR, " rxData_unLoad()  : Illegal value for hRxData\n");
-		return TI_NOK;
-	}
+    /* check parameters validity */
+    if (pRxData == NULL)
+    {
+        return TI_NOK;
+    }
 
-	DistributorMgr_Destroy(pRxData->RxEventDistributor);
+    DistributorMgr_Destroy(pRxData->RxEventDistributor);
 
 #ifdef TI_DBG
-	/* destroy periodic rx throughput timer */
-	tmr_DestroyTimer (pRxData->hThroughputTimer);
-#endif
+    /* destroy periodic rx throughput timer */
+	if (pRxData->hThroughputTimer)
+	{
+		tmr_DestroyTimer (pRxData->hThroughputTimer);
+	}
+  #endif
 
-	/* free Rx Data controll block */
-	os_memoryFree(pRxData->hOs, pRxData, sizeof(rxData_t));
+	if (pRxData->reAuthActiveTimer)
+	{
+		tmr_DestroyTimer (pRxData->reAuthActiveTimer);
+	}
 
-	return TI_OK;
+    /* free Rx Data controll block */
+    os_memoryFree(pRxData->hOs, pRxData, sizeof(rxData_t));
+
+    return TI_OK;
 }
 
 
@@ -327,7 +350,6 @@ TI_STATUS rxData_stop (TI_HANDLE hRxData)
     /* check parameters validity */
     if (pRxData == NULL)
     {
-        TRACE0(pRxData->hReport, REPORT_SEVERITY_ERROR, " rxData_stop() : Illegal value for hRxData\n");
         return TI_NOK;
     }
 
@@ -375,7 +397,6 @@ TI_STATUS rxData_getParam(TI_HANDLE hRxData, paramInfo_t *pParamInfo)
     /* check handle validity */
     if (pRxData == NULL)
     {
-        TRACE0(pRxData->hReport, REPORT_SEVERITY_ERROR, " rxData_getParam() :  Illegal parametrs value \n");
         return TI_NOK;
     }
 
@@ -408,7 +429,10 @@ TI_STATUS rxData_getParam(TI_HANDLE hRxData, paramInfo_t *pParamInfo)
                                          pParamInfo->content.interogateCmdCBParams.fCb,
                                          pParamInfo->content.interogateCmdCBParams.hCb, 
                                          pParamInfo->content.interogateCmdCBParams.pCb);
+            break;
 
+        case RX_DATA_RATE_PARAM:
+            pParamInfo->content.siteMgrCurrentRxRate = pRxData->uLastDataPktRate;
             break;
 
         default:
@@ -440,7 +464,6 @@ TI_STATUS rxData_setParam(TI_HANDLE hRxData, paramInfo_t *pParamInfo)
     /* check handle validity */
     if( pRxData == NULL  )
     {
-        TRACE0(pRxData->hReport, REPORT_SEVERITY_ERROR, " rxData_setParam(): Illegal parametrs value \n");
         return TI_NOK;
     }
 
@@ -998,6 +1021,8 @@ static void rxData_dataPacketDisptcher (TI_HANDLE hRxData, void *pBuffer, TRxAtt
 
     /* get data packet type */
 
+    pRxData->uLastDataPktRate = pRxAttr->Rate;  /* save Rx packet rate for statistics */
+
 #ifdef XCC_MODULE_INCLUDED
     if (XCCMngr_isIappPacket (pRxData->hXCCMgr, pBuffer) == TI_TRUE)
     {
@@ -1021,7 +1046,7 @@ static void rxData_dataPacketDisptcher (TI_HANDLE hRxData, void *pBuffer, TRxAtt
            TI_UINT16 etherType = 0;
            TEthernetHeader * pEthernetHeader;
 
-           /* 
+           /*
             * if Host processes received packets, the header translation
             * from WLAN to ETH is done here. The conversion has been moved
             * here so that IAPP packets aren't converted.
@@ -1038,9 +1063,27 @@ static void rxData_dataPacketDisptcher (TI_HANDLE hRxData, void *pBuffer, TRxAtt
            }
            else if (HTOWLANS(pEthernetHeader->type) == EAPOL_PACKET)
            {
-               TRACE0(pRxData->hReport, REPORT_SEVERITY_INFORMATION, " rxData_dataPacketDisptcher() : Received Eapol packet  \n");
+				TRACE0(pRxData->hReport, REPORT_SEVERITY_INFORMATION, " rxData_dataPacketDisptcher() : Received Eapol packet  \n");
 
-               DataPacketType = DATA_EAPOL_PACKET;
+				if (rxData_IsReAuthInProgress(pRxData))
+				{
+					/* ReAuth already in progress, restart timer */
+					rxData_StopReAuthActiveTimer(pRxData);
+					rxData_StartReAuthActiveTimer(pRxData);
+				}
+				else
+				{
+					if (PowerMgr_getReAuthActivePriority(pRxData->hPowerMgr))
+					{
+						/* ReAuth not in progress yet, force active, set flag, restart timer, send event */
+						rxData_SetReAuthInProgress(pRxData, TI_TRUE);
+						rxData_StartReAuthActiveTimer(pRxData);
+						rxData_ReauthEnablePriority(pRxData);
+						EvHandlerSendEvent(pRxData->hEvHandler, IPC_EVENT_RE_AUTH_STARTED, NULL, 0);
+					}
+				}
+
+				DataPacketType = DATA_EAPOL_PACKET;
            }
            else
            {
@@ -1316,6 +1359,7 @@ static TI_STATUS rxData_convertWlanToEthHeader (TI_HANDLE hRxData, void *pBuffer
     TI_UINT32            lengthDelta;
     TI_UINT16            swapedTypeLength;
     TI_UINT32            headerLength;
+    TI_UINT8             createEtherIIHeader;
     rxData_t *pRxData = (rxData_t *)hRxData;
 
     dataBuf = (TI_UINT8 *)RX_BUF_DATA(pBuffer);
@@ -1340,9 +1384,56 @@ static TI_STATUS rxData_convertWlanToEthHeader (TI_HANDLE hRxData, void *pBuffer
         MAC_COPY (EthHeader.src, pDot11Header->address2);
     }
     
+    createEtherIIHeader = TI_FALSE;
+	/* See if the LLC header in the frame shows the SAP SNAP... */
+	if((SNAP_CHANNEL_ID == pWlanSnapHeader->DSAP) &&
+	   (SNAP_CHANNEL_ID == pWlanSnapHeader->SSAP) &&
+	   (LLC_CONTROL_UNNUMBERED_INFORMATION == pWlanSnapHeader->Control))
+	{
+		/* Check for the Bridge Tunnel OUI in the SNAP Header... */
+		if((SNAP_OUI_802_1H_BYTE0 == pWlanSnapHeader->OUI[ 0 ]) &&
+		   (SNAP_OUI_802_1H_BYTE1 == pWlanSnapHeader->OUI[ 1 ]) &&
+		   (SNAP_OUI_802_1H_BYTE2 == pWlanSnapHeader->OUI[ 2 ]))
+		{
+			/* Strip the SNAP header by skipping over it.                  */
+			/* Start moving data from the Ethertype field in the SNAP      */
+			/* header.  Move to the TypeLength field in the 802.3 header.  */
+			createEtherIIHeader = TI_TRUE;
+		}
+		/* Check for the RFC 1042 OUI in the SNAP Header   */
+		else
+		{
+			/* Check for the RFC 1042 OUI in the SNAP Header   */
+			if(	(SNAP_OUI_RFC1042_BYTE0 == pWlanSnapHeader->OUI[ 0 ]) &&
+				(SNAP_OUI_RFC1042_BYTE1 == pWlanSnapHeader->OUI[ 1 ]) &&
+				(SNAP_OUI_RFC1042_BYTE2 == pWlanSnapHeader->OUI[ 2 ]))
+			{
+			/* See if the Ethertype is in our selective translation table  */
+			/* (Appletalk AARP and DIX II IPX are the two protocols in     */
+			/* our 'table')                                                */
+				if((ETHERTYPE_APPLE_AARP != swapedTypeLength) &&
+					(ETHERTYPE_DIX_II_IPX != swapedTypeLength))
+			{
+				/* Strip the SNAP header by skipping over it. */
+				createEtherIIHeader = TI_TRUE;
+			}
+		}
+	}
+    }
+
+    if( createEtherIIHeader == TI_TRUE )
+    {
     /* The LEN/TYPE bytes are set to TYPE, the entire WLAN+SNAP is removed.*/
     lengthDelta = headerLength + WLAN_SNAP_HDR_LEN - ETHERNET_HDR_LEN;
     EthHeader.type = pWlanSnapHeader->Type;
+    }
+    else
+    {
+	/* The LEN/TYPE bytes are set to frame LEN, only the WLAN header is removed, */
+	/* the entire 802.3 or 802.2 header is not removed.*/
+	lengthDelta = headerLength - ETHERNET_HDR_LEN;
+	EthHeader.type = WLANTOHS((TI_UINT16)(RX_BUF_LEN(pBuffer) - headerLength));
+    }
     
     /* Replace the 802.11 header and the LLC with Ethernet packet. */
     dataBuf += lengthDelta;
@@ -1407,7 +1498,7 @@ static TI_STATUS rxData_ConvertAmsduToEthPackets (TI_HANDLE hRxData, void *pBuff
     {
         /* allocate a new buffer */
         /* RxBufAlloc() add an extra word for alignment the MAC payload */
-        rxData_RequestForBuffer (hRxData, &pDataBuf, sizeof(RxIfDescriptor_t) + WLAN_SNAP_HDR_LEN + ETHERNET_HDR_LEN + uDataLen, 0);
+        rxData_RequestForBuffer (hRxData, &pDataBuf, sizeof(RxIfDescriptor_t) + WLAN_SNAP_HDR_LEN + ETHERNET_HDR_LEN + uDataLen, 0, TAG_CLASS_AMSDU);
         if (NULL == pDataBuf)
         {
             TRACE1(pRxData->hReport, REPORT_SEVERITY_ERROR, "rxData_ConvertAmsduToEthPackets(): cannot alloc MSDU packet. length %d \n",uDataLen);
@@ -1661,13 +1752,14 @@ RETURN:
 static ERxBufferStatus rxData_RequestForBuffer (TI_HANDLE   hRxData,
                                       void **pBuf,
                                       TI_UINT16 aLength, 
-                                      TI_UINT32 uEncryptionflag)
+                                      TI_UINT32 uEncryptionflag,
+                                      PacketClassTag_e ePacketClassTag)
 {
     rxData_t *pRxData = (rxData_t *)hRxData;
 
     TRACE1(pRxData->hReport, REPORT_SEVERITY_INFORMATION , " RequestForBuffer, length = %d \n",aLength);
 
-    *pBuf = RxBufAlloc (pRxData->hOs, aLength);
+    *pBuf = RxBufAlloc (pRxData->hOs, aLength, ePacketClassTag);
 
     if (*pBuf)
     {
@@ -1841,3 +1933,124 @@ void rxData_printRxDataFilter (TI_HANDLE hRxData)
 }
 
 #endif /*TI_DBG*/
+
+/****************************************************************************
+ *                      rxData_SetReAuthInProgress()
+ ****************************************************************************
+ * DESCRIPTION:	Sets the ReAuth flag value
+ *
+ * INPUTS: hRxData - the object
+ *		   value - value to set the flag to
+ *
+ * OUTPUT:	None
+ *
+ * RETURNS:	OK or NOK
+ ****************************************************************************/
+void rxData_SetReAuthInProgress(TI_HANDLE hRxData, TI_BOOL	value)
+{
+	rxData_t *pRxData = (rxData_t *)hRxData;
+
+	TRACE1(pRxData->hReport, REPORT_SEVERITY_INFORMATION , "Set ReAuth flag to %d\n", value);
+
+	pRxData->reAuthInProgress = value;
+}
+
+/****************************************************************************
+ *                      rxData_IsReAuthInProgress()
+ ****************************************************************************
+ * DESCRIPTION:	Returns the ReAuth flag value
+ *
+ * INPUTS: hRxData - the object
+ *
+ * OUTPUT:	None
+ *
+ * RETURNS:	ReAuth flag value
+ ****************************************************************************/
+TI_BOOL rxData_IsReAuthInProgress(TI_HANDLE hRxData)
+{
+	rxData_t *pRxData = (rxData_t *)hRxData;
+	return pRxData->reAuthInProgress;
+}
+
+/****************************************************************************
+*						rxData_StartReAuthActiveTimer   	                *
+*****************************************************************************
+* DESCRIPTION:	this function starts the ReAuthActive timer
+*
+* INPUTS:		hRxData - the object
+*
+* OUTPUT:		None
+*
+* RETURNS:		None
+***************************************************************************/
+static void rxData_StartReAuthActiveTimer(TI_HANDLE hRxData)
+{
+	rxData_t *pRxData = (rxData_t *)hRxData;
+    TRACE0(pRxData->hReport, REPORT_SEVERITY_INFORMATION , "Start ReAuth Active Timer\n");
+    tmr_StartTimer (pRxData->reAuthActiveTimer,
+                    reAuthTimeout,
+                    (TI_HANDLE)pRxData,
+                    pRxData->reAuthActiveTimeout,
+                    TI_FALSE);
+}
+
+/****************************************************************************
+*						rxData_StopReAuthActiveTimer   						*
+*****************************************************************************
+* DESCRIPTION:	this function stops the ReAuthActive timer
+*
+* INPUTS:		hRxData - the object
+*
+* OUTPUT:		None
+*
+* RETURNS:		None
+***************************************************************************/
+void rxData_StopReAuthActiveTimer(TI_HANDLE hRxData)
+{
+	rxData_t *pRxData = (rxData_t *)hRxData;
+    TRACE0(pRxData->hReport, REPORT_SEVERITY_INFORMATION , "Stop ReAuth Active Timer\n");
+    tmr_StopTimer (pRxData->reAuthActiveTimer);
+}
+
+/****************************************************************************
+*						reAuthTimeout   									*
+*****************************************************************************
+* DESCRIPTION:	this function ia called when the ReAuthActive timer elapses
+*				It resets the Reauth flag and restore the PS state.
+*				It also sends RE_AUTH_TERMINATED event to upper layer.
+*
+* INPUTS:		hRxData - the object
+*
+* OUTPUT:		None
+*
+* RETURNS:		None
+***************************************************************************/
+static void reAuthTimeout(TI_HANDLE hRxData, TI_BOOL bTwdInitOccured)
+{
+	rxData_t *pRxData = (rxData_t *)hRxData;
+
+    TRACE0(pRxData->hReport, REPORT_SEVERITY_INFORMATION , "ReAuth Active Timeout\n");
+	rxData_SetReAuthInProgress(pRxData, TI_FALSE);
+	rxData_ReauthDisablePriority(pRxData);
+    EvHandlerSendEvent(pRxData->hEvHandler, IPC_EVENT_RE_AUTH_TERMINATED, NULL, 0);
+}
+
+void rxData_ReauthEnablePriority(TI_HANDLE hRxData)
+{
+	rxData_t *pRxData = (rxData_t *)hRxData;
+	paramInfo_t param;
+
+    param.paramType = POWER_MGR_ENABLE_PRIORITY;
+    param.content.powerMngPriority = POWER_MANAGER_REAUTH_PRIORITY;
+    powerMgr_setParam(pRxData->hPowerMgr,&param);
+}
+
+void rxData_ReauthDisablePriority(TI_HANDLE hRxData)
+{
+	rxData_t *pRxData = (rxData_t *)hRxData;
+    paramInfo_t param;
+
+    param.paramType = POWER_MGR_DISABLE_PRIORITY;
+    param.content.powerMngPriority = POWER_MANAGER_REAUTH_PRIORITY;
+    powerMgr_setParam(pRxData->hPowerMgr,&param);
+}

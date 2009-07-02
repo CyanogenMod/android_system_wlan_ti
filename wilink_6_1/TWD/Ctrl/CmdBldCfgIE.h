@@ -44,6 +44,7 @@
 
 
 #include "TWDriverInternal.h"
+#include "public_infoele.h"
 
 
 TI_STATUS cmdBld_CfgIeMemoryMap                	(TI_HANDLE hCmdBld, MemoryMap_t *apMap, void *fCb, TI_HANDLE hCb);
@@ -60,6 +61,7 @@ TI_STATUS cmdBld_CfgIeAid                      	(TI_HANDLE hCmdBld, TI_UINT16 ap
 TI_STATUS cmdBld_CfgIeTxPowerDbm 				(TI_HANDLE hCmdBld, TI_UINT8 uTxPowerDbm , void *fCb, TI_HANDLE hCb);
 TI_STATUS cmdBld_CfgIeSgEnable                 	(TI_HANDLE hCmdBld, ESoftGeminiEnableModes eSoftGeminiEnableModes, void *fCb, TI_HANDLE hCb);
 TI_STATUS cmdBld_CfgIeSg                       	(TI_HANDLE hCmdBld, TSoftGeminiParams *pSoftGeminiParam, void *fCb, TI_HANDLE hCb);
+TI_STATUS cmdBld_CfgIeFmCoex                    (TI_HANDLE hCmdBld, TFmCoexParams *pFmCoexParams, void *fCb, TI_HANDLE hCb);
 TI_STATUS cmdBld_CfgIeConnMonitParams          	(TI_HANDLE hCmdBld, TRroamingTriggerParams *pRoamingTriggerCmd, void *fCb, TI_HANDLE hCb);
 TI_STATUS cmdBld_CfgIeConfigMemory             	(TI_HANDLE hCmdBld, TDmaParams *pDmaParams, void *fCb, TI_HANDLE hCb);
 TI_STATUS cmdBld_CfgIeSlotTime                 	(TI_HANDLE hCmdBld, TI_UINT8 apSlotTime, void *fCb, TI_HANDLE hCb);
@@ -97,5 +99,9 @@ TI_STATUS cmdBld_CfgIeRadioParams               (TI_HANDLE hCmdBld, IniFileRadio
 TI_STATUS cmdBld_CfgPlatformGenParams           (TI_HANDLE hCmdBld, IniFileGeneralParam *pGenParams, void *fCb, TI_HANDLE hCb);
 TI_STATUS cmdBld_CfgIeCoexActivity              (TI_HANDLE hCmdBld, TCoexActivity *pCoexActivity, void *fCb, TI_HANDLE hCb);
 TI_STATUS cmdBld_CfgIeBurstMode 				(TI_HANDLE hCmdBld, TI_BOOL bEnabled, void *fCb, TI_HANDLE hCb);
+TI_STATUS cmdBld_CfgIeSRDebug                   (TI_HANDLE hCmdBld, ACXSmartReflexDebugParams_t *pSRDebug, void *fCb, TI_HANDLE hCb);
+TI_STATUS cmdBld_CfgIeSRState                   (TI_HANDLE hCmdBld, uint8 SRstate, void *fCb, TI_HANDLE hCb);
+TI_STATUS cmdBld_CfgIeSRParams                  (TI_HANDLE hCmdBld, ACXSmartReflexConfigParams_t *pSRDebug, void *fCb, TI_HANDLE hCb);
+TI_STATUS cmdBld_CfgIeRateMngDbg 				(TI_HANDLE hCmdBld, RateMangeParams_t *pRateMngParams, void *fCb, TI_HANDLE hCb);
 #endif
 

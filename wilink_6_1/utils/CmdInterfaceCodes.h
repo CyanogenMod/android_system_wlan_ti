@@ -157,7 +157,7 @@ typedef enum
     SCAN_MNGR_PARAM                 	= 0x1600,	/**< Scan Manager Module Number						*/
     MISC_MODULE_PARAM					= 0x1700,	/**< Misc. Module Number							*/
     HEALTH_MONITOR_MODULE_PARAM         = 0x1800,	/**< Health Monitor Module Number					*/
-
+    CURR_BSS_MODULE_PARAM               = 0x1900,   /**< Current Bss Module Number	     		        */
     /*
     Last module - DO NOT TOUCH!
     */
@@ -282,7 +282,33 @@ typedef enum
 																										* Allocate Bit: OFF	\n
 																										* GET Bit: ON	\n
 																										* SET Bit: ON	\n
-																										*/
+*/
+    
+    SITE_MGRT_SET_RATE_MANAGMENT             = SET_BIT | SITE_MGR_MODULE_PARAM | 0x06 ,                 /**< Site Manager Desired Preamble Type Parameter (Site Manager Module Set/Get Command): \n 
+                                                                                                        * Used for Setting/Getting Desired Preamble Type to/from OS abstraction layer\n
+																										* Done Sync with no memory allocation\n 
+																										* Parameter Number:	0x06\	n
+																										* Module Number: Site Manager Module Number \n
+																										* Async Bit: OFF	\n
+																										* Allocate Bit: OFF	\n
+																										* GET Bit: OF	\n
+																										* SET Bit: ON	\n
+*/
+ 
+
+    SITE_MGRT_GET_RATE_MANAGMENT             = GET_BIT | SITE_MGR_MODULE_PARAM | 0x07| ASYNC_PARAM,     /**< Site Manager Desired Preamble Type Parameter (Site Manager Module Set/Get Command): \n 
+                                                                                                        * Used for Setting/Getting Desired Preamble Type to/from OS abstraction layer\n
+																										* Done Sync with no memory allocation\n 
+																										* Parameter Number:	0x07\	n
+																										* Module Number: Site Manager Module Number \n
+																										* Async Bit: ON	\n
+																										* Allocate Bit: OFF	\n
+																										* GET Bit: ON	\n
+																										* SET Bit: OFF	\n
+*/
+
+
+
 	SITE_MGR_CURRENT_CHANNEL_PARAM              = 	SET_BIT | GET_BIT | SITE_MGR_MODULE_PARAM | 0x0E,	/**< Site Manager Current Channel Parameter (Site Manager Module Set/Get Command): \n 
 																										* Used for Setting/Getting Current Channel to/from OS abstraction layer\n
 																										* Done Sync with no memory allocation\n 
@@ -416,6 +442,16 @@ typedef enum
                                                                                                         * GET Bit: ON	\n
                                                                                                         * SET Bit: OFF	\n
                                                                                                         */
+	SITE_MGR_CURRENT_RX_RATE_PARAM				=             GET_BIT | SITE_MGR_MODULE_PARAM | 0x42,	/**< Site Manager Current RX Rate Parameter (Site Manager Module Get Command): \n  
+																										* Used for Getting Current RX Rate from OS abstraction layer\n
+																										* Done Sync with no memory allocation\n 
+																										* Parameter Number:	0x33	\n
+																										* Module Number: Site Manager Module Number \n
+																										* Async Bit: OFF	\n
+																										* Allocate Bit: OFF	\n
+																										* GET Bit: ON	\n
+																										* SET Bit: OFF	\n
+																										*/
 	/* CTRL data section */
 	CTRL_DATA_CURRENT_BSS_TYPE_PARAM			=	SET_BIT | GET_BIT | CTRL_DATA_MODULE_PARAM | 0x04,	/**< Control Data Primary BSS Type Parameter (Control Data Module Set/Get Command): \n  
 																										* Used for Setting/Getting Primary BSS Type to/form Control Data Parameters\n
@@ -809,7 +845,7 @@ typedef enum
 																																*/
 
 
-    POWER_MGR_GET_POWER_CONSUMPTION_STATISTICS       =            GET_BIT | POWER_MANAGER_PARAM | 0x08| ASYNC_PARAM,             /**< Power Manager  Get power consumption parmeter (Power Manager Module Get Command): \n  
+    POWER_MGR_GET_POWER_CONSUMPTION_STATISTICS       =            GET_BIT | POWER_MANAGER_PARAM | 0x09| ASYNC_PARAM,             /**< Power Manager  Get power consumption parmeter (Power Manager Module Get Command): \n  
                                                                                                                                 * Used for getting the Keep Alive current Configuration\n
 																																* Done Sync with no memory allocation\n 
 																																* Parameter Number:	0x08	\n
@@ -885,15 +921,27 @@ typedef enum
 																																* SET Bit: ON	\n
 																																*/
 	RSN_XCC_NETWORK_EAP								=	SET_BIT | GET_BIT | RSN_MODULE_PARAM | 0x0A,							/**< Robust Security NW (RSN) XCC NW EAP Parameter (RSN Module Set/Get Command): \n  
-																																* Used for setting/getting RSN XCC NW EAP to/from RSN Module\n
-																																* Done Sync with no memory allocation\n 
-																																* Parameter Number:	0x0A	\n
-																																* Module Number: RSN Module Number \n
-																																* Async Bit: OFF	\n
-																																* Allocate Bit: OFF	\n
-																																* GET Bit: ON	\n
-																																* SET Bit: ON	\n
-																																*/
+                                                                                                                                * Used for setting/getting RSN XCC NW EAP to/from RSN Module\n
+                                                                                                                                * Done Sync with no memory allocation\n 
+                                                                                                                                * Parameter Number:	0x0B	\n
+                                                                                                                                * Module Number: RSN Module Number \n
+                                                                                                                                * Async Bit: OFF	\n
+                                                                                                                                * Allocate Bit: OFF	\n
+                                                                                                                                * GET Bit: ON	\n
+                                                                                                                                * SET Bit: ON	\n
+                                                                                                                                */
+
+    RSN_SET_KEY_PARAM								=	SET_BIT | RSN_MODULE_PARAM | 0x0B,							            /**< Robust Security NW (RSN) Set Key Parameter (RSN Module Set/Get Command): \n  
+                                                                                                                                * Used for setting Keys during external RSN mode to RSN Module\n
+                                                                                                                                * Done Sync with no memory allocation\n 
+                                                                                                                                * Parameter Number:	0x0B	\n
+                                                                                                                                * Module Number: RSN Module Number \n
+                                                                                                                                * Async Bit: OFF	\n
+                                                                                                                                * Allocate Bit: OFF	\n
+                                                                                                                                * GET Bit: ON	\n
+                                                                                                                                * SET Bit: ON	\n
+                                                                                                                                */
+
 
 	/* TWD Control section */
     TWD_RTS_THRESHOLD_PARAM                			=   SET_BIT | GET_BIT | TWD_MODULE_PARAM | TWD_RTS_THRESHOLD_PARAM_ID,		/**< TWD Control RTS Threshold Parameter (TWD Control Module Set/Get Command): \n  
@@ -948,7 +996,18 @@ typedef enum
 																																				* GET Bit: ON	\n
 																																				* SET Bit: ON	\n
 																																				*/
-	
+
+	TWD_FM_COEX_PARAM               						=   SET_BIT |    TWD_MODULE_PARAM | TWD_FM_COEX_PARAM_ID,	                        /**< TWD Control FM-Coexistence Parameters (TWD Control Module Set/Get Command): \n  
+																																				* Used for setting the FM-Coexistence Parameters\n
+																																				* Done Async with no memory allocation\n 
+																																				* Parameter Number:	TWD_FM_COEX_PARAM_ID	\n
+																																				* Module Number: TWD Control Module Number \n
+																																				* Async Bit: ON	\n
+																																				* Allocate Bit: OFF	\n
+																																				* GET Bit: OFF	\n
+																																				* SET Bit: ON	\n
+																																				*/
+
 	/* Roaming manager */
     ROAMING_MNGR_APPLICATION_CONFIGURATION		= 	SET_BIT | GET_BIT | ROAMING_MANAGER_MODULE_PARAM | 0x01,	/**< Roaming Manager Application Configuration Parameter (Roaming Manager Module Set/Get Command): \n  
 																												* Used for setting/getting Roaming Manager Application Configuration to/from Roaming Manager Module and State-Machine\n
@@ -1288,7 +1347,7 @@ typedef enum
 																											* Allocate Bit: OFF	\n
 																											* GET Bit: OFF	\n
 																											* SET Bit: ON	\n
-																											*/   	
+																											*/ 
 
 	/* Health Monitoring section */
     HEALTH_MONITOR_CHECK_DEVICE                 =   SET_BIT |           HEALTH_MONITOR_MODULE_PARAM | 0x01,	/**< Health Monitoring Check Device Parameter (Health Monitoring Module Set Command): \n  
@@ -1313,6 +1372,18 @@ typedef enum
 																																* GET Bit: OFF	\n
 																																* SET Bit: ON	\n
 																																*/
+
+    /* CurrBss Section */
+    CURR_BSS_REGISTER_LINK_QUALITY_EVENT_PARAM     =   SET_BIT | CURR_BSS_MODULE_PARAM | 0x01,	 /**< CurrBss User Defined Trigger Parameter (Roaming Manager Module Set Command): \n  
+                                                                                                    * Used for setting user-defined trigger to FW\n
+                                                                                                    * Done Sync with no memory allocation\n 
+                                                                                                    * Parameter Number:	0x01	\n
+                                                                                                    * Module Number: Curr Bss Module Number \n
+                                                                                                    * Async Bit: OFF	\n
+                                                                                                    * Allocate Bit: OFF	\n
+                                                                                                    * GET Bit: OFF	\n
+                                                                                                    * SET Bit: ON	\n
+                                                                                                    */
 
 	LAST_CMD									=	0x00	/**< Last External Parameter - Dummy, Should always stay Last	*/													
 

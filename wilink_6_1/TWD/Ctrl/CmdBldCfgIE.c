@@ -411,32 +411,70 @@ TI_STATUS cmdBld_CfgIeSg (TI_HANDLE hCmdBld, TSoftGeminiParams *pSoftGeminiParam
     TCmdBld *pCmdBld = (TCmdBld *)hCmdBld;
     ACXBluetoothWlanCoParamsStruct  AcxElm_BluetoothWlanEnable;
     ACXBluetoothWlanCoParamsStruct *pCfg = &AcxElm_BluetoothWlanEnable;
+	int i=0;
     
     TRACE0(pCmdBld->hReport, REPORT_SEVERITY_INFORMATION, "cmdBld_CfgIeSg. \n");
 
     /* Set information element header */
     pCfg->EleHdr.id      		= ACX_SG_CFG;
     pCfg->EleHdr.len     		= sizeof(*pCfg) - sizeof(EleHdrStruct);
-	pCfg->coexBtPerThreshold 	= pSoftGeminiParam->coexBtPerThreshold;
-	pCfg->coexAutoScanCompensationMaxTime = pSoftGeminiParam->coexAutoScanCompensationMaxTime;
-	pCfg->coexBtNfsSampleInterval = pSoftGeminiParam->coexBtNfsSampleInterval;
-	pCfg->coexBtLoadRatio 		= pSoftGeminiParam->coexBtLoadRatio;
-	pCfg->coexAutoPsMode 		= pSoftGeminiParam->coexAutoPsMode;
-	pCfg->coexAutoScanEnlargedNumOfProbeReqPercent = pSoftGeminiParam->coexAutoScanEnlargedNumOfProbeReqPercent;
-	pCfg->coexAutoScanEnlargedScanWindowPercent = pSoftGeminiParam->coexAutoScanEnlargedScanWindowPercent;
-    pCfg->coexAntennaConfiguration = pSoftGeminiParam->coexAntennaConfiguration;
 
-    pCfg->coexMaxConsecutiveBeaconMissPrecent = pSoftGeminiParam->coexMaxConsecutiveBeaconMissPrecent;
+	pCfg->softGeminiParams.paramIdx = pSoftGeminiParam->paramIdx;
+
+
+	for (i=0; i< SOFT_GEMINI_PARAMS_MAX ; i++)
+	{
+		pCfg->softGeminiParams.coexParams[i] = pSoftGeminiParam->coexParams[i];
+	}
+
     /* Rate conversion is done in the HAL */
-    pCfg->coexAPRateAdapationThr = rateNumberToBitmap((TI_UINT8)pSoftGeminiParam->coexAPRateAdapationThr);
-    if (pCfg->coexAPRateAdapationThr == 0)
+    pCfg->softGeminiParams.coexParams[SOFT_GEMINI_RATE_ADAPT_THRESH] = rateNumberToBitmap((TI_UINT8)pSoftGeminiParam->coexParams[SOFT_GEMINI_RATE_ADAPT_THRESH]);
+
+	if (pCfg->softGeminiParams.coexParams[SOFT_GEMINI_RATE_ADAPT_THRESH] == 0)
     {
         TRACE0(pCmdBld->hReport, REPORT_SEVERITY_ERROR, "coexAPRateAdapationThr is 0, convert to 1MBPS. \n");
-
-        pCfg->coexAPRateAdapationThr = HW_BIT_RATE_1MBPS;
+        pCfg->softGeminiParams.coexParams[SOFT_GEMINI_RATE_ADAPT_THRESH] = HW_BIT_RATE_1MBPS;
     }
 
-    pCfg->coexAPRateAdapationSnr = pSoftGeminiParam->coexAPRateAdapationSnr;
+    /* Send the configuration command */
+    return cmdQueue_SendCommand (pCmdBld->hCmdQueue, CMD_CONFIGURE, pCfg, sizeof(*pCfg), fCb, hCb, NULL);
+}
+
+
+/****************************************************************************
+ *                      cmdBld_CfgIeFmCoex()
+ ****************************************************************************
+ * DESCRIPTION: Configure the FM-WLAN co-exsistance parameters
+ *
+ * INPUTS:  Configuration structure pointer
+ *
+ * OUTPUT:  None
+ *
+ * RETURNS: TI_OK or TI_NOK
+ ****************************************************************************/
+TI_STATUS cmdBld_CfgIeFmCoex (TI_HANDLE hCmdBld, TFmCoexParams *pFmCoexParams, void *fCb, TI_HANDLE hCb)
+{
+    TCmdBld *pCmdBld = (TCmdBld *)hCmdBld;
+    ACXWlanFmCoexStruct  tFmWlanCoex;
+    ACXWlanFmCoexStruct *pCfg = &tFmWlanCoex;
+
+    TRACE0(pCmdBld->hReport, REPORT_SEVERITY_INFORMATION, "cmdBld_CfgIeFmCoex\n");
+
+    /* Set information element header */
+    pCfg->EleHdr.id  = ACX_FM_COEX_CFG;
+    pCfg->EleHdr.len = sizeof(*pCfg) - sizeof(EleHdrStruct);
+
+    /* Set parameters with endianess handling */
+    pCfg->enable                   = pFmCoexParams->uEnable;
+    pCfg->swallowPeriod            = pFmCoexParams->uSwallowPeriod;
+    pCfg->nDividerFrefSet1         = pFmCoexParams->uNDividerFrefSet1;
+    pCfg->nDividerFrefSet2         = pFmCoexParams->uNDividerFrefSet2;
+    pCfg->mDividerFrefSet1         = ENDIAN_HANDLE_WORD(pFmCoexParams->uMDividerFrefSet1);
+    pCfg->mDividerFrefSet2         = ENDIAN_HANDLE_WORD(pFmCoexParams->uMDividerFrefSet2);
+    pCfg->coexPllStabilizationTime = ENDIAN_HANDLE_LONG(pFmCoexParams->uCoexPllStabilizationTime);
+    pCfg->ldoStabilizationTime     = ENDIAN_HANDLE_WORD(pFmCoexParams->uLdoStabilizationTime);
+    pCfg->fmDisturbedBandMargin    = pFmCoexParams->uFmDisturbedBandMargin;
+    pCfg->swallowClkDif            = pFmCoexParams->uSwallowClkDif;
 
     /* Send the configuration command */
     return cmdQueue_SendCommand (pCmdBld->hCmdQueue, CMD_CONFIGURE, pCfg, sizeof(*pCfg), fCb, hCb, NULL);
@@ -935,6 +973,56 @@ TI_STATUS cmdBld_CfgIeBeaconFilterOpt (TI_HANDLE hCmdBld, TI_UINT8 beaconFilteri
 
     return cmdQueue_SendCommand (pCmdBld->hCmdQueue, CMD_CONFIGURE, pCfg, sizeof(ACXBeaconFilterOptions_t), fCb, hCb, NULL);
 }
+/****************************************************************************
+ *                      cmdBld_CfgIeRateMngDbg()
+ ****************************************************************************
+ * DESCRIPTION: Configure the rate managment params
+ * INPUTS:
+ *
+ * OUTPUT:  None
+ *
+ * RETURNS: TI_OK or TI_NOK
+ ****************************************************************************/
+
+TI_STATUS cmdBld_CfgIeRateMngDbg (TI_HANDLE hCmdBld, RateMangeParams_t *pRateMngParams, void *fCb, TI_HANDLE hCb)
+{
+    TCmdBld *pCmdBld = (TCmdBld *)hCmdBld;
+    AcxRateMangeParams  RateMng;
+    AcxRateMangeParams *pCfg = &RateMng;
+	int i;
+
+    /* Set information element header */
+    pCfg->EleHdr.id = ACX_SET_RATE_MAMAGEMENT_PARAMS;
+    pCfg->EleHdr.len = sizeof(AcxRateMangeParams) - sizeof(EleHdrStruct);
+
+
+    TRACE2(pCmdBld->hReport, REPORT_SEVERITY_INFORMATION , "ID=%u, index=%d \n",pCfg->EleHdr.id,pRateMngParams->paramIndex);
+
+	pCfg->paramIndex = pRateMngParams->paramIndex;
+
+	pCfg->InverseCuriosityFactor = pRateMngParams->InverseCuriosityFactor;
+    pCfg->MaxPer = pRateMngParams->MaxPer;
+	pCfg->PerAdd = pRateMngParams->PerAdd;
+	pCfg->PerAddShift = pRateMngParams->PerAddShift;
+	pCfg->PerAlphaShift = pRateMngParams->PerAlphaShift;
+	pCfg->PerBeta1Shift = pRateMngParams->PerBeta1Shift;
+	pCfg->PerBeta2Shift = pRateMngParams->PerBeta2Shift;
+	pCfg->PerTh1 = pRateMngParams->PerTh1;
+	pCfg->PerTh2 = pRateMngParams->PerTh2;
+	pCfg->RateCheckDown = pRateMngParams->RateCheckDown;
+	pCfg->RateCheckUp = pRateMngParams->RateCheckUp;
+	pCfg->RateRetryScore = pRateMngParams->RateRetryScore;
+	pCfg->TxFailHighTh = pRateMngParams->TxFailHighTh;
+	pCfg->TxFailLowTh = pRateMngParams->TxFailLowTh;
+
+	for (i=0 ; i< 13 ; i++)
+	{
+		pCfg->RateRetryPolicy[i] = pRateMngParams->RateRetryPolicy[i];
+	}
+
+    return cmdQueue_SendCommand (pCmdBld->hCmdQueue, CMD_CONFIGURE, pCfg, sizeof(AcxRateMangeParams), fCb, hCb, NULL);
+}
+
 
 
 /****************************************************************************
@@ -1834,5 +1922,101 @@ TI_STATUS cmdBld_CfgIeBurstMode (TI_HANDLE hCmdBld, TI_BOOL bEnabled, void *fCb,
 	return cmdQueue_SendCommand (pCmdBld->hCmdQueue, CMD_CONFIGURE, pCfg, sizeof(*pCfg), fCb, hCb, NULL);
 }
 
+/****************************************************************************
+ *                      cmdBld_CfgIeSRstate()
+ ****************************************************************************
+ * DESCRIPTION: Configure sart reflex state
+ *
+ * INPUTS:  hCmdBld     - handle to command builder object
+ *          bEnabled    - is enabled flag
+ *          fCB         - callback function for command complete
+ *          hCb         - handle to be apssed to callback function
+ *
+ * OUTPUT:  None
+ *
+ * RETURNS: OK or NOK
+ ****************************************************************************/
 
-    
+TI_STATUS cmdBld_CfgIeSRState (TI_HANDLE hCmdBld, uint8 SRstate, void *fCb, TI_HANDLE hCb)
+{
+    TCmdBld *pCmdBld = (TCmdBld *)hCmdBld;
+    ACXSmartReflexState_t tSmartReflexState;
+    ACXSmartReflexState_t *pCfg = &tSmartReflexState;
+
+    /* set IE header */
+    pCfg->EleHdr.id = ACX_SET_SMART_REFLEX_STATE;
+    pCfg->EleHdr.len = sizeof(*pCfg) - sizeof(EleHdrStruct);
+
+    /* set smart refelx state */
+    pCfg->enable = SRstate;
+
+    /* send the command to the FW */
+    return cmdQueue_SendCommand (pCmdBld->hCmdQueue, CMD_CONFIGURE, pCfg, sizeof(*pCfg), fCb, hCb, NULL);
+
+}
+
+/****************************************************************************
+ *                      cmdBld_CfgIeSRParams()
+ ****************************************************************************
+ * DESCRIPTION: Configure sart reflex configuration
+ * INPUTS:  hCmdBld     - handle to command builder object
+ *          bEnabled    - is enabled flag
+ *          fCB         - callback function for command complete
+ *          hCb         - handle to be apssed to callback function
+ *
+ * OUTPUT:  None
+ *
+ * RETURNS: OK or NOK
+ ****************************************************************************/
+TI_STATUS cmdBld_CfgIeSRParams (TI_HANDLE hCmdBld, ACXSmartReflexConfigParams_t *pSRParam, void *fCb, TI_HANDLE hCb)
+{
+    TCmdBld *pCmdBld = (TCmdBld *)hCmdBld;
+    ACXSmartReflexConfigParams_t tSmartReflexParams;
+    ACXSmartReflexConfigParams_t *pCfg = &tSmartReflexParams;
+
+    /* set IE header */
+    pCfg->EleHdr.id = ACX_SET_SMART_REFLEX_PARAMS;
+    pCfg->EleHdr.len = sizeof(*pCfg) - sizeof(EleHdrStruct);
+
+    /* copy smart reflex config params*/
+    os_memoryCopy(pCmdBld->hOs, &pCfg->errorTable, pSRParam->errorTable, pCfg->EleHdr.len);
+
+    /* send the command to the FW */
+    return  cmdQueue_SendCommand (pCmdBld->hCmdQueue, CMD_CONFIGURE, pCfg, sizeof(*pCfg), fCb, hCb, NULL);
+}
+
+/****************************************************************************
+ *                      cmdBld_CfgIeSRDebug()
+ ****************************************************************************
+ * DESCRIPTION: Send debug param just if it's configured in ini file
+ * INPUTS:  hCmdBld     - handle to command builder object
+ *          bEnabled    - is enabled flag
+ *          fCB         - callback function for command complete
+ *          hCb         - handle to be apssed to callback function
+ *
+ * OUTPUT:  None
+ *
+ * RETURNS: OK or NOK
+ ****************************************************************************/
+TI_STATUS cmdBld_CfgIeSRDebug (TI_HANDLE hCmdBld, ACXSmartReflexDebugParams_t *pSRDebug, void *fCb, TI_HANDLE hCb)
+{
+    TCmdBld *pCmdBld = (TCmdBld *)hCmdBld;
+    ACXSmartReflexDebugParams_t tSmartReflexDebug;
+    ACXSmartReflexDebugParams_t *pCfg = &tSmartReflexDebug;
+
+   /* send this command to FW just in case it's initialize in ini file */
+    if (pSRDebug->senNRN == 0) {
+        return TI_NOK;
+    }
+
+    /* set IE header */
+    pCfg->EleHdr.id = ACX_SET_SMART_REFLEX_DEBUG;
+    pCfg->EleHdr.len = sizeof(*pCfg) - sizeof(EleHdrStruct);
+
+    /* copy smart reflex debug params*/
+    os_memoryCopy(pCmdBld->hOs, &pCfg->errorTable, &pSRDebug->errorTable, pCfg->EleHdr.len);
+
+    /* send the command to the FW */
+    return cmdQueue_SendCommand (pCmdBld->hCmdQueue, CMD_CONFIGURE, pCfg, sizeof(*pCfg), fCb, hCb, NULL);
+
+}

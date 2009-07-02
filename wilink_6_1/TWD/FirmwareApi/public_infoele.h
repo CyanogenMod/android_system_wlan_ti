@@ -48,7 +48,6 @@
 #include "public_commands.h"
 #include "public_radio.h" 
 
-
 typedef enum
 {
     ACX_WAKE_UP_CONDITIONS      = 0x0002,
@@ -121,8 +120,13 @@ typedef enum
     ACX_PEER_HT_CAP             = 0x0057,
     ACX_HT_BSS_OPERATION        = 0x0058,
     ACX_COEX_ACTIVITY           = 0x0059,
-    ACX_SET_SMART_REFLEX_CONFIG = 0x005A,
+    ACX_SET_SMART_REFLEX_DEBUG  = 0x005A,
+	ACX_SET_SMART_REFLEX_STATE  = 0x005B,
+	ACX_SET_SMART_REFLEX_PARAMS = 0x005F,
 	ACX_BURST_MODE				= 0x005C,
+
+    ACX_SET_RATE_MAMAGEMENT_PARAMS = 0x005D,
+    ACX_GET_RATE_MAMAGEMENT_PARAMS = 0x005E,
 
     DOT11_RX_MSDU_LIFE_TIME     = 0x1004,
     DOT11_CUR_TX_PWR            = 0x100D,
@@ -1558,6 +1562,58 @@ typedef struct
 } ACXBluetoothWlanCoEnableStruct;
 
 
+
+/** \struct TSoftGeminiParams
+ * \brief Soft Gemini Parameters
+ *
+ * \par Description
+ * Used for Setting/Printing Soft Gemini Parameters
+ *
+ * \sa
+ */
+
+typedef enum
+{
+	SOFT_GEMINI_BT_PER_THRESHOLD = 0,
+	SOFT_GEMINI_AUTO_SCAN_COMPENSATION_MAX_TIME,
+	SOFT_GEMINI_BT_NFS_SAMPLE_INTERVAL,
+	SOFT_GEMINI_BT_LOAD_RATIO,
+	SOFT_GEMINI_AUTO_PS_MODE,
+	SOFT_GEMINI_AUTO_SCAN_PROBE_REQ,
+	SOFT_GEMINI_AUTO_SCAN_WINDOW,
+	SOFT_GEMINI_ANTENNA_CONFIGURATION,
+	SOFT_GEMINI_BEACON_MISS_PERCENT,
+	SOFT_GEMINI_RATE_ADAPT_THRESH,
+	SOFT_GEMINI_RATE_ADAPT_SNR,
+	SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR,
+	SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR,
+	SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR,
+	SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR,
+	SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR,
+	SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR,
+	SOFT_GEMINI_RXT,
+	SOFT_GEMINI_TXT,
+	SOFT_GEMINI_ADAPTIVE_RXT_TXT,
+	SOFT_GEMINI_PS_POLL_TIMEOUT,
+	SOFT_GEMINI_UPSD_TIMEOUT,
+	SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MAX,
+	SOFT_GEMINI_BT_ACL_WLAN_ACTIVE_MAX,
+	SOFT_GEMINI_TEMP_PARAM_1,
+	SOFT_GEMINI_TEMP_PARAM_2,
+	SOFT_GEMINI_TEMP_PARAM_3,
+	SOFT_GEMINI_TEMP_PARAM_4,
+	SOFT_GEMINI_TEMP_PARAM_5,
+	SOFT_GEMINI_PARAMS_MAX
+} softGeminiParams;
+
+typedef struct
+{
+  uint32   coexParams[SOFT_GEMINI_PARAMS_MAX];
+  uint8    paramIdx;       /* the param index which the FW should update, if it equals to 0xFF - update all */ 
+  uint8       padding[3];
+} TSoftGeminiParams;
+
+
 /******************************************************************************
 
     Name:   ACX_SG_CFG
@@ -1573,81 +1629,7 @@ typedef struct
 {
     INFO_ELE_HDR
 	
-	uint32	coexBtPerThreshold;	/* Defines the PER threshold in PPM of the BT voice of which reaching this value 
-							       will trigger raising the priority of the BT voice by the BT IP until next 
-								   NFS sample interval time as defined in coexBtNfsSampleInterval.
-								   Unit: PER value in PPM(part per million) = #Error_packets / #Total_packets
-								   Range: uint32
-								   Default Value: 7500 --> 1 voice packet(HV3) drop every 500msec
-								*/
-
-    uint32   coexAutoScanCompensationMaxTime;		/* This value is an absolute time in micro-seconds to 
-			                                           limit the maximum scan duration compenstation while in SG*/
-
-	uint16	coexBtNfsSampleInterval; /* Defines the PER threshold of the BT voice of which reaching this 
-										value will trigger raising the priority of the BT voice until next NFS 
-										sample interval time as defined in coexBtNfsSampleInterval.
-										Unit: msec
-										Range: 1-65000
-										Default Value: 400msec									 
-									 */
-
-	uint8	coexBtLoadRatio;	/* Defines the load ratio for the BT. The WLAN ratio is: 100-coexBtLoadRatio. 
-				   				   Unit: Percent
-								   Range: 0-100
-								   Default Value: 50  
-								*/
-
-
-	Bool_e  coexAutoPsMode;	/* TRUE -  Co-ex is allowed to enter/exit P.S automatically and transparently to 
-								       the host
-							   FALSE - Co-ex is disallowed to enter/exit P.S and will trigger an event to the 
-									   host to notify for the need to enter/exit P.S due to BT change state 
-							   Default Value: TRUE
-							 */
-
-	uint8	coexAutoScanEnlargedNumOfProbeReqPercent; /* This parameter defines the compensation percentage of 
-														 num of probe requests in case scan is initiated during
-														 BT voice/BT ACL guaranteed link. 
-														 Unit: Percent
-														 Range: 0-255 (0 - No compensation)
-														 Default Value: 50
-													   */
-
-	uint8	coexAutoScanEnlargedScanWindowPercent; /* This parameter defines the compensation percentage of 
-													  scan window size in case scan is initiated during
-													  BT voice/BT ACL Guaranteed link.
-													  Unit: Percent
-													  Range: 0-255 (0 - No compensation)
-													  Default Value: 50
-													*/
-	
-	uint8	coexAntennaConfiguration;				/* Defines the antenna configuration.
-													   Range: 0 - Single Antenna; 1 - Dual Antenna
-													   Default Value: 0 - Single Antenna													   
-													 */	
-    
-    uint8   coexMaxConsecutiveBeaconMissPrecent;    /* The percent out of the Max consecutive beacon miss 
-                                                        roaming trigger which is the threshold for raising 
-                                                        the priority of beacon reception. 
-                                                        Range: 1-100 
-                                                        N = MaxConsecutiveBeaconMiss; 
-                                                        P = coexMaxConsecutiveBeaconMissPrecent; 
-                                                        Threshold = MIN( N-1, round(N * P/100))
-                                                        Default Value: 60
-                                                     */ 
-    EHwRateBitFiled   coexAPRateAdapationThr;        /* The RX rate threshold below which rate adaptation  
-                                                        is assumed to be occurring at the AP which will raise 
-                                                        priority for ACTIVE_RX and RX SP. 
-                                                        Range: EHwRateBitFiled. 
-                                                        Default Value: HW_BIT_RATE_12MBPS (= 0x40)
-                                                     */ 
-    int8   coexAPRateAdapationSnr;                   /* The SNR above which the RX rate threshold indicating  
-                                                        AP rate adaptation is valid  
-                                                        Range: -128 - 127 
-                                                        Default Value:
-                                                     */ 
-	uint8	padding[3];								/*Padding*/
+	TSoftGeminiParams softGeminiParams;
 } ACXBluetoothWlanCoParamsStruct;
   
 /******************************************************************************
@@ -1667,7 +1649,9 @@ typedef struct
 	
     uint8   enable;                     /* enable(1) / disable(0) the FM Coex feature */
 
-    uint8   swallowPeriod;              /* Swallow period used in COEX PLL swallowing mechanism, range 1-7 */
+    uint8   swallowPeriod;              /* Swallow period used in COEX PLL swallowing mechanism,
+                                           Range: 0-0xFF,  0xFF = use FW default
+                                        */
 
     uint8   nDividerFrefSet1;           /* The N divider used in COEX PLL swallowing mechanism for Fref of 38.4/19.2 Mhz.  
                                            Range: 0-0xFF,  0xFF = use FW default
@@ -2294,41 +2278,142 @@ INFO_ELE_HDR
 
 
 /******************************************************************************
-
-    Name:	ACX_SET_SMART_REFLEX_CONFIG
-    Desc:   Configure smart reflex mechanism parameters.
+    Name:   ACX_SET_RATE_MAMAGEMENT_PARAMS
+    Desc:   configure one of the configurable parameters in rate management module.
     Type:   Configuration
-    Access: Write Only
-    Length: 
+    Access:    Write
+    Length: 8 bytes
 
 ******************************************************************************/
-
-
 typedef enum
 {
-	SMART_REFLEX_ENABLED,
-	SMART_REFLEX_DISABLED
-}SmartReflexState_enum;	
-
+    RATE_MGMT_RETRY_SCORE_PARAM,
+	RATE_MGMT_PER_ADD_PARAM,
+	RATE_MGMT_PER_TH1_PARAM,
+	RATE_MGMT_PER_TH2_PARAM,
+	RATE_MGMT_MAX_PER_PARAM,
+	RATE_MGMT_INVERSE_CURIOSITY_FACTOR_PARAM,
+	RATE_MGMT_TX_FAIL_LOW_TH_PARAM,
+	RATE_MGMT_TX_FAIL_HIGH_TH_PARAM,
+	RATE_MGMT_PER_ALPHA_SHIFT_PARAM,
+	RATE_MGMT_PER_ADD_SHIFT_PARAM,
+	RATE_MGMT_PER_BETA1_SHIFT_PARAM,
+	RATE_MGMT_PER_BETA2_SHIFT_PARAM,
+	RATE_MGMT_RATE_CHECK_UP_PARAM,
+	RATE_MGMT_RATE_CHECK_DOWN_PARAM,
+	RATE_MGMT_RATE_RETRY_POLICY_PARAM,
+	RATE_MGMT_ALL_PARAMS = 0xff
+} rateAdaptParam_enum;
 
 #ifdef HOST_COMPILE
-typedef uint8 SmartReflexState_e;
+typedef uint8 rateAdaptParam_e;
 #else
-typedef SmartReflexState_enum SmartReflexState_e;
+typedef rateAdaptParam_enum rateAdaptParam_e;
 #endif
 
+typedef struct
+{
+    INFO_ELE_HDR
+	rateAdaptParam_e paramIndex;
+	uint16 RateRetryScore;
+	uint16 PerAdd;
+	uint16 PerTh1;
+	uint16 PerTh2;
+	uint16 MaxPer;
+	uint8 InverseCuriosityFactor;
+	uint8 TxFailLowTh;
+	uint8 TxFailHighTh;
+	uint8 PerAlphaShift;
+	uint8 PerAddShift;
+	uint8 PerBeta1Shift;
+	uint8 PerBeta2Shift;
+	uint8 RateCheckUp;
+	uint8 RateCheckDown;
+	uint8 RateRetryPolicy[13];
+}AcxRateMangeParams;
+
+/******************************************************************************
+    Name:   ACX_GET_RATE_MAMAGEMENT_PARAMS
+    Desc:   read the configurable parameters of rate management module.
+    Type:
+    Access: read
+    Length: 8 bytes
+
+******************************************************************************/
+typedef struct
+{
+    INFO_ELE_HDR
+    int32  SNRCorrectionHighLimit;
+    int32  SNRCorrectionLowLimit;
+    int32  PERErrorTH;
+    int32  attemptEvaluateTH;
+    int32  goodAttemptTH;
+    int32  curveCorrectionStep;
+}AcxRateMangeReadParams;
+
+
+
+/******************************************************************************
+
+    Name:	ACX_SET_SMART_REFLEX_STATE
+    Desc:   Configure smart reflex state (enable/disable).
+    Type:   Configuration
+    Access: Write Only
+    Length:
+
+******************************************************************************/
 
 typedef struct
 {
 	INFO_ELE_HDR
-	SmartReflexState_e state;
-	uint8 temperatureThr;  
-	int8 errorTable1 [45]; //tables size must be a multiplication of 3.
-	int8 errorTable2 [45]; //tables size must be a multiplication of 3.
-	uint8 lenTable1;
-	uint8 lenTable2;
-}ACXSmartReflexParams_t;
+    Bool_e  enable;
+    uint8 padding [3];
+}ACXSmartReflexState_t;
 
+
+/******************************************************************************
+
+    Name:	ACX_SET_SMART_REFLEX_DEBUG
+    Desc:   Configure smart reflex mechanism parameters - for debug mode.
+    Type:   Configuration
+    Access: Write Only
+    Length:
+
+******************************************************************************/
+typedef struct
+{
+	uint8 len; //maximum length is 14
+	int8 upperLimit;
+	int8 values[14]; //this is the maximum length (in rows) of the error table
+}SmartReflexErrTable_t;
+
+typedef struct
+{
+	INFO_ELE_HDR
+	SmartReflexErrTable_t errorTable;
+	uint16 senN_P;
+	uint16 senNRN;
+	uint16 senPRN;
+	uint16 senN_P_Gain;
+}ACXSmartReflexDebugParams_t;
+
+
+/******************************************************************************
+
+    Name:	ACX_SET_SMART_REFLEX_PARAMS
+    Desc:   Configure smart reflex mechanism tables - 1 for each FAB.
+			The FW will choose the correct FAB, according to what is burned in the Efuse.
+    Type:   Configuration
+    Access: Write Only
+    Length:
+
+******************************************************************************/
+
+typedef struct
+{
+	INFO_ELE_HDR
+	SmartReflexErrTable_t errorTable[3];
+}ACXSmartReflexConfigParams_t;
 
 #endif /* PUBLIC_INFOELE_H */
 

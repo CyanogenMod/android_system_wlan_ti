@@ -47,6 +47,7 @@
 #include "GenSM.h"
 #include "scanResultTable.h"
 #include "sme.h"
+#include "smeApi.h"
 
 /** 
  * \fn     scanCncnApp_SetParam
@@ -75,7 +76,6 @@ TI_STATUS scanCncnApp_SetParam (TI_HANDLE hScanCncn, paramInfo_t *pParam)
         {
             TRACE1(pScanCncn->hReport, REPORT_SEVERITY_ERROR , "scanCncnApp_SetParam: trying to start app one-shot scan when client %d is currently running!\n", pScanCncn->eCurrentRunningAppScanClient);
             /* Scan was not started successfully, send a scan complete event to the user */
-            EvHandlerSendEvent (pScanCncn->hEvHandler, IPC_EVENT_SCAN_COMPLETE, NULL, 0);
             return TI_NOK;
         }
 
@@ -88,8 +88,6 @@ TI_STATUS scanCncnApp_SetParam (TI_HANDLE hScanCncn, paramInfo_t *pParam)
         {
             /* Scan was not started successfully, mark that no app scan is running */
             pScanCncn->eCurrentRunningAppScanClient = SCAN_SCC_NO_CLIENT;
-            /* and send a scan complete event to the user */
-            EvHandlerSendEvent (pScanCncn->hEvHandler, IPC_EVENT_SCAN_COMPLETE, NULL, 0);
             return TI_NOK;
         }
         break;
@@ -108,7 +106,6 @@ TI_STATUS scanCncnApp_SetParam (TI_HANDLE hScanCncn, paramInfo_t *pParam)
         {
             TRACE1(pScanCncn->hReport, REPORT_SEVERITY_ERROR , "scanCncnApp_SetParam: trying to start app periodic scan when client %d is currently running!\n", pScanCncn->eCurrentRunningAppScanClient);
             /* Scan was not started successfully, send a scan complete event to the user */
-            EvHandlerSendEvent (pScanCncn->hEvHandler, IPC_EVENT_SCAN_COMPLETE, NULL, 0);
             return TI_NOK;
         }
 
@@ -124,8 +121,6 @@ TI_STATUS scanCncnApp_SetParam (TI_HANDLE hScanCncn, paramInfo_t *pParam)
                              
             /* Scan was not started successfully, mark that no app scan is running */
             pScanCncn->eCurrentRunningAppScanClient = SCAN_SCC_NO_CLIENT;
-            /* and send a scan complete event to the user */
-            EvHandlerSendEvent (pScanCncn->hEvHandler, IPC_EVENT_SCAN_COMPLETE, NULL, 0);
             return TI_NOK;
         }
         break;
@@ -143,7 +138,7 @@ TI_STATUS scanCncnApp_SetParam (TI_HANDLE hScanCncn, paramInfo_t *pParam)
         if (0 == pScanCncn->tInitParams.uMinimumDurationBetweenOsScans)
         {
             TRACE0(pScanCncn->hReport, REPORT_SEVERITY_INFORMATION , "scanCncnApp_SetParam: received OS scan request when OS scans are disabled, quitting...\n");
-            return TI_OK;
+            return TI_NOK;
         }
 
         /* check if the last OID scan didn't start at a shorter duration than the configured minimum */
@@ -152,14 +147,14 @@ TI_STATUS scanCncnApp_SetParam (TI_HANDLE hScanCncn, paramInfo_t *pParam)
              (pScanCncn->tInitParams.uMinimumDurationBetweenOsScans * 1000) ) /*converted to ms */
         {
             TRACE3(pScanCncn->hReport, REPORT_SEVERITY_INFORMATION , "scanCncnApp_SetParam: last OID scan performed at: %d, now is: %d, min duration is: %d, too early for another scan!\n", pScanCncn->uOSScanLastTimeStamp, uCurrentTimeStamp, pScanCncn->tInitParams.uMinimumDurationBetweenOsScans);
-            return TI_OK;
+            return TI_NOK;
         }
 
         /* check that no other scan is currently running */
         if (SCAN_SCC_NO_CLIENT != pScanCncn->eCurrentRunningAppScanClient)
         {
             TRACE1(pScanCncn->hReport, REPORT_SEVERITY_ERROR , "scanCncnApp_SetParam: received OS scan request when client %d is currently running!\n", pScanCncn->eCurrentRunningAppScanClient);
-            return TI_OK;
+            return TI_NOK;
         }
 
         /* set one-shot scan as running app scan client */
@@ -183,6 +178,7 @@ TI_STATUS scanCncnApp_SetParam (TI_HANDLE hScanCncn, paramInfo_t *pParam)
 
         /* and actually start the scan */
         genSM_Event (pScanCncn->hOSScanSm, SCAN_CNCN_OS_SM_EVENT_START_SCAN, hScanCncn);
+
         break;
 
     default:
@@ -249,6 +245,7 @@ void scanCncn_AppScanResultCB (TI_HANDLE hScanCncn, EScanCncnResultStatus status
                                TScanFrameInfo* frameInfo, TI_UINT16 SPSStatus)
 {
     TScanCncn   *pScanCncn = (TScanCncn*)hScanCncn;
+    TI_UINT32	statusData;
 
     /* forward all data to SME */
     sme_AppScanResult (pScanCncn->hSme, status, frameInfo);
@@ -257,12 +254,65 @@ void scanCncn_AppScanResultCB (TI_HANDLE hScanCncn, EScanCncnResultStatus status
     {
     case SCAN_CRS_RECEIVED_FRAME:
         /* Save the result in the app scan result table */
-        scanResultTable_UpdateEntry (pScanCncn->hScanResultTable, frameInfo->bssId, frameInfo);
-        break;
+        if (TI_OK != scanResultTable_UpdateEntry (pScanCncn->hScanResultTable, frameInfo->bssId, frameInfo))
+		{
+	        TRACE0(pScanCncn->hReport, REPORT_SEVERITY_WARNING , "scanCncn_AppScanResultCB, scanResultTable_UpdateEntry() failed\n");
+		}
+		break;
 
     case SCAN_CRS_SCAN_COMPLETE_OK:
-    case SCAN_CRS_TSF_ERROR:
+
+        TRACE1(pScanCncn->hReport, REPORT_SEVERITY_INFORMATION , "scanCncn_AppScanResultCB, received scan complete with status :%d\n", status);
+
+        /* if OS scan is running */
+        if (TI_TRUE == pScanCncn->bOSScanRunning)
+        {
+            /* send a scan complete event to the OS scan SM. It will stabliza the table when needed */
+            genSM_Event (pScanCncn->hOSScanSm, SCAN_CNCN_OS_SM_EVENT_SCAN_COMPLETE, hScanCncn);
+        }
+        else
+        {
+            /* move the scan result table to stable state, clear it if no results were received */
+            scanResultTable_SetStableState (pScanCncn->hScanResultTable);
+
+            /* mark that no app scan is running */
+            pScanCncn->eCurrentRunningAppScanClient = SCAN_SCC_NO_CLIENT;
+            /*
+             * The scan was finished, send a scan complete event to the user
+             * (regardless of why the scan was completed)
+             */
+            statusData = SCAN_STATUS_COMPLETE;	/* Completed status */
+			EvHandlerSendEvent (pScanCncn->hEvHandler, IPC_EVENT_SCAN_COMPLETE, (TI_UINT8 *)&statusData, sizeof(TI_UINT32));
+        }
+        break;
+
     case SCAN_CRS_SCAN_STOPPED:
+
+        TRACE1(pScanCncn->hReport, REPORT_SEVERITY_INFORMATION , "scanCncn_AppScanResultCB, received scan complete with status :%d\n", status);
+
+        /* if OS scan is running */
+        if (TI_TRUE == pScanCncn->bOSScanRunning)
+        {
+            /* send a scan complete event to the OS scan SM. It will stabliza the table when needed */
+            genSM_Event (pScanCncn->hOSScanSm, SCAN_CNCN_OS_SM_EVENT_SCAN_COMPLETE, hScanCncn);
+        }
+        else
+        {
+            /* move the scan result table to stable state, clear it if no results were received */
+            scanResultTable_SetStableState (pScanCncn->hScanResultTable);
+
+            /* mark that no app scan is running */
+            pScanCncn->eCurrentRunningAppScanClient = SCAN_SCC_NO_CLIENT;
+            /*
+             * The scan was finished, send a scan complete event to the user
+             * (regardless of why the scan was completed)
+             */
+            statusData = SCAN_STATUS_STOPPED;	/* Stopped status */
+            EvHandlerSendEvent (pScanCncn->hEvHandler, IPC_EVENT_SCAN_COMPLETE, (TI_UINT8 *)&statusData, sizeof(TI_UINT32));
+        }
+        break;
+
+    case SCAN_CRS_TSF_ERROR:
     case SCAN_CRS_SCAN_RUNNING:
     case SCAN_CRS_SCAN_FAILED:
     case SCAN_CRS_SCAN_ABORTED_HIGHER_PRIORITY:
@@ -287,7 +337,8 @@ void scanCncn_AppScanResultCB (TI_HANDLE hScanCncn, EScanCncnResultStatus status
              * The scan was finished, send a scan complete event to the user
              * (regardless of why the scan was completed)
              */
-            EvHandlerSendEvent (pScanCncn->hEvHandler, IPC_EVENT_SCAN_COMPLETE, NULL, 0);
+            statusData = SCAN_STATUS_FAILED;		/* Failed status */
+            EvHandlerSendEvent (pScanCncn->hEvHandler, IPC_EVENT_SCAN_COMPLETE, (TI_UINT8 *)&statusData, sizeof(TI_UINT32));
         }
         break;
 

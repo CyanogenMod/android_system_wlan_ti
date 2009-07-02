@@ -196,23 +196,32 @@ static VOID IpcEvent_PrintEvent(IpcEvent_Child_t* pIpcEventChild, U32 EventId, T
                 os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_MEDIA_SPECIFIC\n");
                 break;
             case IPC_EVENT_SCAN_COMPLETE:
-                os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_SCAN_COMPLETE\n");
+				os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_SCAN_COMPLETE\n");
                 break;
             /* custom events */
+            case IPC_EVENT_SCAN_STOPPED:
+                os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_SCAN_STOPPED\n");
+                break;
             case IPC_EVENT_LINK_SPEED:
                 os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_LINK_SPEED\n");
                 break;
             case IPC_EVENT_AUTH_SUCC:
                 os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_AUTH_SUCC\n");
                 break;
-            case IPC_EVENT_TIMEOUT:
-                os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_TIMEOUT\n");
-                break;
             case IPC_EVENT_CCKM_START:
                 os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_CCKM_START\n");
                 break;
             case IPC_EVENT_EAPOL:
                 os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_EAPOL\n");
+                break;
+            case IPC_EVENT_RE_AUTH_STARTED:
+                os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_RE_AUTH_STARTED\n");
+                break;
+            case IPC_EVENT_RE_AUTH_COMPLETED:
+                os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_RE_AUTH_COMPLETED\n");
+                break;
+            case IPC_EVENT_RE_AUTH_TERMINATED:
+                os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_RE_AUTH_TERMINATED\n");
                 break;
             case IPC_EVENT_BOUND:
                 os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_BOUND\n");
@@ -252,8 +261,8 @@ static VOID IpcEvent_PrintEvent(IpcEvent_Child_t* pIpcEventChild, U32 EventId, T
                 os_error_printf(CU_MSG_ERROR, (PS8)"Direction(Above=0, Below=1) crossed= %d\n", crossInfo[1]);
                 break;
             }
-            case IPC_EVENT_GWSI:
-                os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_GWSI\n");
+            case IPC_EVENT_SCAN_FAILED:
+                os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_SCAN_FAILED\n");
                 break;
             case IPC_EVENT_WPS_SESSION_OVERLAP:
                 os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_WPS_SESSION_OVERLAP\n");
@@ -264,8 +273,19 @@ static VOID IpcEvent_PrintEvent(IpcEvent_Child_t* pIpcEventChild, U32 EventId, T
             case IPC_EVENT_RSSI_SNR_TRIGGER_1:
                 os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_RSSI_SNR_TRIGGER_1, Data = %d\n", (S8)(*pData));
                 break;
+            case IPC_EVENT_RSSI_SNR_TRIGGER:
+                os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_RSSI_SNR_TRIGGER, Data = %d\n", (S8)(*pData));
+                break;
+            case IPC_EVENT_TIMEOUT:
+                os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_TIMEOUT\n");
+                break;
+            case IPC_EVENT_GWSI:
+                os_error_printf(CU_MSG_ERROR, (PS8)"IpcEvent_PrintEvent - received IPC_EVENT_GWSI\n");
+                break;
             case IPC_EVENT_LOGGER:
+#ifdef ETH_SUPPORT
                 ProcessLoggerMessage(pData, (U16)DataLen);
+#endif   
                 break;
             default :
                 os_error_printf(CU_MSG_ERROR, (PS8)"**** Unknow EventId %d ****\n", EventId); 
@@ -315,16 +335,16 @@ static VOID IpcEvent_wext_event_wireless(IpcEvent_Child_t* pIpcEventChild, PS8 d
                 break;
             case IWEVMICHAELMICFAILURE:
 				EventId=IPC_EVENT_MEDIA_SPECIFIC;
-                 IpcEvent_PrintEvent(pIpcEventChild, EventId, NULL,0);    
+                IpcEvent_PrintEvent(pIpcEventChild, EventId, NULL,0);
                 break;
             case IWEVCUSTOM:
-                pEvent =  (IPC_EV_DATA*)iwe.u.data.pointer;
+				pEvent =  (IPC_EV_DATA*)iwe.u.data.pointer;
                 if (pEvent)
                 {
                     EventId = (U32)pEvent->EvParams.uEventType;
                     IpcEvent_PrintEvent (pIpcEventChild, EventId, pEvent->uBuffer, pEvent->uBufferSize);
                 }
-                break;
+				break;
             case SIOCGIWSCAN:
 				EventId=IPC_EVENT_SCAN_COMPLETE;
                 IpcEvent_PrintEvent(pIpcEventChild, EventId, NULL,0);             

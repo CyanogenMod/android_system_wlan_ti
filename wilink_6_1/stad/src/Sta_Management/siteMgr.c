@@ -72,6 +72,8 @@
 #include "DrvMainModules.h"
 #include "StaCap.h"
 #include "freq.h"
+#include "currBssApi.h"
+#include "CmdBld.h"
 #ifdef XCC_MODULE_INCLUDED
 #include "XCCMngr.h"
 #endif
@@ -510,11 +512,9 @@ TI_STATUS siteMgr_SetDefaults (TI_HANDLE                hSiteMgr,
     /* Clears the ProbeReqWSC IE */
     os_memoryZero(pSiteMgr->hOs,&pSiteMgr->siteMgrWSCProbeReqParams,sizeof(DOT11_WSC_PROBE_REQ_MAX_LENGTH));
 
-    TWD_RegisterEvent (pSiteMgr->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_2, (void *)siteMgr_TxPowerHighThreshold, hSiteMgr); 
-    TWD_EnableEvent (pSiteMgr->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_2);
-
-    TWD_RegisterEvent (pSiteMgr->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_3, (void *)siteMgr_TxPowerLowThreshold, hSiteMgr); 
-    TWD_EnableEvent (pSiteMgr->hTWD, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_3);
+    /* Register the RSSI Trigger events at the currBss RSSI/SNR static table*/
+    currBSS_RegisterTriggerEvent(pSiteMgr->hCurrBss, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_2, (TI_UINT8)0,(void*)siteMgr_TxPowerHighThreshold,hSiteMgr);
+    currBSS_RegisterTriggerEvent(pSiteMgr->hCurrBss, TWD_OWN_EVENT_RSSI_SNR_TRIGGER_3, (TI_UINT8)0,(void*)siteMgr_TxPowerLowThreshold, hSiteMgr);
 
     tTriggerCfg.index     = TRIGGER_EVENT_HIGH_TX_PW;
     tTriggerCfg.threshold = (0 - pSiteMgr->pDesiredParams->TxPowerRssiThresh);
@@ -646,7 +646,8 @@ TI_STATUS siteMgr_setParam(TI_HANDLE        hSiteMgr,
             return PARAM_VALUE_NOT_VALID;
 
         os_memoryCopy(pSiteMgr->hOs, &pSiteMgr->pDesiredParams->siteMgrDesiredSSID, &pParam->content.siteMgrDesiredSSID, sizeof(TSsid));
-        /* only add null at the end of the string if the string length is less than 32 bytes and so we have one char left */
+        /* only add null at the end of the string if the string length is less than 32 bytes and so we have one char left
+        */
         if ( MAX_SSID_LEN > pSiteMgr->pDesiredParams->siteMgrDesiredSSID.len )
         {
             pSiteMgr->pDesiredParams->siteMgrDesiredSSID.str[pSiteMgr->pDesiredParams->siteMgrDesiredSSID.len] = '\0';
@@ -929,6 +930,10 @@ TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION, "Setting SimpleConfig Mod
         pPrimarySite->rssi = pParam->content.siteMgrCurrentSignal.rssi;
         break;
 
+    case SITE_MGRT_SET_RATE_MANAGMENT:
+        TWD_SetRateMngDebug(pSiteMgr->hTWD,&pParam ->content.RateMng);
+        break;
+
     default:
         TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_ERROR, "Set param, Params is not supported, %d\n", pParam->paramType);
         return PARAM_NOT_SUPPORTED;
@@ -953,13 +958,18 @@ RETURN:     TI_OK on success, TI_NOK otherwise
 
 ************************************************************************/
 TI_STATUS siteMgr_getParam(TI_HANDLE        hSiteMgr,
-                        paramInfo_t     *pParam)
+                            paramInfo_t     *pParam)
 {
     siteMgr_t       *pSiteMgr = (siteMgr_t *)hSiteMgr;
     siteEntry_t     *pPrimarySite = pSiteMgr->pSitesMgmtParams->pPrimarySite;
     TI_STATUS       status = TI_OK;
     TI_UINT8           siteEntryIndex;
     TTwdParamInfo   tTwdParam;
+
+	if(pSiteMgr == NULL)
+	{
+		return TI_NOK;
+	}
 
     switch(pParam->paramType)
     {
@@ -1228,6 +1238,15 @@ TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION, "Retrieving the SimpleCon
         }
         break;
 
+    case SITE_MGR_CURRENT_RX_RATE_PARAM:
+        {
+            pParam->paramType = RX_DATA_RATE_PARAM;
+            rxData_getParam (pSiteMgr->hRxData, pParam);
+            pParam->content.siteMgrCurrentRxRate =
+                (TI_UINT8)rate_DrvToNet ((ERate)pParam->content.siteMgrCurrentRxRate);
+        }
+        break;
+
     case SITE_MGR_DESIRED_DOT11_MODE_PARAM:
         pParam->content.siteMgrDot11Mode = pSiteMgr->pDesiredParams->siteMgrDesiredDot11Mode;
         break;
@@ -1365,6 +1384,11 @@ TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION, "Retrieving the SimpleCon
            }
        }
        break;
+    case SITE_MGRT_GET_RATE_MANAGMENT:
+         return cmdBld_ItrRateParams (pSiteMgr->hTWD,
+                                      pParam->content.interogateCmdCBParams.fCb,
+                                      pParam->content.interogateCmdCBParams.hCb,
+                                      (void*)pParam->content.interogateCmdCBParams.pCb);
 
     default:
         {
@@ -2434,13 +2458,13 @@ static void siteMgr_UpdatHtParams (siteMgr_t *pSiteMgr, siteEntry_t *pSite, mlme
 	{
 	   /* update in case different setting vlaue from the last one */
        if (os_memoryCompare (pSiteMgr->hOs, 
-                             (TI_UINT8 *)pSite->tHtInformation.aHtInformationIe,
+                             (TI_UINT8 *)&pSite->tHtInformation,
                              (TI_UINT8 *)pFrameInfo->content.iePacket.pHtInformation, 
                              sizeof(Tdot11HtInformationUnparse)) != 0)
        {
            pSite->bHtInfoUpdate = TI_TRUE;
            /* updating the HT Information unparse pormat into the site table. */
-           os_memoryCopy (pSiteMgr->hOs, &pSite->tHtInformation, &(pFrameInfo->content.iePacket.pHtInformation), sizeof(Tdot11HtInformationUnparse));
+           os_memoryCopy (pSiteMgr->hOs, &pSite->tHtInformation, pFrameInfo->content.iePacket.pHtInformation, sizeof(Tdot11HtInformationUnparse));
            TRACE0(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION , "$$$$$$ HT Information parameters were updates.\n");
        }
        else
@@ -2565,8 +2589,6 @@ static void updateRates(siteMgr_t *pSiteMgr, siteEntry_t *pSite, mlmeFrameInfo_t
     if (pFrameInfo->content.iePacket.pRates == NULL)
     {
         TRACE0(pSiteMgr->hReport, REPORT_SEVERITY_ERROR, "updateRates, pRates=NULL, beacon & probeResp are: \n");
-        TRACE_INFO_HEX(pSiteMgr->hReport, (TI_UINT8*)pFrameInfo->content.iePacket.pRates, pFrameInfo->content.iePacket.pRates->hdr[1]+2);
-        TRACE_INFO_HEX(pSiteMgr->hReport, (TI_UINT8*)pFrameInfo->content.iePacket.pRates, pFrameInfo->content.iePacket.pRates->hdr[1]+2);
         return;
     }
 
@@ -2690,7 +2712,7 @@ static TI_STATUS getPrimaryBssid(siteMgr_t *pSiteMgr, OS_802_11_BSSID_EX *primar
     if ((primaryBssid==NULL) || (pLength==NULL))
     {
         *pLength = 0;
-        TRACE2(pSiteMgr->hReport, REPORT_SEVERITY_ERROR, "getPrimaryBssid, one of the ptr is NULL, primaryBssid=%p,pLength=%p  \n", primaryBssid, pLength);
+        TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_ERROR, "getPrimaryBssid, one of the ptr is NULL, primaryBssid=%p, pLength is NULL\n", primaryBssid);
         return TI_NOK;
 
     }
@@ -2824,22 +2846,22 @@ RETURN:
 ************************************************************************/
 void siteMgr_printPrimarySiteDesc(TI_HANDLE hSiteMgr )
 {
-	siteMgr_t *pSiteMgr = (siteMgr_t*) hSiteMgr;
+    siteMgr_t *pSiteMgr = (siteMgr_t*) hSiteMgr;
 
-	siteEntry_t *pPrimarySite = pSiteMgr->pSitesMgmtParams->pPrimarySite;
+    siteEntry_t *pPrimarySite = pSiteMgr->pSitesMgmtParams->pPrimarySite;
 
-	/* the driver logger can't print %s
-	 * TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_CONSOLE, "-- SSID  = %s \n",pPrimarySite->ssid.str); 
-	 */
-	TRACE6(pSiteMgr->hReport, REPORT_SEVERITY_CONSOLE,"-- BSSID = %02x-%02x-%02x-%02x-%02x-%02x\n",
-		pPrimarySite->bssid[0], pPrimarySite->bssid[1], pPrimarySite->bssid[2], pPrimarySite->bssid[3], 
-		pPrimarySite->bssid[4], pPrimarySite->bssid[5]);
+    /* the driver logger can't print %s
+     * TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_CONSOLE, "-- SSID  = %s \n",pPrimarySite->ssid.str); 
+     */
+    TRACE6(pSiteMgr->hReport, REPORT_SEVERITY_CONSOLE,"-- BSSID = %x-%x-%x-%x-%x-%x\n",
+                    pPrimarySite->bssid[0], pPrimarySite->bssid[1], pPrimarySite->bssid[2], pPrimarySite->bssid[3], 
+                    pPrimarySite->bssid[4], pPrimarySite->bssid[5]);
 
 
 	WLAN_OS_REPORT(("-- SSID  = %s \n",pPrimarySite->ssid.str));
-	WLAN_OS_REPORT(("-- BSSID = %02x-%02x-%02x-%02x-%02x-%02x\n",
-		pPrimarySite->bssid[0], pPrimarySite->bssid[1], pPrimarySite->bssid[2], pPrimarySite->bssid[3], 
-		pPrimarySite->bssid[4], pPrimarySite->bssid[5]));
+	WLAN_OS_REPORT(("-- BSSID = %x-%x-%x-%x-%x-%x\n",
+					pPrimarySite->bssid[0], pPrimarySite->bssid[1], pPrimarySite->bssid[2], pPrimarySite->bssid[3], 
+					pPrimarySite->bssid[4], pPrimarySite->bssid[5]));
 }
 #endif
 
@@ -3424,12 +3446,22 @@ void siteMgr_updateRates(TI_HANDLE hSiteMgr, TI_BOOL dot11a, TI_BOOL updateToOS)
 
     if (updateToOS == TI_TRUE) 
 	{
-        /* report the desired rate to OS */
-        statusData = rate_DrvToNet (pSiteMgr->pDesiredParams->siteMgrDesiredRatePair.maxActive);
+        siteEntry_t  *pPrimarySite = pSiteMgr->pSitesMgmtParams->pPrimarySite;
+        TI_UINT32 commonSupportedRateMask;
+        ERate maxRate;
 
+        commonSupportedRateMask = pSiteMgr->pDesiredParams->siteMgrCurrentDesiredRateMask.supportedRateMask;
+        if (pPrimarySite)
+        {
+            commonSupportedRateMask &= pPrimarySite->rateMask.supportedRateMask;
+        }
+
+        maxRate = translateRateMaskToValue(pSiteMgr, commonSupportedRateMask);
+
+        /* report the desired rate to OS */
+        statusData = rate_DrvToNet(maxRate);
         EvHandlerSendEvent(pSiteMgr->hEvHandler, IPC_EVENT_LINK_SPEED, (TI_UINT8 *)&statusData,sizeof(TI_UINT32));
     }
-
 }
 
 
@@ -3625,9 +3657,14 @@ TI_STATUS siteMgr_saveProbeRespBuffer(TI_HANDLE hSiteMgr, TMacAddr  *bssid, TI_U
     siteEntry_t *pSite;
     siteMgr_t   *pSiteMgr = (siteMgr_t *)hSiteMgr;
 
+    if (pSiteMgr == NULL)
+    {
+        return TI_NOK;
+    }
+
     TRACE0(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION , "siteMgr_saveProbeRespBuffer called\n");
 
-    if ((pSiteMgr==NULL) || (pProbeRespBuffer==NULL) || (length>=MAX_MGMT_BODY_LENGTH))
+    if (pProbeRespBuffer==NULL || length>=MAX_BEACON_BODY_LENGTH)
     {
         return TI_NOK;
     }
@@ -3635,11 +3672,7 @@ TI_STATUS siteMgr_saveProbeRespBuffer(TI_HANDLE hSiteMgr, TMacAddr  *bssid, TI_U
     pSite = findSiteEntry(pSiteMgr, bssid);
     if (pSite==NULL)
     {
-        /*
-TRACE0(pSiteMgr->hReport, REPORT_SEVERITY_ERROR, "siteMgr_saveProbeRespBuffer: site doesn't exist\n");
-						  */
         return TI_NOK;
-
     }
 
     os_memoryCopy(pSiteMgr->hOs, pSite->probeRespBuffer, pProbeRespBuffer, length);
@@ -3655,9 +3688,14 @@ TI_STATUS siteMgr_saveBeaconBuffer(TI_HANDLE hSiteMgr, TMacAddr *bssid, TI_UINT8
     siteEntry_t *pSite;
     siteMgr_t   *pSiteMgr = (siteMgr_t *)hSiteMgr;
 
-    TRACE0(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION , "siteMgr_saveBeaconBuffer called\n");
+    if (pSiteMgr==NULL)
+    {
+        return TI_NOK;
+    }
 
-    if ((pSiteMgr==NULL) || (pBeaconBuffer==NULL) || (length>=MAX_MGMT_BODY_LENGTH))
+	TRACE0(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION , "siteMgr_saveBeaconBuffer called\n");
+
+    if (pBeaconBuffer==NULL || length>=MAX_BEACON_BODY_LENGTH)
     {
         return TI_NOK;
     }
@@ -3665,11 +3703,7 @@ TI_STATUS siteMgr_saveBeaconBuffer(TI_HANDLE hSiteMgr, TMacAddr *bssid, TI_UINT8
     pSite = findSiteEntry(pSiteMgr, bssid);
     if (pSite==NULL)
     {
-        /*
-TRACE0(pSiteMgr->hReport, REPORT_SEVERITY_ERROR, "siteMgr_saveBeaconBuffer: site doesn't exist\n");
-						  */
         return TI_NOK;
-
     }
 
     os_memoryCopy(pSiteMgr->hOs, pSite->beaconBuffer, pBeaconBuffer, length);
@@ -4049,7 +4083,7 @@ static TI_UINT16 incrementTxSessionCount(siteMgr_t *pSiteMgr)
 *
 * \sa 
 */
-static void siteMgr_TxPowerHighThreshold(TI_HANDLE hSiteMgr,
+void siteMgr_TxPowerHighThreshold(TI_HANDLE hSiteMgr,
                                       TI_UINT8     *data,
                                       TI_UINT8     dataLength)
 {
@@ -4074,7 +4108,7 @@ static void siteMgr_TxPowerHighThreshold(TI_HANDLE hSiteMgr,
 *
 * \sa 
 */
-static void siteMgr_TxPowerLowThreshold(TI_HANDLE hSiteMgr,
+void siteMgr_TxPowerLowThreshold(TI_HANDLE hSiteMgr,
                                       TI_UINT8     *data,
                                       TI_UINT8     dataLength)
 {

@@ -551,9 +551,11 @@ void scr_setGroup( TI_HANDLE hScr, EScrGroupId newGroup )
  */
 void scr_setMode( TI_HANDLE hScr, EScrModeId newMode )
 {
-    TScr            *pScr = (TScr*)hScr;
+	TScr            *pScr = (TScr*)hScr;
+#ifdef SCR_ABORT_NOTIFY_ENABLED
     TI_UINT32       i, uResourceIndex;
     EScrClientId    highestPending;
+#endif
 
     TRACE1( pScr->hReport, REPORT_SEVERITY_INFORMATION, "Setting mode %d.\n", newMode);
 
@@ -567,8 +569,10 @@ void scr_setMode( TI_HANDLE hScr, EScrModeId newMode )
 
     /* keep the new mode */
     pScr->currentMode = newMode;
-    
-    for (uResourceIndex = 0; uResourceIndex > SCR_RESOURCE_NUM_OF_RESOURCES; uResourceIndex++)
+
+#ifdef SCR_ABORT_NOTIFY_ENABLED
+
+    for (uResourceIndex = 0; uResourceIndex < SCR_RESOURCE_NUM_OF_RESOURCES; uResourceIndex++)
     {
         /* Stage I : if someone is running and shouldn't be running in the new mode - Abort it */
         if ( (SCR_CID_NO_CLIENT != pScr->runningClient[ uResourceIndex ]) && 
@@ -640,6 +644,7 @@ void scr_setMode( TI_HANDLE hScr, EScrModeId newMode )
             }
         }
     }
+#endif	/* SCR_ABORT_NOTIFY_ENABLED */ 
 }
 
 

@@ -47,11 +47,12 @@
 #include "osApi.h"
 #include "rate.h"
 #include "802_11Defs.h"
-
+#include "TWDriver.h"
 
 
 #define MAX_KEY_BUFFER_LEN      256
 #define BIT_TO_BYTE_FACTOR      8
+#define MAX_SR_PARAM_LEN        14
 
 #define N_STR(str)              NDIS_STRING_CONST(str)
 #define INIT_TBL_OFF(field)     FIELD_OFFSET(TInitTable, field)
@@ -131,10 +132,14 @@ NDIS_STRING STRTxCompleteTimeout            = NDIS_STRING_CONST( "TxCompleteTime
 NDIS_STRING STRRxInterruptThreshold         = NDIS_STRING_CONST( "RxInterruptThreshold" );
 NDIS_STRING STRRxInterruptTimeout           = NDIS_STRING_CONST( "RxInterruptTimeout" );
 
+NDIS_STRING STRRxAggregationPktsLimit       = NDIS_STRING_CONST( "RxAggregationPktsLimit" );
+
 NDIS_STRING STRdot11FragThreshold           = NDIS_STRING_CONST( "dot11FragmentationThreshold" );
 NDIS_STRING STRdot11MaxTxMSDULifetime       = NDIS_STRING_CONST( "dot11MaxTransmitMSDULifetime" );
 NDIS_STRING STRdot11MaxReceiveLifetime      = NDIS_STRING_CONST( "dot11MaxReceiveLifetime" );
 NDIS_STRING STRdot11RateFallBackRetryLimit  = NDIS_STRING_CONST( "dot11RateFallBackRetryLimit");
+
+NDIS_STRING STRReAuthActivePriority			= NDIS_STRING_CONST( "ReAuthActivePriority" );
 
 NDIS_STRING STRListenInterval               = NDIS_STRING_CONST( "dot11ListenInterval" );
 NDIS_STRING STRExternalMode                 = NDIS_STRING_CONST( "DriverExternalMode" );
@@ -220,6 +225,7 @@ NDIS_STRING STRMixedMode                    = NDIS_STRING_CONST( "MixedMode" );
 NDIS_STRING STRWPAMixedMode                  = NDIS_STRING_CONST( "WPAMixedMode");
 NDIS_STRING STRRSNPreAuth                    = NDIS_STRING_CONST( "RSNPreAuthentication");
 NDIS_STRING STRRSNPreAuthTimeout             = NDIS_STRING_CONST( "RSNPreAuthTimeout" );
+NDIS_STRING STRRSNExternalMode               = NDIS_STRING_CONST( "RSNExternalMode" );
 
 NDIS_STRING STRPairwiseMicFailureFilter		= NDIS_STRING_CONST( "PairwiseMicFailureFilter" );
 
@@ -230,6 +236,17 @@ NDIS_STRING STRScanControlTable24           = NDIS_STRING_CONST( "AllowedChannel
 NDIS_STRING STRScanControlTable5            = NDIS_STRING_CONST( "AllowedChannelsTable5" );
 
 NDIS_STRING STRBurstModeEnable              = NDIS_STRING_CONST( "BurstModeEnable" );
+/* Smart Reflex */
+NDIS_STRING STRSRState                      = NDIS_STRING_CONST( "SRState" );
+NDIS_STRING STRSRConfigParam1               = NDIS_STRING_CONST( "SRF1" );
+NDIS_STRING STRSRConfigParam2               = NDIS_STRING_CONST( "SRF2" );
+NDIS_STRING STRSRConfigParam3               = NDIS_STRING_CONST( "SRF3" );
+NDIS_STRING STRSRSenNP                      = NDIS_STRING_CONST( "SR_SEN_N_P" );
+NDIS_STRING STRSRSenNPGain                  = NDIS_STRING_CONST( "SR_SEN_N_P_Gain" );
+NDIS_STRING STRSRSenPrn                     = NDIS_STRING_CONST( "SR_SEN_PRN" );
+NDIS_STRING STRSRSenNrn                     = NDIS_STRING_CONST( "SR_SEN_NRN" );
+NDIS_STRING STRSRDebugTable                 = NDIS_STRING_CONST( "SR_Debug_Table" );
+
 
 /*
 Power Manager
@@ -273,22 +290,39 @@ NDIS_STRING STRNumberOfNoScanCompleteToRecovery         = NDIS_STRING_CONST( "Nu
 NDIS_STRING STRTriggeredScanTimeOut                     = NDIS_STRING_CONST( "TriggeredScanTimeOut" );
 
 /*-----------------------------------*/
-/*   Bluetooth support               */
+/*   Coexistence params               */
 /*-----------------------------------*/
 NDIS_STRING STRBThWlanCoexistEnable                     = NDIS_STRING_CONST( "BThWlanCoexistEnable" );
 
-NDIS_STRING STRBThWlanCoexistParamsBtLoadRatio			= NDIS_STRING_CONST( "BThWlanCoexistLoadRatio" );
-NDIS_STRING STRBThWlanCoexistParamsAutoPsMode			= NDIS_STRING_CONST( "BThWlanCoexistAutoPsMode" );
-NDIS_STRING STRBThWlanCoexistParamsAutoScanProbeReqPerc	= NDIS_STRING_CONST( "BThWlanCoexistAutoScanProbeReqPerc" );
-NDIS_STRING STRBThWlanCoexistParamsAutoScanWindowPerc	= NDIS_STRING_CONST( "BThWlanCoexistAutoScanWindowPerc" );
-NDIS_STRING STRBThWlanCoexistParamsAutoScanMaxTime	    = NDIS_STRING_CONST( "BThWlanCoexistParamsAutoScanMaxTime" );
-NDIS_STRING STRBThWlanCoexistPerThreshold	    		= NDIS_STRING_CONST( "BThWlanCoexistPerThreshold" );
-NDIS_STRING STRBThWlanCoexistNfsSampleInterval      	= NDIS_STRING_CONST( "BThWlanCoexistNfsSampleInterval" );
-NDIS_STRING STRBThWlanCoexistcoexAntennaConfiguration   = NDIS_STRING_CONST( "BThWlanCoexistcoexAntennaConfiguration" );
-NDIS_STRING STRBThWlanCoexistcoexMaxConsecutiveBeaconMissPrecent   = NDIS_STRING_CONST( "BThWlanCoexMaxConsecutiveBeaconMissPrecent" );
-NDIS_STRING STRBThWlanCoexistcoexAPRateAdapationThr   = NDIS_STRING_CONST( "BThWlanCoexistcoexAPRateAdapationThr" );
-NDIS_STRING STRBThWlanCoexistcoexAPRateAdapationSnr   = NDIS_STRING_CONST( "BThWlanCoexistcoexAPRateAdapationSnr" );
+NDIS_STRING STRBThWlanCoexistPerThreshold	    		= NDIS_STRING_CONST( "coexBtPerThreshold" );
+NDIS_STRING STRBThWlanCoexistParamsAutoScanMaxTime	    = NDIS_STRING_CONST( "coexAutoScanCompensationMaxTime" );
+NDIS_STRING STRBThWlanCoexistParamsBtLoadRatio			= NDIS_STRING_CONST( "coexBtLoadRatio" );
+NDIS_STRING STRBThWlanCoexistParamsAutoPsMode			= NDIS_STRING_CONST( "coexAutoPsMode" );
+NDIS_STRING STRBThWlanCoexistParamsAutoScanProbeReqPerc	= NDIS_STRING_CONST( "coexAutoScanEnlargedNumOfProbeReqPercent" );
+NDIS_STRING STRBThWlanCoexistParamsAutoScanWindowPerc	= NDIS_STRING_CONST( "coexAutoScanEnlargedScanWindowPercent" );
+NDIS_STRING STRBThWlanCoexistcoexAntennaConfiguration   = NDIS_STRING_CONST( "coexAntennaConfiguration" );
+NDIS_STRING STRBThWlanCoexistNfsSampleInterval      	= NDIS_STRING_CONST( "coexBtNfsSampleInterval" );
+NDIS_STRING STRBThWlanCoexistcoexMaxConsecutiveBeaconMissPrecent   = NDIS_STRING_CONST( "coexMaxConsecutiveBeaconMissPrecent" );
+NDIS_STRING STRBThWlanCoexistcoexAPRateAdapationThr   = NDIS_STRING_CONST( "coexAPRateAdapationThr" );
+NDIS_STRING STRBThWlanCoexistcoexAPRateAdapationSnr   = NDIS_STRING_CONST( "coexAPRateAdapationSnr" );
 
+
+NDIS_STRING STRBThWlanCoexistUpsdAclMinBR  = NDIS_STRING_CONST( "coexWlanPsBtAclMinBR" );
+NDIS_STRING STRBThWlanCoexistUpsdAclMaxBR  = NDIS_STRING_CONST( "coexWlanPsBtAclMaxBR" );
+NDIS_STRING STRBThWlanCoexistUpsdWlanMaxBR  = NDIS_STRING_CONST( "coexbtAclWlanPsMaxBR" );
+
+NDIS_STRING STRBThWlanCoexistUpsdAclMinEDR  = NDIS_STRING_CONST( "coexWlanPsBtAclMinEDR" );
+NDIS_STRING STRBThWlanCoexistUpsdAclMaxEDR  = NDIS_STRING_CONST( "coexWlanPsBtAclMaxEDR" );
+NDIS_STRING STRBThWlanCoexistUpsdWlanMaxEDR  = NDIS_STRING_CONST( "coexbtAclWlanPsMaxEDR" );
+
+
+NDIS_STRING STRBThWlanCoexistRxt  = NDIS_STRING_CONST( "coexRxt" );
+NDIS_STRING STRBThWlanCoexistTxt  = NDIS_STRING_CONST( "coexTxt" );
+NDIS_STRING STRBThWlanCoexistAdaptiveRxtTxt  = NDIS_STRING_CONST( "coexAdaptiveRxtTxt" );
+NDIS_STRING STRBThWlanCoexistPsPollTimeout  = NDIS_STRING_CONST( "coexPsPollTimeout" );
+NDIS_STRING STRBThWlanCoexistUpsdTimeout  = NDIS_STRING_CONST( "coexUpsdTimeout" );
+NDIS_STRING STRBThWlanCoexistBtAclWlanActiveBtMax  = NDIS_STRING_CONST( "coexBtAclWlanActiveBtMax" );
+NDIS_STRING STRBThWlanCoexistBtAclWlanActiveWlanMax  = NDIS_STRING_CONST( "coexBtAclWlanActiveWlanMax" );
 
 NDIS_STRING STRDisableSsidPending           = NDIS_STRING_CONST( "DisableSsidPending" );
 
@@ -307,6 +341,12 @@ NDIS_STRING STRSmeScanIntervals             = NDIS_STRING_CONST( "SmeScanInterva
 NDIS_STRING STRSmeScanGChannels             = NDIS_STRING_CONST( "SmeScanGChannelList" );
 NDIS_STRING STRSmeScanAChannels             = NDIS_STRING_CONST( "SmeScanAChannelList" );
 
+
+/*-----------------------------------*/
+/*  Roaming & Scanning  Init Params  */
+/*-----------------------------------*/
+NDIS_STRING STRRoamScanEnable           = NDIS_STRING_CONST( "RoamScanEnable" );
+
 /*-----------------------------------*/
 /*   Health Check Init Params        */
 /*-----------------------------------*/
@@ -319,6 +359,7 @@ NDIS_STRING STRRecoveryEnabledPowerSaveFailure  = NDIS_STRING_CONST( "RecoveryEn
 NDIS_STRING STRRecoveryEnabledMeasurementFailure= NDIS_STRING_CONST( "RecoveryEnabledMeasurementFailure" );
 NDIS_STRING STRRecoveryEnabledBusFailure        = NDIS_STRING_CONST( "RecoveryEnabledBusFailure" );
 NDIS_STRING STRRecoveryEnabledHwWdExpire        = NDIS_STRING_CONST( "RecoveryEnabledHwWdExpire" );
+NDIS_STRING STRRecoveryEnabledRxXferFailure     = NDIS_STRING_CONST( "RecoveryEnabledRxXferFailure" );
 
 /*-----------------------------------*/
 /* Tx Power control with atheros     */
@@ -553,6 +594,8 @@ NDIS_STRING STRRxDataFiltersFilter4Mask         = NDIS_STRING_CONST("RxDataFilte
 NDIS_STRING STRRxDataFiltersFilter4Pattern      = NDIS_STRING_CONST("RxDataFilters_Filter4Pattern");
 
 
+NDIS_STRING STRReAuthActiveTimeout				= NDIS_STRING_CONST( "ReAuthActiveTimeout" );
+
 /*---------------------------
     Measurement parameters
 -----------------------------*/
@@ -612,8 +655,8 @@ NDIS_STRING STRContextSwitchRequired  = NDIS_STRING_CONST("ContextSwitchRequired
 /*-----------------------------------*/
 /*      Radio parameters             */
 /*-----------------------------------*/
-NDIS_STRING STRTXBiPReferencePDvoltage_2_4G =       NDIS_STRING_CONST("TXBiPReferencePDvoltage");
-NDIS_STRING STRTxBiPReferencePower_2_4G =           NDIS_STRING_CONST("TxBiPReferencePower");  
+NDIS_STRING STRTXBiPReferencePDvoltage_2_4G =       NDIS_STRING_CONST("TXBiPReferencePDvoltage_2_4G");
+NDIS_STRING STRTxBiPReferencePower_2_4G =           NDIS_STRING_CONST("TxBiPReferencePower_2_4G");
 NDIS_STRING STRTxBiPOffsetdB_2_4G =                 NDIS_STRING_CONST("TxBiPOffsetdB_2_4G");  
 NDIS_STRING STRTxPerRatePowerLimits_2_4G_Normal =  	NDIS_STRING_CONST("TxPerRatePowerLimits_2_4G_Normal");
 NDIS_STRING STRTxPerRatePowerLimits_2_4G_Degraded = NDIS_STRING_CONST("TxPerRatePowerLimits_2_4G_Degraded");
@@ -645,7 +688,7 @@ NDIS_STRING STRTXBiPFEMManufacturer =    			NDIS_STRING_CONST("TXBiPFEMManufactu
 NDIS_STRING STRClockValidOnWakeup =    	    		NDIS_STRING_CONST("ClockValidOnWakeup");
 NDIS_STRING STRDC2DCMode =    	    	            NDIS_STRING_CONST("DC2DCMode");
 NDIS_STRING STRSingle_Dual_Band_Solution =          NDIS_STRING_CONST("Single_Dual_Band_Solution");
-
+NDIS_STRING STRSettings = 							NDIS_STRING_CONST("Settings");
 
 /*-----------------------------------*/
 /*      Driver-Main parameters       */
@@ -654,6 +697,47 @@ NDIS_STRING STRWlanDrvThreadPriority = NDIS_STRING_CONST("WlanDrvThreadPriority"
 NDIS_STRING STRBusDrvThreadPriority  = NDIS_STRING_CONST("BusDrvThreadPriority");
 NDIS_STRING STRSdioBlkSizeShift      = NDIS_STRING_CONST("SdioBlkSizeShift");
 
+
+/*-----------------------------------*/
+/*      Roaming parameters    */
+/*-----------------------------------*/
+NDIS_STRING STRRoamingOperationalMode = NDIS_STRING_CONST("RoamingOperationalMode");
+
+/*-----------------------------------*/
+/*      FM Coexistence parameters    */
+/*-----------------------------------*/
+NDIS_STRING STRFmCoexEnable               = NDIS_STRING_CONST("FmCoexuEnable");
+NDIS_STRING STRFmCoexSwallowPeriod        = NDIS_STRING_CONST("FmCoexuSwallowPeriod");
+NDIS_STRING STRFmCoexNDividerFrefSet1     = NDIS_STRING_CONST("FmCoexuNDividerFrefSet1");
+NDIS_STRING STRFmCoexNDividerFrefSet2     = NDIS_STRING_CONST("FmCoexuNDividerFrefSet2");
+NDIS_STRING STRFmCoexMDividerFrefSet1     = NDIS_STRING_CONST("FmCoexuMDividerFrefSet1");
+NDIS_STRING STRFmCoexMDividerFrefSet2     = NDIS_STRING_CONST("FmCoexuMDividerFrefSet2");
+NDIS_STRING STRFmCoexPllStabilizationTime = NDIS_STRING_CONST("FmCoexuPllStabilizationTime");
+NDIS_STRING STRFmCoexLdoStabilizationTime = NDIS_STRING_CONST("FmCoexuLdoStabilizationTime");
+NDIS_STRING STRFmCoexDisturbedBandMargin  = NDIS_STRING_CONST("FmCoexuDisturbedBandMargin");
+NDIS_STRING STRFmCoexSwallowClkDif        = NDIS_STRING_CONST("FmCoexSwallowClkDif");
+
+/*----------------------------------------*/
+/*      Rate Management Parameters        */
+/*----------------------------------------*/
+
+/* LiorC */
+
+NDIS_STRING STRRateMngRateRetryScore        		= NDIS_STRING_CONST("RateMngRateRetryScore");
+NDIS_STRING STRRateMngPerAdd        				= NDIS_STRING_CONST("RateMngPerAdd");
+NDIS_STRING STRRateMngPerTh1        				= NDIS_STRING_CONST("RateMngPerTh1");
+NDIS_STRING STRRateMngPerTh2        				= NDIS_STRING_CONST("RateMngPerTh2");
+NDIS_STRING STRRateMngMaxPer       	 				= NDIS_STRING_CONST("RateMngMaxPer");
+NDIS_STRING STRRateMngInverseCuriosityFactor        = NDIS_STRING_CONST("RateMngInverseCuriosityFactor");
+NDIS_STRING STRRateMngTxFailLowTh        			= NDIS_STRING_CONST("RateMngTxFailLowTh");
+NDIS_STRING STRRateMngTxFailHighTh        			= NDIS_STRING_CONST("RateMngTxFailHighTh");
+NDIS_STRING STRRateMngPerAlphaShift        			= NDIS_STRING_CONST("RateMngPerAlphaShift");
+NDIS_STRING STRRateMngPerAddShift        			= NDIS_STRING_CONST("RateMngPerAddShift");
+NDIS_STRING STRRateMngPerBeta1Shift        			= NDIS_STRING_CONST("RateMngPerBeta1Shift");
+NDIS_STRING STRRateMngPerBeta2Shift        			= NDIS_STRING_CONST("RateMngPerBeta2Shift");
+NDIS_STRING STRRateMngRateCheckUp        			= NDIS_STRING_CONST("RateMngRateCheckUp");
+NDIS_STRING STRRateMngRateCheckDown        			= NDIS_STRING_CONST("RateMngRateCheckDown");
+NDIS_STRING STRRateMngRateRetryPolicy        	    = NDIS_STRING_CONST("RateMngRateRetryPolicy");
 
 
 /*
@@ -947,6 +1031,10 @@ regFillInitTable(
     TI_UINT32  uSmeScanIntervalsTempList[ 255 ];
     TI_UINT32  uTempEntriesCount, uSmeGChannelsCount, uIndex;
     TI_UINT32  uWiFiMode = 0;
+    TI_INT8    SRConfigParams[14];
+    TI_UINT8   len,TempSRCnt;
+	TI_UINT8   uTempRatePolicyList[RATE_MNG_MAX_RETRY_POLICY_PARAMS_LEN];
+	TI_UINT32  uTempRatePolicyCnt=0;
 
     int macIndex ; /*used for group address filtering*/
 
@@ -1455,6 +1543,13 @@ regFillInitTable(
                             (TI_UINT8*)&(p->twdInitParams.tGeneral.RxIntrPacingTimeout));
 
 
+    regReadIntegerParameter(pAdapter, &STRRxAggregationPktsLimit,
+                            TWD_RX_AGGREG_PKTS_LIMIT_DEF, TWD_RX_AGGREG_PKTS_LIMIT_MIN,
+                            TWD_RX_AGGREG_PKTS_LIMIT_MAX,
+                            sizeof p->twdInitParams.tGeneral.uRxAggregPktsLimit,
+                            (TI_UINT8*)&(p->twdInitParams.tGeneral.uRxAggregPktsLimit));
+
+
     regReadIntegerParameter(pAdapter, &STRdot11DesiredChannel,
                         SITE_MGR_CHANNEL_DEF, SITE_MGR_CHANNEL_MIN, SITE_MGR_CHANNEL_MAX,
                         sizeof p->siteMgrInitParams.siteMgrDesiredChannel, 
@@ -1518,7 +1613,7 @@ regFillInitTable(
 
         memcpy(p->siteMgrInitParams.siteMgrFreq2ChannelTable,
                Freq2ChannelTable,
-               SITE_MGR_CHANNEL_MAX+1);
+               sizeof(Freq2ChannelTable));
     }
 
     /* read TX rates from registry */
@@ -1541,6 +1636,12 @@ regFillInitTable(
                             SITE_MGR_PREAMBLE_TYPE_DEF, PREAMBLE_LONG, PREAMBLE_SHORT,
                             sizeof p->siteMgrInitParams.siteMgrDesiredPreambleType,
                             (TI_UINT8*)&p->siteMgrInitParams.siteMgrDesiredPreambleType);
+
+	regReadIntegerParameter(pAdapter, &STRReAuthActivePriority,
+							POWER_MGMNT_RE_AUTH_ACTIVE_PRIO_DEF_VALUE, POWER_MGMNT_RE_AUTH_ACTIVE_PRIO_MIN_VALUE,
+							POWER_MGMNT_RE_AUTH_ACTIVE_PRIO_MAX_VALUE,
+							sizeof p->PowerMgrInitParams.reAuthActivePriority, 
+							(TI_UINT8*)&p->PowerMgrInitParams.reAuthActivePriority);
 
     regReadIntegerParameter(pAdapter, &STRExternalMode,
                             SITE_MGR_EXTERNAL_MODE_DEF, SITE_MGR_EXTERNAL_MODE_MIN,
@@ -1662,6 +1763,12 @@ regFillInitTable(
                             sizeof p->rxDataInitParams.rxDataFiltersDefaultAction,
                             (TI_UINT8*)&p->rxDataInitParams.rxDataFiltersDefaultAction);
 
+	regReadIntegerParameter(pAdapter, &STRReAuthActiveTimeout,
+                            RX_DATA_RE_AUTH_ACTIVE_TIMEOUT_DEF, RX_DATA_RE_AUTH_ACTIVE_TIMEOUT_MIN,
+							RX_DATA_RE_AUTH_ACTIVE_TIMEOUT_MAX,
+                            sizeof p->rxDataInitParams.reAuthActiveTimeout,
+							(TI_UINT8*)&p->rxDataInitParams.reAuthActiveTimeout);
+
     regReadIntegerParameter(pAdapter, &STRCreditCalcTimout,
                             TX_DATA_CREDIT_CALC_TIMOEUT_DEF, TX_DATA_CREDIT_CALC_TIMOEUT_MIN,
                             TX_DATA_CREDIT_CALC_TIMOEUT_MAX,
@@ -1745,6 +1852,11 @@ regFillInitTable(
             p->tSmeInitParams.iSnrThreshold = SME_SCAN_SNR_THRESHOLD_DEF_NUM;
         }
     }
+
+
+    regReadIntegerParameter(pAdapter ,&STRRoamScanEnable,
+                        0, 0, 1, sizeof(p->tRoamScanMngrInitParams.RoamingScanning_2_4G_enable),
+                        (TI_UINT8*)&p->tRoamScanMngrInitParams.RoamingScanning_2_4G_enable);
 
     regReadIntegerParameter(pAdapter, &STRSmeScanCycleNumber,
                             SME_SCAN_CYCLES_DEF, SME_SCAN_CYCLES_MIN, SME_SCAN_CYCLES_MAX,
@@ -1830,58 +1942,126 @@ regFillInitTable(
 
 	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistParamsBtLoadRatio,
                             SOFT_GEMINI_PARAMS_LOAD_RATIO_DEF, SOFT_GEMINI_PARAMS_LOAD_RATIO_MIN, SOFT_GEMINI_PARAMS_LOAD_RATIO_MAX,
-                            sizeof p->SoftGeminiInitParams.coexBtLoadRatio,
-                            (TI_UINT8*)&p->SoftGeminiInitParams.coexBtLoadRatio);
+                            sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_BT_LOAD_RATIO],
+                            (TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_BT_LOAD_RATIO]);
 
 	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistParamsAutoPsMode,
                             SOFT_GEMINI_PARAMS_AUTO_PS_MODE_DEF, SOFT_GEMINI_PARAMS_AUTO_PS_MODE_MIN, SOFT_GEMINI_PARAMS_AUTO_PS_MODE_MAX,
-                            sizeof p->SoftGeminiInitParams.coexAutoPsMode,
-                            (TI_UINT8*)&p->SoftGeminiInitParams.coexAutoPsMode);
+                            sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_AUTO_PS_MODE],
+                            (TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_AUTO_PS_MODE]);
 
 	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistParamsAutoScanProbeReqPerc,
                             SOFT_GEMINI_PARAMS_AUTO_SCAN_PROBE_REQ_DEF, SOFT_GEMINI_PARAMS_AUTO_SCAN_PROBE_REQ_MIN, SOFT_GEMINI_PARAMS_AUTO_SCAN_PROBE_REQ_MAX,
-                            sizeof p->SoftGeminiInitParams.coexAutoScanEnlargedNumOfProbeReqPercent,
-                            (TI_UINT8*)&p->SoftGeminiInitParams.coexAutoScanEnlargedNumOfProbeReqPercent);
+                            sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_AUTO_SCAN_PROBE_REQ],
+                            (TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_AUTO_SCAN_PROBE_REQ]);
 
 	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistParamsAutoScanWindowPerc,
                             SOFT_GEMINI_PARAMS_AUTO_SCAN_WINDOW_DEF, SOFT_GEMINI_PARAMS_AUTO_SCAN_WINDOW_MIN, SOFT_GEMINI_PARAMS_AUTO_SCAN_WINDOW_MAX,
-                            sizeof p->SoftGeminiInitParams.coexAutoScanEnlargedScanWindowPercent,
-                            (TI_UINT8*)&p->SoftGeminiInitParams.coexAutoScanEnlargedScanWindowPercent);
+                            sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_AUTO_SCAN_WINDOW],
+                            (TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_AUTO_SCAN_WINDOW]);
 
 	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistParamsAutoScanMaxTime,
 							SOFT_GEMINI_AUTO_SCAN_COMPENSATION_MAX_TIME_DEF, SOFT_GEMINI_AUTO_SCAN_COMPENSATION_MAX_TIME_MIN, SOFT_GEMINI_AUTO_SCAN_COMPENSATION_MAX_TIME_MAX,
-							sizeof p->SoftGeminiInitParams.coexAutoScanCompensationMaxTime,
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexAutoScanCompensationMaxTime);
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_AUTO_SCAN_COMPENSATION_MAX_TIME],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_AUTO_SCAN_COMPENSATION_MAX_TIME]);
 
 	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistPerThreshold,
 							SOFT_GEMINI_PARAMS_PER_THRESHOLD_DEF, SOFT_GEMINI_PARAMS_PER_THRESHOLD_MIN, SOFT_GEMINI_PARAMS_PER_THRESHOLD_MAX,
-							sizeof p->SoftGeminiInitParams.coexBtPerThreshold,
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexBtPerThreshold);
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_BT_PER_THRESHOLD],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_BT_PER_THRESHOLD]);
 
 	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistNfsSampleInterval,
 							SOFT_GEMINI_PARAMS_NFS_SAMPLE_INTERVAL_DEF, SOFT_GEMINI_PARAMS_NFS_SAMPLE_INTERVAL_MIN, SOFT_GEMINI_PARAMS_NFS_SAMPLE_INTERVAL_MAX,
-							sizeof p->SoftGeminiInitParams.coexBtNfsSampleInterval,
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexBtNfsSampleInterval);
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_BT_NFS_SAMPLE_INTERVAL],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_BT_NFS_SAMPLE_INTERVAL]);
 
 	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistcoexAntennaConfiguration,
 							SOFT_GEMINI_ANTENNA_CONFIGURATION_DEF, SOFT_GEMINI_ANTENNA_CONFIGURATION_MIN, SOFT_GEMINI_ANTENNA_CONFIGURATION_MAX,
-							sizeof p->SoftGeminiInitParams.coexAntennaConfiguration,
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexAntennaConfiguration);
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_ANTENNA_CONFIGURATION],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_ANTENNA_CONFIGURATION]);
 
 	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistcoexMaxConsecutiveBeaconMissPrecent,
 							SOFT_GEMINI_BEACON_MISS_PERCENT_DEF, SOFT_GEMINI_BEACON_MISS_PERCENT_MIN, SOFT_GEMINI_BEACON_MISS_PERCENT_MAX,
-							sizeof p->SoftGeminiInitParams.coexMaxConsecutiveBeaconMissPrecent,
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexMaxConsecutiveBeaconMissPrecent);
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_BEACON_MISS_PERCENT],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_BEACON_MISS_PERCENT]);
 
 	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistcoexAPRateAdapationThr,
 							SOFT_GEMINI_RATE_ADAPT_THRESH_DEF, SOFT_GEMINI_RATE_ADAPT_THRESH_MIN, SOFT_GEMINI_RATE_ADAPT_THRESH_MAX,
-							sizeof p->SoftGeminiInitParams.coexAPRateAdapationThr,
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexAPRateAdapationThr);
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_RATE_ADAPT_THRESH],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_RATE_ADAPT_THRESH]);
 
 	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistcoexAPRateAdapationSnr,
 							SOFT_GEMINI_RATE_ADAPT_SNR_DEF, SOFT_GEMINI_RATE_ADAPT_SNR_MIN, SOFT_GEMINI_RATE_ADAPT_SNR_MAX,
-							sizeof p->SoftGeminiInitParams.coexAPRateAdapationSnr,
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexAPRateAdapationSnr);
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_RATE_ADAPT_SNR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_RATE_ADAPT_SNR]);
+
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclMinBR,
+							SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR]);
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclMaxBR,
+							SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR]);
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdWlanMaxBR,
+							SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR_DEF, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR_MIN, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR]);
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclMinEDR,
+							SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR]);
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclMaxEDR,
+							SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR]);
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdWlanMaxEDR,
+							SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR_DEF, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR_MIN, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR]);
+
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistRxt,
+							SOFT_GEMINI_RXT_DEF, SOFT_GEMINI_RXT_MIN, SOFT_GEMINI_RXT_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_RXT],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_RXT]);
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistTxt,
+							SOFT_GEMINI_TXT_DEF, SOFT_GEMINI_TXT_MIN, SOFT_GEMINI_TXT_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_TXT],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_TXT]);
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistAdaptiveRxtTxt,
+							SOFT_GEMINI_ADAPTIVE_RXT_TXT_DEF, SOFT_GEMINI_ADAPTIVE_RXT_TXT_MIN, SOFT_GEMINI_ADAPTIVE_RXT_TXT_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_ADAPTIVE_RXT_TXT],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_ADAPTIVE_RXT_TXT]);
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistPsPollTimeout,
+							SOFT_GEMINI_PS_POLL_TIMEOUT_DEF, SOFT_GEMINI_PS_POLL_TIMEOUT_MIN, SOFT_GEMINI_PS_POLL_TIMEOUT_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_PS_POLL_TIMEOUT],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_PS_POLL_TIMEOUT]);
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdTimeout,
+							SOFT_GEMINI_UPSD_TIMEOUT_DEF, SOFT_GEMINI_UPSD_TIMEOUT_MIN, SOFT_GEMINI_UPSD_TIMEOUT_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_UPSD_TIMEOUT],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_UPSD_TIMEOUT]);
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistBtAclWlanActiveBtMax,
+							SOFT_GEMINI_WLAN_ACTIVE_BT_MAX_DEF, SOFT_GEMINI_WLAN_ACTIVE_BT_MAX_MIN, SOFT_GEMINI_WLAN_ACTIVE_BT_MAX_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MAX],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MAX]);
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistBtAclWlanActiveWlanMax,
+							SOFT_GEMINI_WLAN_ACTIVE_WLAN_MAX_DEF, SOFT_GEMINI_WLAN_ACTIVE_WLAN_MAX_MIN, SOFT_GEMINI_WLAN_ACTIVE_WLAN_MAX_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_BT_ACL_WLAN_ACTIVE_MAX],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_BT_ACL_WLAN_ACTIVE_MAX]);
+
     /* 
      * CoexActivity table 
      */
@@ -2023,6 +2203,113 @@ regFillInitTable(
                             BURST_MODE_ENABLE_MAX,
                             sizeof p->qosMngrInitParams.bEnableBurstMode,
                             (TI_UINT8*)&p->qosMngrInitParams.bEnableBurstMode);
+
+/*---------------------- Smart Reflex Configration -----------------------*/
+      regReadIntegerParameter(pAdapter,
+                            &STRSRState,
+                            SMART_REFLEX_STATE_DEF,
+                            SMART_REFLEX_STATE_MIN,
+                            SMART_REFLEX_STATE_MAX,
+                            sizeof p->twdInitParams.tSmartReflexState.enable,
+                            (TI_UINT8*)&p->twdInitParams.tSmartReflexState.enable);
+
+
+      NdisZeroMemory(&(p->twdInitParams.tSmartReflexParams), sizeof(ACXSmartReflexConfigParams_t));
+
+      regReadIntegerTable (pAdapter, &STRSRConfigParam1, SMART_REFLEX_CONFIG_PARAMS_DEF_TABLE,
+                           MAX_SR_PARAM_LEN, NULL, (TI_INT8*)&SRConfigParams,
+                          (TI_UINT32*)&TempSRCnt, sizeof (TI_UINT8),TI_TRUE);
+
+      p->twdInitParams.tSmartReflexParams.errorTable[0].len = SRConfigParams[0];
+      p->twdInitParams.tSmartReflexParams.errorTable[0].upperLimit = SRConfigParams[1];
+
+      len = p->twdInitParams.tSmartReflexParams.errorTable[0].len;
+      if ((len > MAX_SR_PARAM_LEN)|| (TempSRCnt > len + 1))
+      {
+        p->twdInitParams.tSmartReflexParams.errorTable[0].len = 0;
+        p->twdInitParams.tSmartReflexParams.errorTable[0].upperLimit = 0;
+        memset(&p->twdInitParams.tSmartReflexParams.errorTable[0].values,0,MAX_SR_PARAM_LEN) ;
+      }
+      else
+         memcpy(&p->twdInitParams.tSmartReflexParams.errorTable[0].values, &SRConfigParams[2],len -1);
+
+
+      regReadIntegerTable (pAdapter, &STRSRConfigParam2, SMART_REFLEX_CONFIG_PARAMS_DEF_TABLE,
+                           MAX_SR_PARAM_LEN, NULL, (TI_INT8*)&SRConfigParams,
+                          (TI_UINT32*)&TempSRCnt, sizeof (TI_UINT8),TI_TRUE);
+
+      p->twdInitParams.tSmartReflexParams.errorTable[1].len = SRConfigParams[0];
+      p->twdInitParams.tSmartReflexParams.errorTable[1].upperLimit = SRConfigParams[1];
+
+      len = p->twdInitParams.tSmartReflexParams.errorTable[1].len;
+      if ((len > MAX_SR_PARAM_LEN)|| (TempSRCnt > len + 1))
+      {
+        p->twdInitParams.tSmartReflexParams.errorTable[1].len = 0;
+        p->twdInitParams.tSmartReflexParams.errorTable[1].upperLimit = 0;
+        memset(&p->twdInitParams.tSmartReflexParams.errorTable[1].values,0,MAX_SR_PARAM_LEN) ;
+      }
+      else
+         memcpy(&p->twdInitParams.tSmartReflexParams.errorTable[1].values, &SRConfigParams[2],len -1);
+
+
+      regReadIntegerTable (pAdapter, &STRSRConfigParam3, SMART_REFLEX_CONFIG_PARAMS_DEF_TABLE,
+                           MAX_SR_PARAM_LEN, NULL, (TI_INT8*)&SRConfigParams,
+                          (TI_UINT32*)&TempSRCnt, sizeof (TI_UINT8),TI_TRUE);
+
+      p->twdInitParams.tSmartReflexParams.errorTable[2].len = SRConfigParams[0];
+      p->twdInitParams.tSmartReflexParams.errorTable[2].upperLimit = SRConfigParams[1];
+
+     len = p->twdInitParams.tSmartReflexParams.errorTable[2].len;
+      if ((len > MAX_SR_PARAM_LEN)|| (TempSRCnt > len + 1))
+      {
+        p->twdInitParams.tSmartReflexParams.errorTable[2].len = 0;
+        p->twdInitParams.tSmartReflexParams.errorTable[2].upperLimit = 0;
+        memset(&p->twdInitParams.tSmartReflexParams.errorTable[2].values,0,MAX_SR_PARAM_LEN) ;
+      }
+      else
+         memcpy(&p->twdInitParams.tSmartReflexParams.errorTable[2].values, &SRConfigParams[2],len -1);
+
+
+      regReadIntegerParameter(pAdapter,
+                            &STRSRSenNP,
+                            SMART_REFLEX_DEBUG_DEF,
+                            SMART_REFLEX_DEBUG_MIN,
+                            SMART_REFLEX_DEBUG_MAX,
+                            sizeof p->twdInitParams.tSmartReflexDebugParams.senN_P,
+                            (TI_UINT8*)&p->twdInitParams.tSmartReflexDebugParams.senN_P);
+
+      regReadIntegerParameter(pAdapter,
+                            &STRSRSenNPGain,
+                            SMART_REFLEX_DEBUG_DEF,
+                            SMART_REFLEX_DEBUG_MIN,
+                            SMART_REFLEX_DEBUG_MAX,
+                            sizeof p->twdInitParams.tSmartReflexDebugParams.senN_P_Gain,
+                            (TI_UINT8*)&p->twdInitParams.tSmartReflexDebugParams.senN_P_Gain);
+
+      regReadIntegerParameter(pAdapter,
+                            &STRSRSenPrn,
+                            SMART_REFLEX_DEBUG_DEF,
+                            SMART_REFLEX_DEBUG_MIN,
+                            SMART_REFLEX_DEBUG_MAX,
+                            sizeof p->twdInitParams.tSmartReflexDebugParams.senPRN,
+                            (TI_UINT8*)&p->twdInitParams.tSmartReflexDebugParams.senPRN);
+
+      regReadIntegerParameter(pAdapter,
+                            &STRSRSenNrn,
+                            SMART_REFLEX_DEBUG_DEF,
+                            SMART_REFLEX_DEBUG_MIN,
+                            SMART_REFLEX_DEBUG_MAX,
+                            sizeof (p->twdInitParams.tSmartReflexDebugParams.senNRN),
+                            (TI_UINT8*)&p->twdInitParams.tSmartReflexDebugParams.senNRN);
+
+
+      regReadIntegerTable (pAdapter, &STRSRDebugTable, SMART_REFLEX_CONFIG_PARAMS_DEF_TABLE,
+                           MAX_SR_PARAM_LEN, NULL, (TI_INT8*)&p->twdInitParams.tSmartReflexDebugParams.errorTable,
+                          (TI_UINT32*)&TempSRCnt, sizeof (TI_UINT8),TI_FALSE);
+
+
+
+
 
 
 /*---------------------- Power Management Configuration -----------------------*/
@@ -2244,6 +2531,12 @@ regFillInitTable(
 							(TI_UINT8*)&p->rsnInitParams.bPairwiseMicFailureFilter);         
 
     regReadWepKeyParameter(pAdapter, (TI_UINT8*)p->rsnInitParams.keys, p->rsnInitParams.defaultKeyId);
+
+    regReadIntegerParameter(pAdapter, &STRRSNExternalMode,
+                            RSN_EXTERNAL_MODE_ENABLE_DEF, RSN_EXTERNAL_MODE_ENABLE_MIN,
+                            RSN_EXTERNAL_MODE_ENABLE_MAX,
+                            sizeof p->rsnInitParams.bRsnExternalMode,
+                            (TI_UINT8*)&p->rsnInitParams.bRsnExternalMode);
 
 
     /*---------------------------
@@ -2949,6 +3242,8 @@ regFillInitTable(
                         sizeof p->qosMngrInitParams.desiredWmeAcPsMode[QOS_AC_VO],
                         (TI_UINT8*)&p->qosMngrInitParams.desiredWmeAcPsMode[QOS_AC_VO]);
 
+
+    /* HW Tx queues buffers allocation low threshold */
     regReadIntegerParameter(pAdapter, &STRQOStxBlksThresholdBE,
                             QOS_TX_BLKS_THRESHOLD_BE_DEF, QOS_TX_BLKS_THRESHOLD_MIN,
                             QOS_TX_BLKS_THRESHOLD_MAX,
@@ -2990,6 +3285,8 @@ regFillInitTable(
         p->qosMngrInitParams.MsduLifeTime[QOS_AC_BK] = QOS_MSDU_LIFE_TIME_BK_DEF_WIFI_MODE;
         p->qosMngrInitParams.MsduLifeTime[QOS_AC_VI] = QOS_MSDU_LIFE_TIME_VI_DEF_WIFI_MODE;
         p->qosMngrInitParams.MsduLifeTime[QOS_AC_VO] = QOS_MSDU_LIFE_TIME_VO_DEF_WIFI_MODE;
+
+        p->twdInitParams.tGeneral.RxIntrPacingThreshold = TWD_RX_INTR_THRESHOLD_DEF_WIFI_MODE;
     }
     
     regReadIntegerParameter(pAdapter, &STRQOSShortRetryLimitBE,
@@ -3235,6 +3532,12 @@ regFillInitTable(
                             sizeof (p->healthMonitorInitParams.recoveryTriggerEnabled[ HW_WD_EXPIRE ]),
                             (TI_UINT8*)&(p->healthMonitorInitParams.recoveryTriggerEnabled[ HW_WD_EXPIRE ]) );
     
+    /* Rx Xfer Failure recovery enabled */
+    regReadIntegerParameter(pAdapter, &STRRecoveryEnabledRxXferFailure,
+                            1, 0, 1,   /* default is enabled */
+                            sizeof (p->healthMonitorInitParams.recoveryTriggerEnabled[ RX_XFER_FAILURE ]),
+                            (TI_UINT8*)&(p->healthMonitorInitParams.recoveryTriggerEnabled[ RX_XFER_FAILURE ]) );
+
 /*-------------------------------------------
    RSSI/SNR Weights for Average calculations   
 --------------------------------------------*/
@@ -3468,7 +3771,6 @@ regReadIntegerTable (pAdapter, &STRTxPerRatePowerLimits_2_4G_Normal, RADIO_TX_PE
                      NUMBER_OF_RATE_GROUPS_E, NULL, (TI_INT8*)&p->twdInitParams.tIniFileRadioParams.tDynRadioParams.TxPerRatePowerLimits_2_4G_Normal, 
                      (TI_UINT32*)&uTempEntriesCount, sizeof (TI_UINT8),TI_TRUE);
 
-
 regReadIntegerTable (pAdapter, &STRTxPerRatePowerLimits_2_4G_Degraded, RADIO_TX_PER_POWER_LIMITS_2_4_DEGRADED_DEF_TABLE,
                      NUMBER_OF_RATE_GROUPS_E, NULL, (TI_INT8*)&p->twdInitParams.tIniFileRadioParams.tDynRadioParams.TxPerRatePowerLimits_2_4G_Degraded, 
                      (TI_UINT32*)&uTempEntriesCount, sizeof (TI_UINT8),TI_TRUE);
@@ -3608,6 +3910,10 @@ regReadIntegerParameter(pAdapter, &STRSingle_Dual_Band_Solution,
                         sizeof p->twdInitParams.tPlatformGenParams.Single_Dual_Band_Solution,
                         (TI_UINT8*)&p->twdInitParams.tPlatformGenParams.Single_Dual_Band_Solution);
 
+regReadIntegerParameter(pAdapter, &STRSettings,
+						1,0,255,
+                        sizeof p->twdInitParams.tPlatformGenParams.GeneralSettings,
+                        (TI_UINT8*)&p->twdInitParams.tPlatformGenParams.GeneralSettings);
 
 /*----------------------------------
  Driver-Main parameters
@@ -3627,6 +3933,181 @@ regReadIntegerParameter(pAdapter, &STRSingle_Dual_Band_Solution,
                              sizeof p->tDrvMainParams.uSdioBlkSizeShift,
                              (TI_UINT8*)&p->tDrvMainParams.uSdioBlkSizeShift);
 
+
+
+/*-----------------------------------*/
+/*      Roaming parameters           */
+/*-----------------------------------*/
+regReadIntegerParameter(pAdapter, & STRRoamingOperationalMode,
+                        ROAMING_MNGR_OPERATIONAL_MODE_DEF,
+                        ROAMING_MNGR_OPERATIONAL_MODE_MIN,
+                        ROAMING_MNGR_OPERATIONAL_MODE_MAX,
+                        sizeof p->tRoamScanMngrInitParams.RoamingOperationalMode,
+                        (TI_UINT8*)&p->tRoamScanMngrInitParams.RoamingOperationalMode);
+
+
+/*-----------------------------------*/
+/*      currBss parameters           */
+/*-----------------------------------*/
+regReadIntegerParameter(pAdapter, & STRRoamingOperationalMode,
+                        ROAMING_MNGR_OPERATIONAL_MODE_DEF,
+                        ROAMING_MNGR_OPERATIONAL_MODE_MIN,
+                        ROAMING_MNGR_OPERATIONAL_MODE_MAX,
+                        sizeof p->tCurrBssInitParams.RoamingOperationalMode,
+                        (TI_UINT8*)&p->tCurrBssInitParams.RoamingOperationalMode);
+
+
+
+/*-----------------------------------*/
+/*      FM Coexistence parameters    */
+/*-----------------------------------*/
+
+regReadIntegerParameter(pAdapter, &STRFmCoexEnable,
+                        FM_COEX_ENABLE_DEF, FM_COEX_ENABLE_MIN, FM_COEX_ENABLE_MAX,
+                        sizeof (p->twdInitParams.tGeneral.tFmCoexParams.uEnable),
+                        (TI_UINT8*)&(p->twdInitParams.tGeneral.tFmCoexParams.uEnable));
+
+regReadIntegerParameter(pAdapter, &STRFmCoexSwallowPeriod,
+                        FM_COEX_SWALLOW_PERIOD_DEF, FM_COEX_SWALLOW_PERIOD_MIN, FM_COEX_SWALLOW_PERIOD_MAX,
+                        sizeof (p->twdInitParams.tGeneral.tFmCoexParams.uSwallowPeriod),
+                        (TI_UINT8*)&(p->twdInitParams.tGeneral.tFmCoexParams.uSwallowPeriod));
+
+regReadIntegerParameter(pAdapter, &STRFmCoexNDividerFrefSet1,
+                        FM_COEX_N_DIVIDER_FREF_SET1_DEF, FM_COEX_N_DIVIDER_FREF_SET1_MIN, FM_COEX_N_DIVIDER_FREF_SET1_MAX,
+                        sizeof (p->twdInitParams.tGeneral.tFmCoexParams.uNDividerFrefSet1),
+                        (TI_UINT8*)&(p->twdInitParams.tGeneral.tFmCoexParams.uNDividerFrefSet1));
+
+regReadIntegerParameter(pAdapter, &STRFmCoexNDividerFrefSet2,
+                        FM_COEX_N_DIVIDER_FREF_SET2_DEF, FM_COEX_N_DIVIDER_FREF_SET2_MIN, FM_COEX_N_DIVIDER_FREF_SET2_MAX,
+                        sizeof (p->twdInitParams.tGeneral.tFmCoexParams.uNDividerFrefSet2),
+                        (TI_UINT8*)&(p->twdInitParams.tGeneral.tFmCoexParams.uNDividerFrefSet2));
+
+regReadIntegerParameter(pAdapter, &STRFmCoexMDividerFrefSet1,
+                        FM_COEX_M_DIVIDER_FREF_SET1_DEF, FM_COEX_M_DIVIDER_FREF_SET1_MIN, FM_COEX_M_DIVIDER_FREF_SET1_MAX,
+                        sizeof (p->twdInitParams.tGeneral.tFmCoexParams.uMDividerFrefSet1),
+                        (TI_UINT8*)&(p->twdInitParams.tGeneral.tFmCoexParams.uMDividerFrefSet1));
+
+regReadIntegerParameter(pAdapter, &STRFmCoexMDividerFrefSet2,
+                        FM_COEX_M_DIVIDER_FREF_SET2_DEF, FM_COEX_M_DIVIDER_FREF_SET2_MIN, FM_COEX_M_DIVIDER_FREF_SET2_MAX,
+                        sizeof (p->twdInitParams.tGeneral.tFmCoexParams.uMDividerFrefSet2),
+                        (TI_UINT8*)&(p->twdInitParams.tGeneral.tFmCoexParams.uMDividerFrefSet2));
+
+regReadIntegerParameter(pAdapter, &STRFmCoexPllStabilizationTime,
+                        FM_COEX_PLL_STABILIZATION_TIME_DEF, FM_COEX_PLL_STABILIZATION_TIME_MIN, FM_COEX_PLL_STABILIZATION_TIME_MAX,
+                        sizeof (p->twdInitParams.tGeneral.tFmCoexParams.uCoexPllStabilizationTime),
+                        (TI_UINT8*)&(p->twdInitParams.tGeneral.tFmCoexParams.uCoexPllStabilizationTime));
+
+regReadIntegerParameter(pAdapter, &STRFmCoexLdoStabilizationTime,
+                        FM_COEX_LDO_STABILIZATION_TIME_DEF, FM_COEX_LDO_STABILIZATION_TIME_MIN, FM_COEX_LDO_STABILIZATION_TIME_MAX,
+                        sizeof (p->twdInitParams.tGeneral.tFmCoexParams.uLdoStabilizationTime),
+                        (TI_UINT8*)&(p->twdInitParams.tGeneral.tFmCoexParams.uLdoStabilizationTime));
+
+regReadIntegerParameter(pAdapter, &STRFmCoexDisturbedBandMargin,
+                        FM_COEX_DISTURBED_BAND_MARGIN_DEF, FM_COEX_DISTURBED_BAND_MARGIN_MIN, FM_COEX_DISTURBED_BAND_MARGIN_MAX,
+                        sizeof (p->twdInitParams.tGeneral.tFmCoexParams.uFmDisturbedBandMargin),
+                        (TI_UINT8*)&(p->twdInitParams.tGeneral.tFmCoexParams.uFmDisturbedBandMargin));
+
+regReadIntegerParameter(pAdapter, &STRFmCoexSwallowClkDif,
+                        FM_COEX_SWALLOW_CLK_DIF_DEF, FM_COEX_SWALLOW_CLK_DIF_MIN, FM_COEX_SWALLOW_CLK_DIF_MAX,
+                        sizeof (p->twdInitParams.tGeneral.tFmCoexParams.uSwallowClkDif),
+                        (TI_UINT8*)&(p->twdInitParams.tGeneral.tFmCoexParams.uSwallowClkDif));
+
+
+/*----------------------------------------------*/
+/* 			Rate Management parameters	        */
+/*----------------------------------------------*/
+
+regReadIntegerParameter(pAdapter, &STRRateMngRateRetryScore,
+                        RATE_MNG_RATE_RETRY_SCORE_DEF, RATE_MNG_RATE_RETRY_SCORE_MIN, RATE_MNG_RATE_RETRY_SCORE_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.RateRetryScore),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.RateRetryScore));
+
+regReadIntegerParameter(pAdapter, &STRRateMngPerAdd,
+                        RATE_MNG_PER_ADD_DEF, RATE_MNG_PER_ADD_MIN, RATE_MNG_PER_ADD_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.PerAdd),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.PerAdd));
+
+regReadIntegerParameter(pAdapter, &STRRateMngPerTh1,
+                        RATE_MNG_PER_TH1_DEF, RATE_MNG_PER_TH1_MIN, RATE_MNG_PER_TH1_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.PerTh1),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.PerTh1));
+
+regReadIntegerParameter(pAdapter, &STRRateMngPerTh2,
+                        RATE_MNG_PER_TH2_DEF, RATE_MNG_PER_TH2_MIN, RATE_MNG_PER_TH2_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.PerTh2),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.PerTh2));
+
+regReadIntegerParameter(pAdapter, &STRRateMngInverseCuriosityFactor,
+                        RATE_MNG_INVERSE_CURISITY_FACTOR_DEF, RATE_MNG_INVERSE_CURISITY_FACTOR_MIN, RATE_MNG_INVERSE_CURISITY_FACTOR_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.InverseCuriosityFactor),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.InverseCuriosityFactor));
+
+regReadIntegerParameter(pAdapter, &STRRateMngTxFailLowTh,
+                        RATE_MNG_TX_FAIL_LOW_TH_DEF, RATE_MNG_TX_FAIL_LOW_TH_MIN, RATE_MNG_TX_FAIL_LOW_TH_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.TxFailLowTh),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.TxFailLowTh));
+
+regReadIntegerParameter(pAdapter, &STRRateMngTxFailHighTh,
+                        RATE_MNG_TX_FAIL_HIGH_TH_DEF, RATE_MNG_TX_FAIL_HIGH_TH_MIN, RATE_MNG_TX_FAIL_HIGH_TH_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.TxFailHighTh),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.TxFailHighTh));
+
+regReadIntegerParameter(pAdapter, &STRRateMngPerAlphaShift,
+                        RATE_MNG_PER_ALPHA_SHIFT_DEF, RATE_MNG_PER_ALPHA_SHIFT_MIN, RATE_MNG_PER_ALPHA_SHIFT_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.PerAlphaShift),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.PerAlphaShift));
+
+regReadIntegerParameter(pAdapter, &STRRateMngPerAddShift,
+                        RATE_MNG_PER_ADD_SHIFT_DEF, RATE_MNG_PER_ADD_SHIFT_MIM, RATE_MNG_PER_ADD_SHIFT_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.PerAddShift),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.PerAddShift));
+
+
+regReadIntegerParameter(pAdapter, &STRRateMngPerBeta1Shift,
+                        RATE_MNG_PER_BETA1_SHIFT_DEF, RATE_MNG_PER_BETA1_SHIFT_MIN, RATE_MNG_PER_BETA1_SHIFT_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.PerBeta1Shift),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.PerBeta1Shift));
+
+regReadIntegerParameter(pAdapter, &STRRateMngPerBeta2Shift,
+                        RATE_MNG_PER_BETA2_SHIFT_DEF, RATE_MNG_PER_BETA2_SHIFT_MIN, RATE_MNG_PER_BETA2_SHIFT_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.PerBeta2Shift),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.PerBeta2Shift));
+
+regReadIntegerParameter(pAdapter, &STRRateMngPerBeta2Shift,
+                        RATE_MNG_PER_BETA2_SHIFT_DEF, RATE_MNG_PER_BETA2_SHIFT_MIN, RATE_MNG_PER_BETA2_SHIFT_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.PerBeta2Shift),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.PerBeta2Shift));
+
+regReadIntegerParameter(pAdapter, &STRRateMngMaxPer,
+                        RATE_MNG_MAX_PER_DEF, RATE_MNG_MAX_PER_MIN, RATE_MNG_MAX_PER_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.MaxPer),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.MaxPer));
+
+
+regReadIntegerParameter(pAdapter, &STRRateMngRateCheckUp,
+                        RATE_MNG_RATE_CHECK_UP_DEF, RATE_MNG_RATE_CHECK_UP_MIN, RATE_MNG_RATE_CHECK_UP_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.RateCheckUp),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.RateCheckUp));
+
+regReadIntegerParameter(pAdapter, &STRRateMngRateCheckDown,
+                        RATE_MNG_RATE_CHECK_DOWN_DEF, RATE_MNG_RATE_CHECK_DOWN_MIN, RATE_MNG_RATE_CHECK_DOWN_MAX,
+                        sizeof (p->twdInitParams.tRateMngParams.RateCheckDown),
+                        (TI_UINT8*)&(p->twdInitParams.tRateMngParams.RateCheckDown));
+
+regReadIntegerTable (pAdapter, &STRRateMngRateRetryPolicy, RATE_MNG_RATE_RETRY_POLICY_DEF_TABLE,
+                           RATE_MNG_MAX_STR_LEN, (TI_UINT8*)&uTempRatePolicyList[0], NULL,
+                          (TI_UINT32*)&uTempRatePolicyCnt, sizeof (TI_UINT8),TI_FALSE);
+
+/* sanity check */
+    if (uTempRatePolicyCnt > RATE_MNG_MAX_RETRY_POLICY_PARAMS_LEN)
+    {
+        uTempRatePolicyCnt = RATE_MNG_MAX_RETRY_POLICY_PARAMS_LEN;
+    }
+
+    for (uIndex = 0; uIndex < RATE_MNG_MAX_RETRY_POLICY_PARAMS_LEN; uIndex++)
+    {
+        p->twdInitParams.tRateMngParams.RateRetryPolicy[uIndex] = uTempRatePolicyList[uIndex];
+    }
 
 
 #ifdef _WINDOWS

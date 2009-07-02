@@ -139,6 +139,7 @@ TI_STATUS mainKeys_config (mainKeys_t    *pMainKeys,
                            TI_HANDLE      hRsn,
                            TI_HANDLE      hTimer);
 
+void mainKeys_reAuth(TI_HANDLE pHandle);
 
 #endif
 

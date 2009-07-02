@@ -45,6 +45,7 @@
 
 #define OS_API_MEM_ADDR		0x0000000
 #define OS_API_REG_ADDR		0x0300000
+#define SDIO_ATTEMPT_LONGER_DELAY_LINUX  150
 
 static struct wifi_platform_data *wifi_control_data = NULL;
 static struct resource *wifi_irqres = NULL;
@@ -172,6 +173,17 @@ int hPlatform_DevicePowerOff( void )
 
 	err = wifi_set_power(0, 15);
 	return err;
+}
+
+
+/* Turn device power off according to a given delay */
+int hPlatform_DevicePowerOffSetLongerDelay(void)
+{
+    int err;
+    
+    err = wifi_set_power(0, SDIO_ATTEMPT_LONGER_DELAY_LINUX);
+    
+    return err;
 }
 
 /* Turn device power on */

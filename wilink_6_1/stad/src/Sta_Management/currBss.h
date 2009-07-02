@@ -53,6 +53,8 @@
 
 /* Constants */
 
+#define MAX_NUM_OF_RSSI_SNR_TRIGGERS 8
+
 /* Enumerations */
 
 /** 
@@ -74,7 +76,76 @@ typedef enum
 
 /* Structures */
 
+typedef struct triggerDataEx
+{
+    TI_UINT8* pData;
+    TI_UINT8  dataLength;
+    TI_UINT16 clientID;
+} triggerDataEx_t;
+
+
+typedef struct triggerDesc
+{
+	TI_UINT16	clientID;
+	TI_HANDLE	fCB;
+	TI_HANDLE	hCB;
+    TI_BOOL	    WasRegisteredByApp;
+} triggerDesc_t;
+
+
+/**
+* Current BSS control block
+* Following structure defines parameters that can be configured externally,
+* internal variables, and handlers of other modules used by Current BSS module
+*/
+
+typedef struct _currBSS_t
+{
+    /* Internal variables and configurable parameters */
+    ScanBssType_e type;                   /**< Set by SME module; EBSS, IBSS or none */
+    ERadioBand  band;                   /**< Set by SME module */
+    TI_UINT8    channel;                /**< Set by AP Connection, SME and Switch Channel modules */
+    TI_BOOL     isConnected;            /**< Default: not connected */
+    bssEntry_t  currAPInfo;             /**< Set by SME upon request from AP Connection */
+
+    TI_INT8     lowRssiThreshold;       /**< Last configured threshold for Low-RSSI */
+    TI_INT8     lowSnrThreshold;        /**< Last configured threshold Low-SNR */
+    TI_INT8     lowQualityForBkgrdScan; /**< Indicator used to increase the background scan period when quality is low */
+    TI_INT8     highQualityForBkgrdScan;/**< Indicator used to reduce the background scan period when quality is normal */
+    TI_UINT8    numExpectedTbttForBSSLoss;/**< last configured value without Soft Gemini compensation */
+    TI_UINT8    maxTxRetryThreshold;    /**< last configured threshold for max Tx retry */
+
+    TI_BOOL     bUseSGParams;           /**< Whether to use the Soft Gemini compensation on the roaming triggers (currently: BSS Loss) */
+                                        /**< This compensation is needed since BT Activity might over-run beacons                       */
+    TI_UINT32   SGcompensationPercent;  /**< the percentage of increasing the TbttForBSSLoss value when SG is enabled */
+    TI_UINT8    uDefaultKeepAlivePeriod;/**< The default keep-alive period in seconds */
+    TI_UINT8    keepAliveBuffer[ WLAN_WITH_SNAP_QOS_HEADER_MAX_SIZE ];
+                                        /**< Buffer to store null-data keep-alive template */
+
+    TI_UINT16     BssLossClientID;  /* holds the application client which registered to BssLoss event*/
+    TI_UINT16     TxRetryClientID;  /* holds the application client which registered to TxRetry event*/
+    triggerDesc_t aTriggersDesc[MAX_NUM_OF_RSSI_SNR_TRIGGERS]; /* static table to be used for trigger event registration*/
+    TI_UINT8	  RoamingOperationalMode;                      /* 0 - manual , 1 - Auto */
+
+    /* Handlers of other modules used by AP Connection */
+    TI_HANDLE   hOs;
+    TI_HANDLE   hPowerMngr;
+    TI_HANDLE   hAPConn;
+    TI_HANDLE   hSme;
+    TI_HANDLE   hTWD;
+    TI_HANDLE   hMlme;
+    TI_HANDLE   hReport;
+    TI_HANDLE   hRegulatoryDomain;
+    TI_HANDLE   hSiteMgr;
+    TI_HANDLE   hScanMngr;
+    TI_HANDLE   hEvHandler;
+    TI_HANDLE   hTxCtrl;
+} currBSS_t;
+
+
 /* Typedefs */
+
+typedef void (*TCurrBssDataCb) (TI_HANDLE hCurrBSS, TI_UINT8 *data, TI_UINT8 dataLength);
 
 /* External data definitions */
 
@@ -117,6 +188,7 @@ void currBSS_restartRssiCounting(TI_HANDLE hCurrBSS);
 
 void currBSS_GetDefaultKeepAlivePeriod(TI_HANDLE hCurrBSS, TI_UINT8* uDefaultKeepAlivePeriod);
 
+void currBss_DbgPrintTriggersTable(TI_HANDLE hCurrBSS);
 
 #endif /*  _CURR_BSS_H_*/
 

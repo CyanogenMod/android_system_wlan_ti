@@ -946,7 +946,7 @@ TI_STATUS admCtrlWpa_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *
 *
 * \sa 
 */
-TI_STATUS admCtrlWpa_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, ScanBssType_e bssType, TI_UINT32 *pEvaluation)
+TI_STATUS admCtrlWpa_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSiteParams *pRsnSiteParams, TI_UINT32 *pEvaluation)
 {
     TI_STATUS               status;
     wpaIeData_t             wpaData;
@@ -971,7 +971,7 @@ TI_STATUS admCtrlWpa_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, ScanBssTy
         return TI_NOK;
     }
     
-    if (bssType != BSS_INFRASTRUCTURE)
+    if (pRsnSiteParams->bssType != BSS_INFRASTRUCTURE)
     {
         return TI_NOK;
     }
@@ -986,7 +986,7 @@ TI_STATUS admCtrlWpa_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, ScanBssTy
     	if((admCtrl_parseIe(pAdmCtrl, pRsnData, &pWpaIe, RSN_IE_ID)== TI_OK)  &&
            (pWpaIe != NULL))
         {
-            status = admCtrlWpa2_evalSite(pAdmCtrl, pRsnData,  bssType, pEvaluation);
+            status = admCtrlWpa2_evalSite(pAdmCtrl, pRsnData, pRsnSiteParams, pEvaluation);
             if(status == TI_OK)
                 return status;
         }
@@ -1067,6 +1067,12 @@ TI_STATUS admCtrlWpa_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, ScanBssTy
         wpaData.unicastSuite[0] = admCtrlWpa_validity.unicast;
         *pEvaluation = admCtrlWpa_validity.evaluation;
     }
+
+    if ((encryptionStatus == TWD_CIPHER_TKIP) && (pRsnSiteParams->pHTCapabilities->tHdr[0] != TI_FALSE) && (pRsnSiteParams->pHTInfo->tHdr[0] != TI_FALSE))
+	{
+		TRACE0(pAdmCtrl->hReport, REPORT_SEVERITY_INFORMATION,"Dismiss AP - HT with TKIP is not valid");
+        return TI_NOK; /* if the encyption is TKIP and the site does support HT(11n) the site can not be a candidate */
+	}
 
 	/* Check privacy bit if not in mixed mode */
     if (!pAdmCtrl->mixedMode)

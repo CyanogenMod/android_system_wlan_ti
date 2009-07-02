@@ -80,10 +80,13 @@ extern void cmdBld_FinalizeDownload (TI_HANDLE hCmdBld, TBootAttr *pBootAttr, Fw
 #define PARTITION_DOWN_REG_SIZE       0x8800            
 
 /* Working phase partition */
-#define PARTITION_WORK_MEM_ADDR       0x40000
-#define PARTITION_WORK_MEM_SIZE       0x14FC0
-#define PARTITION_WORK_REG_ADDR       REGISTERS_BASE    
-#define PARTITION_WORK_REG_SIZE       0xB000	        
+#define PARTITION_WORK_MEM_ADDR1       0x40000
+#define PARTITION_WORK_MEM_SIZE1       0x14FC0
+#define PARTITION_WORK_MEM_ADDR2       REGISTERS_BASE
+#define PARTITION_WORK_MEM_SIZE2       0xA000
+#define PARTITION_WORK_MEM_ADDR3       0x3004F8
+#define PARTITION_WORK_MEM_SIZE3       0x4
+#define PARTITION_WORK_MEM_ADDR4       0x40404
 
 /* DRPW setting partition */
 #define PARTITION_DRPW_MEM_ADDR       0x40000
@@ -113,6 +116,17 @@ extern void cmdBld_FinalizeDownload (TI_HANDLE hCmdBld, TBootAttr *pBootAttr, Fw
 #define WORD_ALIGNMENT_MASK             0x3
 #define DEF_NVS_SIZE                    ((NVS_PRE_PARAMETERS_LENGTH) + (NVS_TX_TYPE_INDEX) + 4)
 
+#define RADIO_SM_WAIT_LOOP  32
+
+#define FREF_CLK_FREQ_MASK      0x7
+#define FREF_CLK_TYPE_MASK      BIT_3
+#define FREF_CLK_POLARITY_MASK  BIT_4
+
+#define FREF_CLK_TYPE_BITS      0xfffffe7f
+#define CLK_REQ_PRCM            0x100
+
+#define FREF_CLK_POLARITY_BITS  0xfffff8ff
+#define CLK_REQ_OUTN_SEL        0x700
 
 /************************************************************************
  * Macros
@@ -126,6 +140,14 @@ extern void cmdBld_FinalizeDownload (TI_HANDLE hCmdBld, TBootAttr *pBootAttr, Fw
 							  aNVS[25]=0x00; aNVS[26]=0x00; aNVS[27]=0x00;
 
 
+#define SET_PARTITION(pPartition,uAddr1,uMemSize1,uAddr2,uMemSize2,uAddr3,uMemSize3,uAddr4) \
+                    ((TPartition*)pPartition)[0].uMemAdrr = uAddr1; \
+                    ((TPartition*)pPartition)[0].uMemSize = uMemSize1; \
+                    ((TPartition*)pPartition)[1].uMemAdrr = uAddr2; \
+                    ((TPartition*)pPartition)[1].uMemSize = uMemSize2; \
+                    ((TPartition*)pPartition)[2].uMemAdrr = uAddr3; \
+                    ((TPartition*)pPartition)[2].uMemSize = uMemSize3; \
+                    ((TPartition*)pPartition)[3].uMemAdrr = uAddr4;
 
 #define HW_INIT_PTXN_SET(pHwInit, pTxn)  pTxn = (TTxnStruct*)&(pHwInit->aHwInitTxn[pHwInit->uTxnIndex].tTxnStruct);
 
@@ -145,6 +167,15 @@ extern void cmdBld_FinalizeDownload (TI_HANDLE hCmdBld, TBootAttr *pBootAttr, Fw
                               TXN_PARAM_SET_DIRECTION(pTxn, direction); \
                               BUILD_TTxnStruct(pTxn, uAddr, uVal, uSize, fCB, hCB)
 
+
+#define SET_DRP_PARTITION(pPartition)\
+                        SET_PARTITION(pPartition, PARTITION_DRPW_MEM_ADDR, PARTITION_DRPW_MEM_SIZE, PARTITION_DRPW_REG_ADDR, PARTITION_DRPW_REG_SIZE, 0, 0, 0)
+
+#define SET_FW_LOAD_PARTITION(pPartition,uFwAddress)\
+                            SET_PARTITION(pPartition,uFwAddress,PARTITION_DOWN_MEM_SIZE, PARTITION_DOWN_REG_ADDR, PARTITION_DOWN_REG_SIZE,0,0,0)
+
+#define SET_WORK_PARTITION(pPartition)\
+                        SET_PARTITION(pPartition,PARTITION_WORK_MEM_ADDR1, PARTITION_WORK_MEM_SIZE1, PARTITION_WORK_MEM_ADDR2, PARTITION_WORK_MEM_SIZE2, PARTITION_WORK_MEM_ADDR3, PARTITION_WORK_MEM_SIZE3, PARTITION_WORK_MEM_ADDR4)
 
 /* Handle return status inside a state machine */
 #define EXCEPT(phwinit,status)                                   \
@@ -305,6 +336,13 @@ typedef struct
     TI_UINT32               uRegSeqStage;
     TI_UINT32               uRegData;  
 
+    /* Top register Read/Write SM temporary data*/
+    TI_UINT32               uTopRegAddr;
+    TI_UINT32               uTopRegValue;
+    TI_UINT32               uTopRegMask;
+    TI_UINT32               uTopRegUpdateValue;
+    TI_UINT32               uTopStage;
+
     TI_UINT8                auFwTmpBuf [WSPI_PAD_LEN_WRITE + MAX_SDIO_BLOCK];
 
     TFinalizeCb             fFinalizeDownload;
@@ -318,6 +356,7 @@ typedef struct
 
     TI_UINT32               uSavedDataForWspiHdr;  /* For saving the 4 bytes before the NVS data for WSPI case 
                                                         where they are overrun by the WSPI BusDrv */
+    TPartition              aPartition[NUM_OF_PARTITION];
 } THwInit;
 
 
@@ -325,15 +364,16 @@ typedef struct
  * Local Functions Prototypes
  ************************************************************************/
 static void      hwInit_SetPartition                (THwInit   *pHwInit, 
-                                                     TI_UINT32 uMemAddr,
-                                                     TI_UINT32 uMemSize,
-                                                     TI_UINT32 uRegAddr,
-                                                     TI_UINT32 uRegSize);
+                                                     TPartition *pPartition);
 static TI_STATUS hwInit_BootSm                      (TI_HANDLE hHwInit);
 static TI_STATUS hwInit_ResetSm                     (TI_HANDLE hHwInit);
 static TI_STATUS hwInit_EepromlessStartBurstSm      (TI_HANDLE hHwInit);                                                   
 static TI_STATUS hwInit_LoadFwImageSm               (TI_HANDLE hHwInit);
 static TI_STATUS hwInit_FinalizeDownloadSm          (TI_HANDLE hHwInit);                                             
+static TI_STATUS hwInit_TopRegisterRead(TI_HANDLE hHwInit);
+static TI_STATUS hwInit_InitTopRegisterRead(TI_HANDLE hHwInit, TI_UINT32 uAddress);
+static TI_STATUS hwInit_TopRegisterWrite(TI_HANDLE hHwInit);
+static TI_STATUS hwInit_InitTopRegisterWrite(TI_HANDLE hHwInit, TI_UINT32 uAddress, TI_UINT32 uValue);
 
 
 
@@ -495,42 +535,17 @@ TI_STATUS hwInit_SetFwImage (TI_HANDLE hHwInit, TFileInfo *pFileInfo)
  *       configuration from the INI file).
  *
  * \param  pHwInit   - The module's object
- * \param  uMemAddr  - The memory partition base address
- * \param  uMemSize  - The memory partition size
- * \param  uRegAddr  - The registers partition base address
- * \param  uRegSize  - The register partition size
+ * \param  pPartition  - all partition base address
  * \return void
  * \sa     
  */ 
 static void hwInit_SetPartition (THwInit   *pHwInit, 
-                                 TI_UINT32 uMemAddr,
-                                 TI_UINT32 uMemSize,
-                                 TI_UINT32 uRegAddr,
-                                 TI_UINT32 uRegSize)
+                                 TPartition *pPartition)
 {
-    /* Verify that the total bus address space is not exceeded */
-    if (uMemSize + uRegSize  >  PARTITION_TOTAL_ADDR_RANGE)
-    {
-        TRACE3(pHwInit->hReport, REPORT_SEVERITY_ERROR, "hwInit_SetPartition: Total range exceeded: MemSize=0x%x, RegSize=0x%x MaxSize=0x%x\n", uMemSize, uRegSize, PARTITION_TOTAL_ADDR_RANGE);
-        return;
-    }
-
-    /* Verify that the memory partition don't overlap the registers partition */
-    if ((uMemAddr <= uRegAddr)  &&  (uMemAddr + uMemSize  >  uRegAddr))
-    {
-        TRACE4(pHwInit->hReport, REPORT_SEVERITY_ERROR, "hwInit_SetPartition: Mem range overlap Reg: MemAddr=0x%x, MemSize=0x%x, RegAddr=0x%x RegSize=0x%x\n", uMemAddr, uMemSize, uRegAddr, uRegSize);
-        return;
-    }
-	if ((uRegAddr <= uMemAddr)  &&  (uRegAddr + uRegSize  >  uMemAddr))
-    {
-        TRACE4(pHwInit->hReport, REPORT_SEVERITY_ERROR, "hwInit_SetPartition: Reg range overlap Mem: MemAddr=0x%x, MemSize=0x%x, RegAddr=0x%x RegSize=0x%x\n", uMemAddr, uMemSize, uRegAddr, uRegSize);
-        return;
-    }
-    
-    TRACE4(pHwInit->hReport, REPORT_SEVERITY_INFORMATION, "hwInit_SetPartition: uMemAddr=0x%x, MemSize=0x%x uRegAddr=0x%x, RegSize=0x%x\n", uMemAddr, uMemSize, uRegAddr, uRegSize);
+   TRACE7(pHwInit->hReport, REPORT_SEVERITY_INFORMATION, "hwInit_SetPartition: uMemAddr1=0x%x, MemSize1=0x%x uMemAddr2=0x%x, MemSize2=0x%x, uMemAddr3=0x%x, MemSize3=0x%x, uMemAddr4=0x%x, MemSize4=0x%x\n",pPartition[0].uMemAdrr, pPartition[0].uMemSize,pPartition[1].uMemAdrr, pPartition[1].uMemSize,pPartition[2].uMemAdrr, pPartition[2].uMemSize,pPartition[3].uMemAdrr );
 
     /* Prepare partition Txn data and send to HW */
-    twIf_SetPartition (pHwInit->hTwIf, uMemAddr, uMemSize, uRegAddr, uRegSize);
+    twIf_SetPartition (pHwInit->hTwIf,pPartition);
 }
 
 
@@ -607,11 +622,8 @@ static TI_STATUS hwInit_BootSm (TI_HANDLE hHwInit)
         pHwInit->uTxnIndex = 0;
 
         /* Set the bus addresses partition to its "running" mode */
-        hwInit_SetPartition (pHwInit, 
-                             PARTITION_WORK_MEM_ADDR, 
-                             PARTITION_WORK_MEM_SIZE, 
-                             PARTITION_WORK_REG_ADDR, 
-                             PARTITION_WORK_REG_SIZE);
+        SET_WORK_PARTITION(pHwInit->aPartition)
+        hwInit_SetPartition (pHwInit,pHwInit->aPartition);
 
 #ifdef _VLCT_
          /* Set FW to test mode */    
@@ -621,11 +633,12 @@ static TI_STATUS hwInit_BootSm (TI_HANDLE hHwInit)
          pHwInit->uTxnIndex++;
 #endif
 
-           if (( 0 == pGenParams->RefClk) || (2 == pGenParams->RefClk))
-        {/* ref clk: 19.2/38.4 */
+        if (( 0 == (pGenParams->RefClk & FREF_CLK_FREQ_MASK)) || (2 == (pGenParams->RefClk & FREF_CLK_FREQ_MASK))
+             || (4 == (pGenParams->RefClk & FREF_CLK_FREQ_MASK)))
+        {/* ref clk: 19.2/38.4/38.4-XTAL */
             clkVal = 0x3;
         }
-          if (( 1 == pGenParams->RefClk) || (3 == pGenParams->RefClk))
+        if ((1 == (pGenParams->RefClk & FREF_CLK_FREQ_MASK)) || (3 == (pGenParams->RefClk & FREF_CLK_FREQ_MASK)))
         {/* ref clk: 26/52 */
             clkVal = 0x5;
         }
@@ -672,11 +685,8 @@ static TI_STATUS hwInit_BootSm (TI_HANDLE hHwInit)
         os_StalluSec (pHwInit->hOs, 500);
 
         /* Set the bus addresses partition to DRPw registers region */
-        hwInit_SetPartition (pHwInit, 
-                             PARTITION_DRPW_MEM_ADDR, 
-                             PARTITION_DRPW_MEM_SIZE, 
-                             PARTITION_DRPW_REG_ADDR, 
-                             PARTITION_DRPW_REG_SIZE);
+        SET_DRP_PARTITION(pHwInit->aPartition)
+        hwInit_SetPartition (pHwInit,pHwInit->aPartition);
 
         pHwInit->uTxnIndex++;
 
@@ -702,12 +712,10 @@ static TI_STATUS hwInit_BootSm (TI_HANDLE hHwInit)
 
         pHwInit->uTxnIndex++;
 
+
         /* Set the bus addresses partition back to its "running" mode */
-        hwInit_SetPartition (pHwInit, 
-                             PARTITION_WORK_MEM_ADDR, 
-                             PARTITION_WORK_MEM_SIZE, 
-                             PARTITION_WORK_REG_ADDR, 
-                             PARTITION_WORK_REG_SIZE);
+        SET_WORK_PARTITION(pHwInit->aPartition)
+        hwInit_SetPartition (pHwInit,pHwInit->aPartition);
 
         /* 
          * end of CHIP init seq.
@@ -790,6 +798,7 @@ static TI_STATUS hwInit_BootSm (TI_HANDLE hHwInit)
             pHwInit->uEEPROMCurLen = DEF_NVS_SIZE;
             pHwInit->pEEPROMBuf = (TI_UINT8*)(&pHwInit->aDefaultNVS[0]);
             WLAN_OS_REPORT (("pHwInit->uEEPROMCurLen: %x\n", pHwInit->uEEPROMCurLen));
+            WLAN_OS_REPORT (("ERROR: If you are not calibating the device, you will soon get errors !!!\n"));
 
         }
 
@@ -886,6 +895,43 @@ static TI_STATUS hwInit_BootSm (TI_HANDLE hHwInit)
         EXCEPT (pHwInit, status)
 
     case 8:
+        pHwInit->uInitStage++;
+        if ((pGenParams->RefClk & FREF_CLK_TYPE_MASK) != 0x0)
+        {
+            status = hwInit_InitTopRegisterRead(hHwInit, 0x448);
+            EXCEPT (pHwInit, status)
+        }
+
+    case 9:
+        pHwInit->uInitStage++;
+
+        if ((pGenParams->RefClk & FREF_CLK_TYPE_MASK) != 0x0)
+        {
+			pHwInit->uTopRegValue &= FREF_CLK_TYPE_BITS;
+            pHwInit->uTopRegValue |= CLK_REQ_PRCM;
+			status =  hwInit_InitTopRegisterWrite( hHwInit, 0x448, pHwInit->uTopRegValue);
+            EXCEPT (pHwInit, status)
+        }
+
+    case 10:
+        pHwInit->uInitStage++;
+		if ((pGenParams->RefClk & FREF_CLK_POLARITY_MASK) == 0x0)
+        {
+            status = hwInit_InitTopRegisterRead(hHwInit, 0xCB2);
+            EXCEPT (pHwInit, status)
+        }
+
+    case 11:
+        pHwInit->uInitStage++;
+        if ((pGenParams->RefClk & FREF_CLK_POLARITY_MASK) == 0x0)
+        {
+            pHwInit->uTopRegValue &= FREF_CLK_POLARITY_BITS;
+            pHwInit->uTopRegValue |= CLK_REQ_OUTN_SEL;
+            status =  hwInit_InitTopRegisterWrite( hHwInit, 0xCB2, pHwInit->uTopRegValue);
+            EXCEPT (pHwInit, status)
+        }
+
+    case 12:
         pHwInit->uInitStage = 0;
         
         /* Set the Download Status to COMPLETE */
@@ -925,6 +971,8 @@ TI_STATUS hwInit_LoadFw (TI_HANDLE hHwInit)
 
         switch (status)
         {
+        case TI_OK:
+        case TXN_STATUS_OK:
         case TXN_STATUS_COMPLETE:
             WLAN_OS_REPORT (("Firmware successfully downloaded.\n"));
             break;
@@ -1126,27 +1174,24 @@ static TI_STATUS hwInit_FinalizeDownloadSm (TI_HANDLE hHwInit)
             pHwInit->uFinStage++;
             pHwInit->uTxnIndex = 0;
 
+            SET_WORK_PARTITION(pHwInit->aPartition)
             /* Set the bus addresses partition to its "running" mode */
-            hwInit_SetPartition (pHwInit, 
-                                 PARTITION_WORK_MEM_ADDR, 
-                                 PARTITION_WORK_MEM_SIZE, 
-                                 PARTITION_WORK_REG_ADDR, 
-                                 PARTITION_WORK_REG_SIZE);
+            SET_WORK_PARTITION(pHwInit->aPartition)
+            hwInit_SetPartition (pHwInit,pHwInit->aPartition);
+
             /* 
              * In case of full asynchronous mode the firmware event must be ready 
-             * to receive event from the command mailbox
+             * to receive event from the command mailbox, so enable FW interrupts.
              */
 
+            /* Clear the FW interrupt sources needed for init phase */
             uIntVect = fwEvent_GetInitMask (pTWD->hFwEvent);
-
-                /* Clearing all the interrupt status register sources */
             BUILD_HW_INIT_TXN_DATA(pHwInit, pTxn, ACX_REG_INTERRUPT_MASK, (~uIntVect), 
                                REGISTER_SIZE, TXN_DIRECTION_WRITE, NULL, NULL)
             twIf_Transact(pHwInit->hTwIf, pTxn);
-
-
             pHwInit->uTxnIndex++;
 
+            /* Read static FW information from Cmd-Mbox */
             BUILD_HW_INIT_FW_STATIC_TXN(pHwInit, pTxn, cmdMbox_GetMboxAddress (pTWD->hCmdMbox),
                                         (TTxnDoneCb)hwInit_FinalizeDownloadSm, hHwInit)
             status = twIf_Transact(pHwInit->hTwIf, pTxn);
@@ -1312,11 +1357,8 @@ static TI_STATUS hwInit_EepromlessStartBurstSm (TI_HANDLE hHwInit)
             pHwInit->uEEPROMStage = 3;
     
             /* Set the bus addresses partition to its "running" mode */
-            hwInit_SetPartition (pHwInit, 
-                                 PARTITION_WORK_MEM_ADDR, 
-                                 PARTITION_WORK_MEM_SIZE, 
-                                 PARTITION_WORK_REG_ADDR, 
-                                 PARTITION_WORK_REG_SIZE);
+            SET_WORK_PARTITION(pHwInit->aPartition)
+            hwInit_SetPartition (pHwInit,pHwInit->aPartition);
             continue;
  
         case 3:
@@ -1414,11 +1456,8 @@ static TI_STATUS hwInit_LoadFwImageSm (TI_HANDLE hHwInit)
 			TRACE2(pHwInit->hReport, REPORT_SEVERITY_INIT , "Image addr=0x%x, Len=0x%x\n", pHwInit->pFwBuf, pHwInit->uFwLength);
 
 			/* Set bus memory partition to current download area */
-            hwInit_SetPartition (pHwInit, 
-                                 pHwInit->uFwAddress, 
-                                 PARTITION_DOWN_MEM_SIZE, 
-                                 PARTITION_DOWN_REG_ADDR, 
-                                 PARTITION_DOWN_REG_SIZE);
+           SET_FW_LOAD_PARTITION(pHwInit->aPartition,pHwInit->uFwAddress)
+           hwInit_SetPartition (pHwInit,pHwInit->aPartition);
             status = TI_OK;
 			break;
 
@@ -1452,11 +1491,8 @@ static TI_STATUS hwInit_LoadFwImageSm (TI_HANDLE hHwInit)
 					/* update uPartitionLimit */
 					pHwInit->uPartitionLimit = pHwInit->uFwAddress + uMaxPartitionSize;
                     /* Set bus memory partition to current download area */
-                    hwInit_SetPartition (pHwInit, 
-                                         pHwInit->uFwAddress, 
-                                         PARTITION_DOWN_MEM_SIZE, 
-                                         PARTITION_DOWN_REG_ADDR, 
-                                         PARTITION_DOWN_REG_SIZE);
+                    SET_FW_LOAD_PARTITION(pHwInit->aPartition,pHwInit->uFwAddress)
+                    hwInit_SetPartition (pHwInit,pHwInit->aPartition);
                     TxnStatus = TXN_STATUS_OK;
 					pHwInit->uBlockWriteNum = 0;
                     TRACE1(pHwInit->hReport, REPORT_SEVERITY_INIT , "Change partition to address offset = 0x%x\n", 									   pHwInit->uFwAddress + pHwInit->uBlockWriteNum * MAX_SDIO_BLOCK);
@@ -2055,4 +2091,213 @@ TI_STATUS hwInit_InitPolarity(TI_HANDLE hHwInit)
  }
 
 
+/****************************************************************************
+ *                      hwInit_InitTopRegisterWrite()
+ ****************************************************************************
+ * DESCRIPTION: hwInit_InitTopRegisterWrite
+ * initalizie hwInit_TopRegisterWrite SM parmaeters
+  ****************************************************************************/
 
+TI_STATUS hwInit_InitTopRegisterWrite(TI_HANDLE hHwInit, TI_UINT32 uAddress, TI_UINT32 uValue)
+{
+  THwInit      *pHwInit = (THwInit *)hHwInit;
+
+  pHwInit->uTopStage = 0;
+  uAddress = (TI_UINT32)(uAddress / 2);
+  uAddress = (uAddress & 0x7FF);
+  uAddress|= BIT_16 | BIT_17;
+  pHwInit->uTopRegAddr = uAddress;
+  pHwInit->uTopRegValue = uValue & 0xffff;
+  return hwInit_TopRegisterWrite (hHwInit);
+}
+
+
+/****************************************************************************
+ *                      hwInit_WriteTopRegister ()
+ ****************************************************************************
+ * DESCRIPTION: Generic function that writes to the top registers area
+  * INPUTS:  None
+ *
+ * OUTPUT:  None
+ *
+ * RETURNS: TI_OK or TI_NOK
+ ****************************************************************************/
+ TI_STATUS hwInit_TopRegisterWrite(TI_HANDLE hHwInit)
+ {
+     /*  To write to a top level address from the WLAN IP:
+         Write the top level address to the OCP_POR_CTR register.
+         Divide the top address by 2, and add 0x30000 to the result – for example for top address 0xC00, write to the OCP_POR_CTR 0x30600
+         Write the data to the OCP_POR_WDATA register
+         Write 0x1 to the OCP_CMD register.
+     */
+     THwInit *pHwInit = (THwInit *)hHwInit;
+     TTxnStruct *pTxn;
+     TI_STATUS status = 0;
+
+     while (TI_TRUE)
+     {
+         switch (pHwInit->uTopStage)
+         {
+         case 0:
+             pHwInit->uTopStage = 1;
+
+             pHwInit->uTxnIndex++;
+             /* Write the address to OCP_POR_CTR*/
+             BUILD_HW_INIT_TXN_DATA(pHwInit, pTxn, OCP_POR_CTR, pHwInit->uTopRegAddr,
+                                    REGISTER_SIZE, TXN_DIRECTION_WRITE, NULL, NULL)
+             twIf_Transact(pHwInit->hTwIf, pTxn);
+
+             pHwInit->uTxnIndex++;
+             /* Write the new value to the OCP_POR_WDATA register */
+             BUILD_HW_INIT_TXN_DATA(pHwInit, pTxn, OCP_POR_WDATA, pHwInit->uTopRegValue,
+                                    REGISTER_SIZE, TXN_DIRECTION_WRITE, NULL, NULL)
+             twIf_Transact(pHwInit->hTwIf, pTxn);
+
+             pHwInit->uTxnIndex++;
+             /* Write write (1)command to the OCP_CMD register. */
+             BUILD_HW_INIT_TXN_DATA(pHwInit, pTxn, OCP_CMD, 0x1,
+                                    REGISTER_SIZE, TXN_DIRECTION_WRITE, (TTxnDoneCb)hwInit_TopRegisterWrite, hHwInit)
+             status = twIf_Transact(pHwInit->hTwIf, pTxn);
+
+             pHwInit->uTxnIndex++;
+
+             EXCEPT (pHwInit, status)
+             continue;
+
+         case 1:
+
+             pHwInit->uTxnIndex = 0;
+
+             return TI_OK;
+
+         } /* End switch */
+
+     } /* End while */
+
+ }
+
+
+ /****************************************************************************
+ *                      hwInit_InitTopRegisterWrite()
+ ****************************************************************************
+ * DESCRIPTION: hwInit_InitTopRegisterWrite
+ * initalizie hwInit_TopRegisterWrite SM parmaeters
+  ****************************************************************************/
+
+TI_STATUS hwInit_InitTopRegisterRead(TI_HANDLE hHwInit, TI_UINT32 uAddress)
+{
+  THwInit      *pHwInit = (THwInit *)hHwInit;
+
+  pHwInit->uTopStage = 0;
+  uAddress = (TI_UINT32)(uAddress / 2);
+  uAddress = (uAddress & 0x7FF);
+  uAddress|= BIT_16 | BIT_17;
+  pHwInit->uTopRegAddr = uAddress;
+  return hwInit_TopRegisterRead (hHwInit);
+}
+
+
+/****************************************************************************
+ *                      hwInit_WriteTopRegister ()
+ ****************************************************************************
+ * DESCRIPTION: Generic function that writes to the top registers area
+  * INPUTS:  None
+ *
+ * OUTPUT:  None
+ *
+ * RETURNS: TI_OK or TI_NOK
+ ****************************************************************************/
+ TI_STATUS hwInit_TopRegisterRead(TI_HANDLE hHwInit)
+ {
+     /*
+        To read from a top level address:
+        Write the top level address to the OCP_POR_CTR register.
+        Divide the top address by 2, and add 0x30000 to the result – for example for top address 0xC00, write to the OCP_POR_CTR 0x30600
+        Write 0x2 to the OCP_CMD register.
+        Poll bit [18] of OCP_DATA_RD for data valid indication
+        Check bits 17:16 of OCP_DATA_RD:
+        00 – no response
+        01 – data valid / accept
+        10 – request failed
+        11 – response error
+        Read the data from the OCP_DATA_RD register
+     */
+
+     THwInit *pHwInit = (THwInit *)hHwInit;
+     TTxnStruct *pTxn;
+     TI_STATUS status = 0;
+
+     while (TI_TRUE)
+     {
+         switch (pHwInit->uTopStage)
+         {
+         case 0:
+             pHwInit->uTopStage = 1;
+             pHwInit->uTxnIndex++;
+             pHwInit->uRegLoop = 0;
+
+             /* Write the address to OCP_POR_CTR*/
+             BUILD_HW_INIT_TXN_DATA(pHwInit, pTxn, OCP_POR_CTR, pHwInit->uTopRegAddr,
+                                    REGISTER_SIZE, TXN_DIRECTION_WRITE, NULL, NULL)
+             twIf_Transact(pHwInit->hTwIf, pTxn);
+
+             pHwInit->uTxnIndex++;
+             BUILD_HW_INIT_TXN_DATA(pHwInit, pTxn, OCP_CMD, 0x2,
+                                    REGISTER_SIZE, TXN_DIRECTION_WRITE, NULL, NULL)
+             twIf_Transact(pHwInit->hTwIf, pTxn);
+
+             continue;
+
+         case 1:
+             pHwInit->uTopStage ++;
+             pHwInit->uTxnIndex++;
+
+             BUILD_HW_INIT_TXN_DATA(pHwInit, pTxn, OCP_DATA_RD, 0,
+                                    REGISTER_SIZE, TXN_DIRECTION_READ, (TTxnDoneCb)hwInit_TopRegisterRead, hHwInit)
+             status = twIf_Transact(pHwInit->hTwIf, pTxn);
+
+             EXCEPT (pHwInit, status)
+
+         case 2:
+             /* get the value from  IRQ Polarity register*/
+             pHwInit->uTopRegValue = pHwInit->aHwInitTxn[pHwInit->uTxnIndex].uData;
+
+             pHwInit->uTxnIndex = 0;
+
+             /*Poll bit 18 of OCP_DATA_RD for data valid indication*/
+             if (pHwInit->uTopRegValue & BIT_18)
+             {
+               if ((pHwInit->uTopRegValue & BIT_16) && (!(pHwInit->uTopRegValue & BIT_17)))
+               {
+                   pHwInit->uTopRegValue &= 0xffff;
+                   pHwInit->uTxnIndex = 0;
+                   pHwInit->uRegLoop = 0;
+                   return TI_OK;
+               }
+               else
+               {
+                 TRACE0(pHwInit->hReport, REPORT_SEVERITY_ERROR , "can't writing bt_func7_sel\n");
+                 return TI_NOK;
+               }
+             }
+             else
+             {
+               if (pHwInit->uRegLoop < READ_TOP_REG_LOOP)
+               {
+                  pHwInit->uTopStage = 1;
+                  pHwInit->uRegLoop++;
+               }
+               else
+               {
+                 TRACE0(pHwInit->hReport, REPORT_SEVERITY_ERROR , "Timeout waiting for writing bt_func7_sel\n");
+                 return TI_NOK;
+               }
+              }
+
+             continue;
+
+         } /* End switch */
+
+     } /* End while */
+
+ }

@@ -69,13 +69,7 @@ extern int trigger_another_read;
 #endif
 
 
-/*
- * Address of FW-Status structure in FW memory.
- *
- * Note: This structure was moved from the registers area due to a HW issue (in the 1273 SDIO FIFO).
- */
-#define FW_STATUS_MEM_ADDRESS    0x40400
-
+#define FW_STATUS_ADDR (0x14FC0 + 0xA000)
 
 #define ALL_EVENTS_VECTOR        ACX_INTR_WATCHDOG | ACX_INTR_INIT_COMPLETE | ACX_INTR_EVENT_A |\
                                  ACX_INTR_EVENT_B | ACX_INTR_CMD_COMPLETE |ACX_INTR_HW_AVAILABLE |\
@@ -86,8 +80,7 @@ extern int trigger_another_read;
 
 #define TXN_FW_EVENT_SET_MASK_ADDR(pFwEvent)      pFwEvent->tMaskTxn.tTxnStruct.uHwAddr = HINT_MASK;
 #define TXN_FW_EVENT_SET_UNMASK_ADDR(pFwEvent)    pFwEvent->tUnMaskTxn.tTxnStruct.uHwAddr = HINT_MASK;
-#define TXN_FW_EVENT_SET_INTR_STAT_ADDR(pFwEvent) pFwEvent->tIntrStatTxn.tTxnStruct.uHwAddr = ACX_REG_INTERRUPT_CLEAR;
-#define TXN_FW_EVENT_SET_FW_STAT_ADDR(pFwEvent)   pFwEvent->tFwStatusTxn.tTxnStruct.uHwAddr = FW_STATUS_MEM_ADDRESS;
+#define TXN_FW_EVENT_SET_FW_STAT_ADDR(pFwEvent)   pFwEvent->tFwStatusTxn.tTxnStruct.uHwAddr = FW_STATUS_ADDR;
 
 
 typedef enum
@@ -120,7 +113,6 @@ typedef struct
     TI_BOOL             bIsActualFwInterrupt;       /* Indicates that we are working on a real interrupt from the FW */
     TRegisterTxn        tMaskTxn; 
     TRegisterTxn        tUnMaskTxn;
-    TRegisterTxn        tIntrStatTxn;               /* The interrupt status (clear on read) register transaction */
     TFwStatusTxn        tFwStatusTxn;               /* The FW status structure transaction (read from FW memory) */
         
     TI_UINT32           uFwTimeOffset;              /* Offset in microseconds between driver and FW clocks */
@@ -252,15 +244,10 @@ TI_STATUS fwEvent_Init (TI_HANDLE hFwEvent, TI_HANDLE hTWD)
     TXN_PARAM_SET(pTxn, TXN_HIGH_PRIORITY, TXN_FUNC_ID_WLAN, TXN_DIRECTION_WRITE, TXN_INC_ADDR)
     BUILD_TTxnStruct(pTxn, HINT_MASK, &pFwEvent->tUnMaskTxn.uData, REGISTER_SIZE, NULL, NULL)
 
-    /* First txn is HINT_STT_CLR register */
-    pTxn = (TTxnStruct*)&pFwEvent->tIntrStatTxn.tTxnStruct;
-    TXN_PARAM_SET(pTxn, TXN_HIGH_PRIORITY, TXN_FUNC_ID_WLAN, TXN_DIRECTION_READ, TXN_INC_ADDR)
-    BUILD_TTxnStruct(pTxn, ACX_REG_INTERRUPT_CLEAR, &pFwEvent->tIntrStatTxn.uData, REGISTER_SIZE, NULL, NULL)
 
-    /* FW status from memory area (exclude first 4 bytes previously used for the interrupt status reg) */
     pTxn = (TTxnStruct*)&pFwEvent->tFwStatusTxn.tTxnStruct;
     TXN_PARAM_SET(pTxn, TXN_HIGH_PRIORITY, TXN_FUNC_ID_WLAN, TXN_DIRECTION_READ, TXN_INC_ADDR)
-    BUILD_TTxnStruct(pTxn, FW_STATUS_MEM_ADDRESS, &pFwEvent->tFwStatusTxn.tFwStatus, sizeof(FwStatus_t), (TTxnDoneCb)fwEvent_ReadCompleteCb, hFwEvent)
+    BUILD_TTxnStruct(pTxn, FW_STATUS_ADDR, &pFwEvent->tFwStatusTxn.tFwStatus, sizeof(FwStatus_t), (TTxnDoneCb)fwEvent_ReadCompleteCb, hFwEvent)
 
     /* 
      *  Register the FwEvent to the context engine and get the client ID.
@@ -411,17 +398,12 @@ static void fwEvent_Handle (TI_HANDLE hFwEvent)
     TXN_FW_EVENT_SET_MASK_ADDR(pFwEvent)
     twIf_Transact(pFwEvent->hTwIf, &(pFwEvent->tMaskTxn.tTxnStruct));
 
-    /* 
-     * Read first register (HINT_STT_CLR) only from registers area
-     */
-    TXN_FW_EVENT_SET_INTR_STAT_ADDR(pFwEvent)
-    twIf_Transact(pFwEvent->hTwIf, &(pFwEvent->tIntrStatTxn.tTxnStruct));
 
-    /* 
-     * Read other 16 registers value from memory area FW_STATUS_MEM_ADDRESS
+    /*
+     * Read the Fw status
      */
     TXN_FW_EVENT_SET_FW_STAT_ADDR(pFwEvent)
-    rc = twIf_Transact(pFwEvent->hTwIf, &(pFwEvent->tFwStatusTxn.tTxnStruct));
+    rc = twIf_TransactReadFWStatus(pFwEvent->hTwIf, &(pFwEvent->tFwStatusTxn.tTxnStruct));
 
     if (rc == TXN_STATUS_COMPLETE)
     {
@@ -467,13 +449,10 @@ static void fwEvent_ReadCompleteCb (TI_HANDLE hFwEvent)
     }
 
     /* Save the interrupts status retreived from the FW */
-    pFwEvent->uEventVector = pFwEvent->tIntrStatTxn.uData;
+    pFwEvent->uEventVector = pFwEvent->tFwStatusTxn.tFwStatus.intrStatus;
 
     /* Mask unwanted interrupts */
     pFwEvent->uEventVector &= pFwEvent->uEventMask;
-
-    /* Copy the events vector also into the FW status provided to the interrupts handlers (used only by event mbox) */
-    pFwEvent->tFwStatusTxn.tFwStatus.intrStatus = pFwEvent->uEventVector;
 
     /* Call the interrupts handlers */
     fwEvent_CallHandler(hFwEvent);

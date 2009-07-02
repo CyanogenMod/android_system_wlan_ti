@@ -46,7 +46,7 @@
 #include "freq.h"
 
 
-#define TABLE_ENTRIES_NUMBER    16
+#define TABLE_ENTRIES_NUMBER    32
 
 #define UPDATE_BSSID(pSite, pFrame)                     MAC_COPY((pSite)->bssid, *((pFrame)->bssId))
 #define UPDATE_BAND(pSite, pFrame)                      (pSite)->eBand = (pFrame)->band
@@ -164,8 +164,9 @@ TI_HANDLE scanResultTable_Create (TI_HANDLE hOS)
         (TSiteEntry *)os_memoryAlloc (pScanResultTable->hOS, sizeof (TSiteEntry) * TABLE_ENTRIES_NUMBER);
     if (NULL == pScanResultTable->pTable)
     {
-        TRACE2(pScanResultTable->hReport, REPORT_SEVERITY_ERROR , "scanResultTable_Create: Unable to allocate memory for %d entries of %d bytes\n", TABLE_ENTRIES_NUMBER, sizeof (TSiteEntry));
-        os_memoryFree (pScanResultTable->hOS, (void *)pScanResultTable, sizeof (TScanResultTable));
+        TRACE2(pScanResultTable->hReport, REPORT_SEVERITY_ERROR ,
+			   "scanResultTable_Create: Unable to allocate memory for %d entries of %d bytes\n",
+			   TABLE_ENTRIES_NUMBER, sizeof (TSiteEntry));
         return NULL;
     }
 
@@ -433,6 +434,8 @@ TSiteEntry *scanResultTbale_AllocateNewEntry (TI_HANDLE hScanResultTable)
 
     /* Nullify new site data */
     pScanResultTable->pTable[ pScanResultTable->uCurrentSiteNumber ].ssid.len = 0;
+    pScanResultTable->pTable[ pScanResultTable->uCurrentSiteNumber ].tHtCapabilities.tHdr[0] = 0;
+    pScanResultTable->pTable[ pScanResultTable->uCurrentSiteNumber ].tHtInformation.tHdr[0] = 0;
     for (uRsnIndex = 0; uRsnIndex < MAX_RSN_IE; uRsnIndex++)
     {
         pScanResultTable->pTable[ pScanResultTable->uCurrentSiteNumber ].pRsnIe[ uRsnIndex ].hdr[ 1 ] = 0;

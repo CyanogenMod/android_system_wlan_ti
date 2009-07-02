@@ -1056,6 +1056,7 @@ static char * cmdQueue_GetIEString (TI_INT32 MboxCmdType, TI_UINT16 Id)
         case ACX_BCN_DTIM_OPTIONS: 			return " (ACX_BCN_DTIM_OPTIONS) ";                             
         case ACX_SG_ENABLE: 				return " (ACX_SG_ENABLE) ";                                       
         case ACX_SG_CFG: 					return " (ACX_SG_CFG) ";                                       
+        case ACX_FM_COEX_CFG: 				return " (ACX_FM_COEX_CFG) ";
         case ACX_BEACON_FILTER_TABLE: 		return " (ACX_BEACON_FILTER_TABLE) ";
         case ACX_ARP_IP_FILTER: 			return " (ACX_ARP_IP_FILTER) ";
         case ACX_ROAMING_STATISTICS_TBL:	return " (ACX_ROAMING_STATISTICS_TBL) ";  

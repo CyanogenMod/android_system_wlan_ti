@@ -46,6 +46,7 @@
 #include "EvHandler.h"
 #include "GenSM.h"
 #include "smeSm.h"
+#include "tidef.h"
 
 static TI_BOOL sme_SelectSsidMatch (TI_HANDLE hSme, TSsid *pSiteSsid, TSsid *pDesiredSsid, 
                                     ESsidType eDesiredSsidType);
@@ -75,6 +76,7 @@ TSiteEntry *sme_Select (TI_HANDLE hSme)
     TI_INT8         iSelectedSiteRssi = -127; /* minimum RSSI */
     TI_BOOL         bWscPbAbort, pWscPbApFound = TI_FALSE;
     paramInfo_t     param;
+    int             apFoundCtr =0;
 
     TRACE0(pSme->hReport, REPORT_SEVERITY_INFORMATION , "sme_Select called\n");
 
@@ -142,6 +144,15 @@ TSiteEntry *sme_Select (TI_HANDLE hSme)
             pCurrentSite = scanResultTable_GetNext (pSme->hScanResultTable);
             continue;
         }
+
+         if (pCurrentSite->WSCSiteMode == TIWLN_SIMPLE_CONFIG_PBC_METHOD)
+         {
+           apFoundCtr++;
+         }
+         if (apFoundCtr > 1)
+         {
+           pWscPbApFound = TI_TRUE;
+         }
 
         /* and simple config match */
         if (TI_FALSE == sme_SelectWscMatch (hSme, pCurrentSite, &bWscPbAbort, &pWscPbApFound))
@@ -380,6 +391,12 @@ TI_BOOL sme_SelectRsnMatch (TI_HANDLE hSme, TSiteEntry *pCurrentSite)
     TI_UINT8        uCurRsnData[255];
     TI_UINT8        uLength = 0;
     TI_UINT32       uMetric;
+	TRsnSiteParams  tRsnSiteParams;
+
+	tRsnSiteParams.bssType = pCurrentSite->bssType;
+	MAC_COPY(tRsnSiteParams.bssid, pCurrentSite->bssid);
+	tRsnSiteParams.pHTCapabilities = &pCurrentSite->tHtCapabilities;
+	tRsnSiteParams.pHTInfo = &pCurrentSite->tHtInformation;
 
     /* copy all RSN IE's */
     pRsnIe = pCurrentSite->pRsnIe;
@@ -402,7 +419,7 @@ TI_BOOL sme_SelectRsnMatch (TI_HANDLE hSme, TSiteEntry *pCurrentSite)
     tRsnData.pIe = (pCurrentSite->rsnIeLen == 0) ? NULL : uCurRsnData;
     tRsnData.ieLen = pCurrentSite->rsnIeLen;
     tRsnData.privacy = pCurrentSite->privacy;
-    if (rsn_evalSite (pSme->hRsn, &tRsnData, pCurrentSite->bssType, pCurrentSite->bssid, &uMetric) != TI_OK)
+    if (rsn_evalSite (pSme->hRsn, &tRsnData, &tRsnSiteParams , &uMetric) != TI_OK)
     {
         /* no match */
         return TI_FALSE;

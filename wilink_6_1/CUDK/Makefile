@@ -106,3 +106,6 @@ ifeq ($(SUPPL), WPA)
 endif
 
 
+ifeq ($(ETH_SUPPORT), y)
+	DK_DEFINES += -D ETH_SUPPORT
+endif 

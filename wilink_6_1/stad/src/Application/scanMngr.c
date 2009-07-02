@@ -49,6 +49,8 @@
 #include "siteMgrApi.h"
 #include "scanMngr.h"
 #include "DrvMainModules.h"
+#include "EvHandler.h"
+#include "apConnApi.h"
 
 
 /*
@@ -90,8 +92,42 @@ static TI_UINT32 reminder64( TI_UINT64 dividee, TI_UINT32 divider )
     return ( partB + (divideeLow % divider)) % divider;
 }
 
+
+
+static void scanMngr_setManualScanDefaultParams(TI_HANDLE hScanMngr)
+{
+    scanMngr_t* 	pScanMngr = (scanMngr_t*)hScanMngr;
+
+    pScanMngr->manualScanParams.desiredSsid.len = 1;        /* will be set by the scan concentrator */
+    pScanMngr->manualScanParams.scanType= SCAN_TYPE_NORMAL_ACTIVE;
+    pScanMngr->manualScanParams.band = RADIO_BAND_2_4_GHZ;
+    pScanMngr->manualScanParams.probeReqNumber =  3;
+    pScanMngr->manualScanParams.probeRequestRate = RATE_MASK_UNSPECIFIED;
+}
+
+
+static void scanMngr_reportContinuousScanResults (TI_HANDLE hScanMngr,	EScanCncnResultStatus resultStatus)
+{
+    scanMngr_t* pScanMngr = (scanMngr_t*)hScanMngr;
+    BssListEx_t   BssListEx;
+
+
+    if (resultStatus == SCAN_CRS_SCAN_COMPLETE_OK)
+    {
+        BssListEx.pListOfAPs = scanMngr_getBSSList(hScanMngr);
+        BssListEx.scanIsRunning = pScanMngr->bContinuousScanStarted; /* false = stopped */
+        EvHandlerSendEvent(pScanMngr->hEvHandler, IPC_EVENT_CONTINUOUS_SCAN_REPORT, (TI_UINT8*)&BssListEx, sizeof(BssListEx_t));
+    }
+    else
+    {
+        TRACE1( pScanMngr->hReport, REPORT_SEVERITY_ERROR, "scanMngr_reportContinuousScanResults failed. scan status %d\n", resultStatus);
+    }
+}
+
+
+
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 01-Mar-2005\n
  * \brief Frees scan manager resources.\n
  *
@@ -123,7 +159,7 @@ void scanMngrFreeMem (TI_HANDLE hScanMngr)
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 01-Mar-2005\n
  * \brief Callback used by the scan concentrator for immediate scan result.\n
  *
@@ -183,7 +219,7 @@ void scanMngr_immedScanCB( TI_HANDLE hScanMngr, EScanCncnResultStatus resultStat
 #ifdef TI_DBG
                     pScanMngr->stats.ImmediateAByStatus[ nextResultStatus ]++;
 #endif
-                    roamingMngr_immediateScanComplete( pScanMngr->hRoamingMngr, SCAN_MRS_SCAN_COMPLETE_OK ); 
+                    scanMngr_immediateScanComplete(hScanMngr,SCAN_MRS_SCAN_COMPLETE_OK);
                 }
             }
             else
@@ -192,7 +228,7 @@ void scanMngr_immedScanCB( TI_HANDLE hScanMngr, EScanCncnResultStatus resultStat
                 pScanMngr->immedScanState = SCAN_ISS_IDLE;
                 
                 /* no channels are actually available for scan - notify the roaming manager of the scan complete */
-                roamingMngr_immediateScanComplete( pScanMngr->hRoamingMngr, SCAN_MRS_SCAN_COMPLETE_OK );
+                scanMngr_immediateScanComplete(hScanMngr,SCAN_MRS_SCAN_COMPLETE_OK);
             }
         }
         else
@@ -201,7 +237,7 @@ void scanMngr_immedScanCB( TI_HANDLE hScanMngr, EScanCncnResultStatus resultStat
             pScanMngr->immedScanState = SCAN_ISS_IDLE;
 
             /* otherwise, notify the roaming manager of the scan complete */
-            roamingMngr_immediateScanComplete( pScanMngr->hRoamingMngr, SCAN_MRS_SCAN_COMPLETE_OK );
+            scanMngr_immediateScanComplete(hScanMngr,SCAN_MRS_SCAN_COMPLETE_OK);
         }
         break;
 
@@ -211,7 +247,7 @@ void scanMngr_immedScanCB( TI_HANDLE hScanMngr, EScanCncnResultStatus resultStat
             pScanMngr->immedScanState = SCAN_ISS_IDLE;
 
             /* notify the roaming manager of the scan complete */
-            roamingMngr_immediateScanComplete( pScanMngr->hRoamingMngr, SCAN_MRS_SCAN_STOPPED ); 
+            scanMngr_immediateScanComplete(hScanMngr,SCAN_MRS_SCAN_STOPPED);
             break;
 
         /* Scan completed on A band */
@@ -222,7 +258,7 @@ void scanMngr_immedScanCB( TI_HANDLE hScanMngr, EScanCncnResultStatus resultStat
             pScanMngr->stats.ImmediateAByStatus[ resultStatus ]++;
 #endif
             /* otherwise, notify the roaming manager of the scan complete */
-            roamingMngr_immediateScanComplete( pScanMngr->hRoamingMngr, SCAN_MRS_SCAN_COMPLETE_OK ); 
+            scanMngr_immediateScanComplete(hScanMngr,SCAN_MRS_SCAN_COMPLETE_OK);
             break;
         
         default:
@@ -254,14 +290,13 @@ void scanMngr_immedScanCB( TI_HANDLE hScanMngr, EScanCncnResultStatus resultStat
 #endif
         /* mark that immediate scan is not running */
         pScanMngr->immedScanState = SCAN_ISS_IDLE;     
-        
-        roamingMngr_immediateScanComplete( pScanMngr->hRoamingMngr, scanMngrConvertResultStatus(resultStatus)); 
+        scanMngr_immediateScanComplete(hScanMngr,scanMngrConvertResultStatus(resultStatus));
         break;
     }
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 01-Mar-2005\n
  * \brief Callback used by the scan concentrator for continuous scan result.\n
  *
@@ -279,6 +314,7 @@ void scanMngr_contScanCB( TI_HANDLE hScanMngr, EScanCncnResultStatus resultStatu
     EScanCncnResultStatus nextResultStatus;
 
     TRACE3( pScanMngr->hReport, REPORT_SEVERITY_INFORMATION, "scanMngr_contScanCB called, hScanMngr=0x%x, resultStatus=%d, SPSStatus=%d\n", hScanMngr, resultStatus, SPSStatus);
+
     switch (resultStatus)
     {
     /* frame received - update BSS list accordingly */
@@ -313,6 +349,7 @@ void scanMngr_contScanCB( TI_HANDLE hScanMngr, EScanCncnResultStatus resultStatu
            some of the APs were searched in the previous tracking command, or previous command was
            discovery */
         scanMngrPerformAging( hScanMngr );
+        
 
         /* if new BSS's were found (or enough scan iterations passed w/o finding any), notify the roaming manager */
         if ( ((TI_TRUE == pScanMngr->bNewBSSFound) || 
@@ -323,6 +360,11 @@ void scanMngr_contScanCB( TI_HANDLE hScanMngr, EScanCncnResultStatus resultStatu
             pScanMngr->bNewBSSFound = TI_FALSE;
             pScanMngr->consecNotFound = 0;
             roamingMngr_updateNewBssList( pScanMngr->hRoamingMngr, (bssList_t*)&(pScanMngr->BSSList));
+
+             if (SCANNING_OPERATIONAL_MODE_MANUAL == pScanMngr->scanningOperationalMode)
+             {
+                 scanMngr_reportContinuousScanResults(hScanMngr, resultStatus);
+             }
         }
 
         /* act according to continuous scan state */
@@ -517,7 +559,7 @@ void scanMngr_contScanCB( TI_HANDLE hScanMngr, EScanCncnResultStatus resultStatu
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 01-Mar-2005\n
  * \brief Sets the scan policy.\n
  *
@@ -590,7 +632,7 @@ void scanMngr_setScanPolicy( TI_HANDLE hScanMngr, TScanPolicy* scanPolicy )
 }
 
 /**
- * \author Terence Zaoui\n
+ * \\n
  * \date 06-Feb-2006\n
  * \brief CB function for current TSF and last beacon TSF and DTIM read.\n
  *
@@ -625,7 +667,7 @@ void scanMngrGetCurrentTsfDtimMibCB(TI_HANDLE hScanMngr, TI_STATUS status, TI_UI
 }
 
 /**
- * \author Terence Zaoui\n
+ * \\n
  * \date 06-Feb-2006\n
  * \brief requests current TSF and last beacon TSF and DTIM from the FW.\n
  *
@@ -654,7 +696,7 @@ void scanMngr_GetUpdatedTsfDtimMibForScan (TI_HANDLE hScanMngr, TI_BOOL bTwdInit
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 01-Mar-2005\n
  * \brief Starts a continuous scan operation.\n
  *
@@ -720,8 +762,8 @@ void scanMngrPerformContinuousScan( TI_HANDLE hScanMngr )
             /* mark that continuous scan is now tracking on G */
             pScanMngr->contScanState = SCAN_CSS_TRACKING_G_BAND;
 
-            /* send scan command */
-            resultStatus = scanCncn_Start1ShotScan( pScanMngr->hScanCncn, SCAN_SCC_ROAMING_CONT, &(pScanMngr->scanParams));
+            /* send scan command to scan concentrator with the required scan params according to scannig operational  mode */
+            resultStatus = scanMngr_Start1ShotScan(hScanMngr, SCAN_SCC_ROAMING_CONT);
             if ( SCAN_CRS_SCAN_RUNNING != resultStatus )
             {
                 TRACE1( pScanMngr->hReport, REPORT_SEVERITY_WARNING, "Failed to start tracking continuous scan on G, return code %d.\n", resultStatus);
@@ -752,8 +794,8 @@ void scanMngrPerformContinuousScan( TI_HANDLE hScanMngr )
             /* mark that continuous scan is now tracking on A */
             pScanMngr->contScanState = SCAN_CSS_TRACKING_A_BAND;
 
-            /* send scan command */
-            resultStatus = scanCncn_Start1ShotScan( pScanMngr->hScanCncn, SCAN_SCC_ROAMING_CONT, &(pScanMngr->scanParams));
+            /* send scan command to scan concentrator with the required scan params according to scanning operational mode */
+            resultStatus = scanMngr_Start1ShotScan(hScanMngr, SCAN_SCC_ROAMING_CONT);
             if ( SCAN_CRS_SCAN_RUNNING != resultStatus )
             {
                 TRACE1( pScanMngr->hReport, REPORT_SEVERITY_WARNING, "Failed to start tracking continuous scan on A, return code %d.\n", resultStatus);
@@ -790,8 +832,8 @@ void scanMngrPerformContinuousScan( TI_HANDLE hScanMngr )
             /* mark that no new BSS's were found (yet) */
             pScanMngr->bNewBSSFound = TI_FALSE;
 
-            /* send scan command */
-            resultStatus = scanCncn_Start1ShotScan( pScanMngr->hScanCncn, SCAN_SCC_ROAMING_CONT, &(pScanMngr->scanParams));
+            /* send scan command to scan concentrator with the required scan params according to scanning operational mode */
+            resultStatus = scanMngr_Start1ShotScan(hScanMngr, SCAN_SCC_ROAMING_CONT);
             if ( SCAN_CRS_SCAN_RUNNING != resultStatus )
             {
                 TRACE1( pScanMngr->hReport, REPORT_SEVERITY_WARNING, "Failed to start discovery continuous scan, resultStatus %d.\n", resultStatus);
@@ -819,7 +861,7 @@ void scanMngrPerformContinuousScan( TI_HANDLE hScanMngr )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 01-Mar-2005\n
  * \brief Perform aging on the BSS list.\n
  *
@@ -857,7 +899,7 @@ void scanMngrPerformAging( TI_HANDLE hScanMngr )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 01-Mar-2005\n
  * \brief Updates object data according to a received frame.\n
  *
@@ -953,7 +995,7 @@ void scanMngrUpdateReceivedFrame( TI_HANDLE hScanMngr, TScanFrameInfo* frameInfo
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 17-Mar-2005\n
  * \brief Cerate a new tracking entry and store the newly discovered AP info in it.\n
  *
@@ -1001,7 +1043,7 @@ void scanMngrInsertNewBSSToTrackingList( TI_HANDLE hScanMngr, TScanFrameInfo* fr
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 17-Mar-2005\n
  * \brief Updates tracked AP information.\n
  *
@@ -1112,7 +1154,7 @@ void scanMngrUpdateBSSInfo( TI_HANDLE hScanMngr, TI_UINT8 BSSListIndex, TScanFra
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 16-Mar-2005\n
  * \brief Search tracking list for an entry matching given BSSID.\n
  *
@@ -1137,7 +1179,7 @@ TI_INT8 scanMngrGetTrackIndexByBssid( TI_HANDLE hScanMngr, TMacAddr* bssId )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Search current policy for band policy
  *
@@ -1165,7 +1207,7 @@ TScanBandPolicy* scanMngrGetPolicyByBand( TI_HANDLE hScanMngr, ERadioBand band )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 06-Mar-2005\n
  * \brief Sets the next discovery part according to current discovery part, policies and neighbor APs availability .\n
  *
@@ -1220,7 +1262,7 @@ void scanMngrSetNextDiscoveryPart( TI_HANDLE hScanMngr )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 06-Mar-2005\n
  * \brief Checks whether discovery should be performed on the specified discovery part.\n
  *
@@ -1301,7 +1343,7 @@ TI_BOOL scanMngrIsDiscoveryValid( TI_HANDLE hScanMngr, scan_discoveryPart_e disc
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 07-Mar-2005\n
  * \brief Check whether there are neighbor APs to track on the given band.\n
  *
@@ -1330,7 +1372,7 @@ TI_BOOL scanMngrNeighborAPsAvailableForDiscovery( TI_HANDLE hScanMngr, ERadioBan
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Builds a scan command on the object workspace for immediate scan.\n
  *
@@ -1430,7 +1472,7 @@ void scanMngrBuildImmediateScanCommand( TI_HANDLE hScanMngr, TScanBandPolicy* ba
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 03-Mar-2005\n
  * \brief Builds a scan command on the object workspace for tracking.\n
  *
@@ -1544,7 +1586,7 @@ void scanMngrBuildTrackScanCommand( TI_HANDLE hScanMngr, TScanBandPolicy* bandPo
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 03-Mar-2005\n
  * \brief Builds a scan command on the object workspace for discovery.\n
  *
@@ -1569,6 +1611,12 @@ void scanMngrBuildDiscoveryScanCommand( TI_HANDLE hScanMngr )
         band = RADIO_BAND_5_0_GHZ;
         bandPolicy = scanMngrGetPolicyByBand( hScanMngr, band );
     }
+
+	if( NULL == bandPolicy)
+	{
+		TRACE0( pScanMngr->hReport, REPORT_SEVERITY_WARNING, "scanMngrGetPolicyByBand() returned NULL.\n");
+		return;
+	}
 
     /* first, build the command header */
     scanMngrBuildScanCommandHeader( hScanMngr, &(bandPolicy->discoveryMethod), band );
@@ -1671,7 +1719,7 @@ void scanMngrBuildDiscoveryScanCommand( TI_HANDLE hScanMngr )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Builds the scan command header on the object workspace.\n
  *
@@ -1738,7 +1786,7 @@ void scanMngrBuildScanCommandHeader( TI_HANDLE hScanMngr, TScanMethod* scanMetho
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 06-Mar-2005\n
  * \brief Add neighbor APs to scan command on the object workspace for discovery scan.\n
  *
@@ -1804,7 +1852,7 @@ void scanMngrAddNeighborAPsForDiscovery( TI_HANDLE hScanMngr, TScanBandPolicy* b
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 06-Mar-2005\n
  * \brief Add channel from policy channels list to scan command on the object workspace for discovery scan.\n
  *
@@ -1873,7 +1921,7 @@ void scanMngrAddChannelListForDiscovery( TI_HANDLE hScanMngr, TScanBandPolicy* b
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Add SPS channels to scan command on the object workspace.\n
  *
@@ -2157,7 +2205,7 @@ void scanMngrAddSPSChannels( TI_HANDLE hScanMngr, TScanMethod* scanMethod, ERadi
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 07-Mar-2005\n
  * \brief Calculates local TSF of the next event (beacon or GPR) of the given tracked AP.\n
  *
@@ -2290,7 +2338,7 @@ Local TSF Line:
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 20-September-2005\n
  * \brief Check whether a time range collides with current AP DTIM
  *
@@ -2392,7 +2440,7 @@ TI_BOOL scanMngrDTIMInRange( TI_HANDLE hScanMngr, TI_UINT64 rangeStart, TI_UINT6
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 03-Mar-2005\n
  * \brief Add a normal channel entry to the object workspace scan command.\n
  *
@@ -2430,8 +2478,8 @@ void scanMngrAddNormalChannel( TI_HANDLE hScanMngr, TScanMethod* scanMethod, TI_
     default:
         TRACE1( pScanMngr->hReport, REPORT_SEVERITY_WARNING, "Unercognized scan type %d when adding normal channel to scan list.\n", scanMethod->scanType );
         basicMethodParams = NULL;
+		return;
     }
-
 
     /* set params */
     pScanMngr->scanParams.channelEntry[ commandChannelIndex ].normalChannelEntry.channel = channel;
@@ -2450,7 +2498,7 @@ void scanMngrAddNormalChannel( TI_HANDLE hScanMngr, TScanMethod* scanMethod, TI_
 }
                                     
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Removes an entry from the BSS list (by replacing it with another entry, if any).
  *
@@ -2505,7 +2553,7 @@ void scanMngrRemoveBSSListEntry( TI_HANDLE hScanMngr, TI_UINT8 BSSEntryIndex )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Removes all BSS list entries that are neither neighbor APs not on a policy defined channel.\n
  *
@@ -2554,7 +2602,7 @@ void scanMngrUpdateBSSList( TI_HANDLE hScanMngr, TI_BOOL bCheckNeighborAPs, TI_B
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief returns the index of a neighbor AP.\n
  *
@@ -2583,7 +2631,7 @@ TI_INT8 scanMngrGetNeighborAPIndex( TI_HANDLE hScanMngr, ERadioBand band, TMacAd
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Checks whether a channel is defined on a policy.\n
  *
@@ -2619,7 +2667,7 @@ TI_BOOL scanMngrIsPolicyChannel( TI_HANDLE hScanMngr, ERadioBand band, TI_UINT8 
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 18-Apr-2005\n
  * \brief Converts scan concentrator result status to scan manager result status, to be returned to roaming manager.\n
  *
@@ -2741,7 +2789,7 @@ static char earlyTerminationDesc[ SCAN_ET_COND_NUM_OF_CONDS ][ MAX_DESC_LENGTH ]
 #endif
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief Print a neighbor AP list.\n
  *
@@ -2765,7 +2813,7 @@ void scanMngrTracePrintNeighborAPsList( TI_HANDLE hScanMngr, neighborAPList_t *n
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief Print a neighbor AP.\n
  *
@@ -2782,7 +2830,7 @@ void scanMngrTracePrintNeighborAP( TI_HANDLE hScanMngr, neighborAP_t* neighborAP
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief Print scan policy.\n
  *
@@ -2809,7 +2857,7 @@ void scanMngrTracePrintScanPolicy( TScanPolicy* scanPolicy )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief Print a band scan policy AP.\n
  *
@@ -2840,7 +2888,7 @@ void scanMngrTracePrintBandScanPolicy( TScanBandPolicy* bandPolicy )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief Print a scan method
  *
@@ -2875,7 +2923,7 @@ void scanMngrTracePrintScanMethod( TScanMethod* scanMethod )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief print a normal scan method
  *
@@ -2896,7 +2944,7 @@ void scanMngrTracePrintNormalScanMethod( TScanBasicMethodParams* basicMethodPara
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief print an AC triggered scan method
  *
@@ -2910,7 +2958,7 @@ void scanMngrTracePrintTriggeredScanMethod( TScanTidTriggeredMethodParams* trigg
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief print a SPS scan method
  *
@@ -2926,7 +2974,7 @@ void scanMngrTracePrintSPSScanMethod( TScanSPSMethodParams* SPSMethodParams )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 31-Mar-2005\n
  * \brief print debug information for every received frame.\n
  *
@@ -2954,7 +3002,7 @@ void scanMngrDebugPrintReceivedFrame( TI_HANDLE hScanMngr, TScanFrameInfo *frame
 }
 #ifdef TI_DBG
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 31-Mar-2005\n
  * \brief print BSS list.\n
  *
@@ -2972,17 +3020,20 @@ void scanMngrDebugPrintBSSList( TI_HANDLE hScanMngr )
         return;
     }
     
-    WLAN_OS_REPORT(("BSS List:\n"));
+
+    WLAN_OS_REPORT(("-------------------------------- BSS List--------------------------------\n"));
 
     for ( i = 0; i < pScanMngr->BSSList.numOfEntries; i++ )
     {
         WLAN_OS_REPORT(  ("Entry number: %d\n", i));
         scanMngrDebugPrintBSSEntry( hScanMngr,  i );
     }
+
+    WLAN_OS_REPORT(("--------------------------------------------------------------------------\n"));
 }
 #endif/*TI_DBG*/
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 31-Mar-2005\n
  * \brief print one entry in the BSS list.\n
  *
@@ -3017,7 +3068,7 @@ void scanMngrDebugPrintBSSEntry( TI_HANDLE hScanMngr, TI_UINT8 entryIndex )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 14-Apr-2005\n
  * \brief print SPS helper list
  *
@@ -3059,6 +3110,8 @@ TI_HANDLE scanMngr_create( TI_HANDLE hOS )
         return NULL;
     }
 
+    os_memoryZero( pScanMngr->hOS, pScanMngr, sizeof(scanMngr_t));
+
     pScanMngr->hOS = hOS;
 
     /* allocate frame storage space for BSS list */
@@ -3095,6 +3148,11 @@ void scanMngr_init (TStadHandlesList *pStadHandles)
     pScanMngr->hSiteMngr         = pStadHandles->hSiteMgr;
     pScanMngr->hTWD              = pStadHandles->hTWD;
     pScanMngr->hTimer            = pStadHandles->hTimer;
+    pScanMngr->hAPConnection     = pStadHandles->hAPConnection;
+    pScanMngr->hEvHandler        = pStadHandles->hEvHandler;
+
+   /* mark the scanning operational mode to be automatic by default */
+    pScanMngr->scanningOperationalMode = SCANNING_OPERATIONAL_MODE_AUTO;
 
     /* mark that continuous scan timer is not running */
     pScanMngr->bTimerRunning = TI_FALSE;
@@ -3170,7 +3228,7 @@ scan_mngrResultStatus_e scanMngr_startImmediateScan( TI_HANDLE hScanMngr, TI_BOO
     EScanCncnResultStatus resultStatus;
 
     TRACE1( pScanMngr->hReport, REPORT_SEVERITY_INFORMATION, "scanMngr_startImmediateScan called, hScanMngr=0x%x, bNeighborAPsOnly=.\n", hScanMngr);
-    
+
     /* sanity check - whether immediate scan is already running */
     if ( SCAN_ISS_IDLE != pScanMngr->immedScanState )
     {
@@ -3212,8 +3270,9 @@ scan_mngrResultStatus_e scanMngr_startImmediateScan( TI_HANDLE hScanMngr, TI_BOO
                 pScanMngr->contScanState = SCAN_CSS_STOPPING;
             }
 
-            /* send scan command to scan concentrator */
-            resultStatus = scanCncn_Start1ShotScan( pScanMngr->hScanCncn, SCAN_SCC_ROAMING_IMMED, &(pScanMngr->scanParams));
+             /* send scan command to scan concentrator with the required scan params according to scanning operational mode */
+            resultStatus = scanMngr_Start1ShotScan(hScanMngr, SCAN_SCC_ROAMING_IMMED);
+
             if ( SCAN_CRS_SCAN_RUNNING != resultStatus )
             {
                 TRACE1( pScanMngr->hReport, REPORT_SEVERITY_WARNING, "Failed to start immediate scan on band G, return code %d.\n", resultStatus);
@@ -3252,8 +3311,8 @@ scan_mngrResultStatus_e scanMngr_startImmediateScan( TI_HANDLE hScanMngr, TI_BOO
                 pScanMngr->contScanState = SCAN_CSS_STOPPING;
             }
 
-            /* send scan command to scan concentrator */
-            resultStatus = scanCncn_Start1ShotScan( pScanMngr->hScanCncn, SCAN_SCC_ROAMING_IMMED, &(pScanMngr->scanParams));
+             /* send scan command to scan concentrator with the required scan params according to scanning operational mode */
+             resultStatus = scanMngr_Start1ShotScan(hScanMngr, SCAN_SCC_ROAMING_IMMED);
             if ( SCAN_CRS_SCAN_RUNNING != resultStatus )
             {
                 TRACE1( pScanMngr->hReport, REPORT_SEVERITY_WARNING, "Failed to start immediate scan on band A, return code %d.\n", resultStatus);
@@ -3669,6 +3728,11 @@ TI_STATUS scanMngr_getParam( TI_HANDLE hScanMngr, paramInfo_t *pParam )
     return TI_OK;
 }
 
+
+
+
+
+
 TI_STATUS scanMngr_setParam( TI_HANDLE hScanMngr, paramInfo_t *pParam )
 {
     scanMngr_t* pScanMngr = (scanMngr_t*)hScanMngr;
@@ -3691,11 +3755,341 @@ TI_STATUS scanMngr_setParam( TI_HANDLE hScanMngr, paramInfo_t *pParam )
 }
 
 
+/**
+ * \fn     scanMngr_SetDefaults
+ * \brief  Set default values to the Scan Manager
+ *
+ * \param  hScanMngr - handle to the SME object
+ * \param  pInitParams - values read from registry / ini file
+ * \return None
+ */
+void scanMngr_SetDefaults (TI_HANDLE hScanMngr, TRoamScanMngrInitParams *pInitParams)
+{
+    int i;
+    TScanPolicy    defaultScanPolicy;
+    paramInfo_t    param;
+
+    WLAN_OS_REPORT(("pInitParams->RoamingScanning_2_4G_enable %d \n",pInitParams->RoamingScanning_2_4G_enable ));
+
+    if (pInitParams->RoamingScanning_2_4G_enable)
+    {
+        /* Configure default scan policy for 2.4G  */
+        defaultScanPolicy.normalScanInterval = 10000;
+        defaultScanPolicy.deterioratingScanInterval = 5000;
+        defaultScanPolicy.maxTrackFailures = 3;
+        defaultScanPolicy.BSSListSize = 4;
+        defaultScanPolicy.BSSNumberToStartDiscovery = 1;
+        defaultScanPolicy.numOfBands = 1;
+
+        defaultScanPolicy.bandScanPolicy[0].band = RADIO_BAND_2_4_GHZ;
+        defaultScanPolicy.bandScanPolicy[0].rxRSSIThreshold = -80;
+        defaultScanPolicy.bandScanPolicy[0].numOfChannlesForDiscovery = 3;
+        defaultScanPolicy.bandScanPolicy[0].numOfChannles = 14;
+
+        for ( i = 0; i < 14; i++ )
+        {
+            defaultScanPolicy.bandScanPolicy[0].channelList[ i ] = i + 1;
+        }
+
+
+
+        defaultScanPolicy.bandScanPolicy[0].trackingMethod.scanType = SCAN_TYPE_NO_SCAN;
+        defaultScanPolicy.bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.earlyTerminationEvent = SCAN_ET_COND_DISABLE;
+        defaultScanPolicy.bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.ETMaxNumberOfApFrames = 0;
+        defaultScanPolicy.bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.maxChannelDwellTime = 0;
+        defaultScanPolicy.bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.minChannelDwellTime = 0;
+
+        defaultScanPolicy.bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.probReqParams.bitrate = RATE_MASK_UNSPECIFIED; /* Let the FW select */
+        defaultScanPolicy.bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.probReqParams.numOfProbeReqs = 0;
+        defaultScanPolicy.bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.probReqParams.txPowerDbm = 0;
+
+        defaultScanPolicy.bandScanPolicy[0].discoveryMethod.scanType = SCAN_TYPE_NO_SCAN;
+        defaultScanPolicy.bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.earlyTerminationEvent = SCAN_ET_COND_DISABLE;
+        defaultScanPolicy.bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.ETMaxNumberOfApFrames = 0;
+        defaultScanPolicy.bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.maxChannelDwellTime = 0;
+        defaultScanPolicy.bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.minChannelDwellTime = 0;
+        defaultScanPolicy.bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.probReqParams.bitrate = RATE_MASK_UNSPECIFIED; /* Let the FW select */
+        defaultScanPolicy.bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.probReqParams.numOfProbeReqs = 0;
+        defaultScanPolicy.bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.probReqParams.txPowerDbm = 0;
+
+        defaultScanPolicy.bandScanPolicy[0].immediateScanMethod.scanType = SCAN_TYPE_NORMAL_ACTIVE;
+        defaultScanPolicy.bandScanPolicy[0].immediateScanMethod.method.basicMethodParams.maxChannelDwellTime = 30000;
+        defaultScanPolicy.bandScanPolicy[0].immediateScanMethod.method.basicMethodParams.minChannelDwellTime = 15000;
+        defaultScanPolicy.bandScanPolicy[0].immediateScanMethod.method.basicMethodParams.earlyTerminationEvent = SCAN_ET_COND_DISABLE;
+        defaultScanPolicy.bandScanPolicy[0].immediateScanMethod.method.basicMethodParams.ETMaxNumberOfApFrames = 0;
+        defaultScanPolicy.bandScanPolicy[0].immediateScanMethod.method.basicMethodParams.probReqParams.numOfProbeReqs = 3;
+        defaultScanPolicy.bandScanPolicy[0].immediateScanMethod.method.basicMethodParams.probReqParams.bitrate = 4;//RATE_MASK_UNSPECIFIED; /* Let the FW select */
+        defaultScanPolicy.bandScanPolicy[0].immediateScanMethod.method.basicMethodParams.probReqParams.txPowerDbm = MAX_TX_POWER;
+
+
+        param.paramType = SCAN_MNGR_SET_CONFIGURATION;
+
+        /* scanMngr_setParam() copy the content and not the pointer */
+        param.content.pScanPolicy = &defaultScanPolicy;
+        param.paramLength = sizeof(TScanPolicy);
+
+        scanMngr_setParam (hScanMngr,&param);
+
+    }
+    /* Configure default scan parameters - SHIRIT END */
+}
+/**
+*
+* scanMngr_startManual API
+*
+* Description:
+*
+* save the manual scan params later to be used upon the scan concentrator object
+* and change the conn status to connected  
+*
+* ARGS:
+*  hScanMngr - Scan manager handle \n
+*
+* RETURNS:
+*  void
+*/
+void scanMngr_startManual(TI_HANDLE hScanMngr)
+{
+	scanMngr_t* pScanMngr = (scanMngr_t*)hScanMngr;
+    TScanBandPolicy* gPolicy;
+
+    pScanMngr->scanningOperationalMode = SCANNING_OPERATIONAL_MODE_MANUAL;
+    pScanMngr->connStatus = CONNECTION_STATUS_CONNECTED;
+
+    scanMngr_setManualScanDefaultParams(hScanMngr);
+    TRACE0(pScanMngr->hReport,REPORT_SEVERITY_INFORMATION, "scanMngr_startManual() called. \n");
+
+    /* get policies by band */
+    gPolicy = scanMngrGetPolicyByBand( hScanMngr, RADIO_BAND_2_4_GHZ ); /* TODO: check if neccessary!!!*/
+}
+
+/**
+*
+* scanMngr_stopManual API
+*
+* Description:
+*
+* set the connection status to NOT_CONNECTED
+*
+* ARGS:
+*  hScanMngr - Scan manager handle \n
+*  pTargetAp - the target AP to connect with info.
+*
+* RETURNS:
+*  void
+*/
+void scanMngr_stopManual(TI_HANDLE hScanMngr)
+{
+	scanMngr_t* pScanMngr = (scanMngr_t*)hScanMngr;
+    pScanMngr->connStatus = CONNECTION_STATUS_NOT_CONNECTED;
+}
+
+/**
+*
+* scanMngr_setManualScanChannelList API
+*
+* Description:
+*
+* save the channel list received form the application.
+*
+* ARGS:
+*  hScanMngr - Scan manager handle \n
+*  pTargetAp - the target AP to connect with info.
+*
+* RETURNS:
+*  TI_OK
+*/
+TI_STATUS scanMngr_setManualScanChannelList (TI_HANDLE  hScanMngr, channelList_t* pChannelList)
+{
+    scanMngr_t* pScanMngr = (scanMngr_t*)hScanMngr;
+
+    pScanMngr->manualScanParams.numOfChannels = pChannelList->numOfChannels;
+    os_memoryCopy(pScanMngr->hOS,
+                  (void*)&pScanMngr->manualScanParams.channelEntry[0],
+                  &pChannelList->channelEntry[0],
+                  pChannelList->numOfChannels * sizeof(TScanChannelEntry));
+
+    return TI_OK;
+}
+
+/**
+*
+* scanMngr_Start1ShotScan API
+*
+* Description:
+*
+* send the required scan params to the scan concentartor module
+* according to the scanning manual mode.
+*
+* ARGS:
+*  hScanMngr - scan manager handle \n
+*  eClient - the client that requests this scan command.
+*
+* RETURNS:
+*  EScanCncnResultStatus - the scan concentrator result
+*/
+EScanCncnResultStatus scanMngr_Start1ShotScan (TI_HANDLE hScanMngr, EScanCncnClient eClient)
+{
+    scanMngr_t* pScanMngr = (scanMngr_t*)hScanMngr;
+    TScanParams* pScanParams;
+    EScanCncnResultStatus status;
+
+    TRACE2(pScanMngr->hReport, REPORT_SEVERITY_INFORMATION, "scanMngr_Start1ShotScan started... .Operational mode: %d, ScanClient=%d. \n",
+                    pScanMngr->scanningOperationalMode, eClient);
+
+    if(SCANNING_OPERATIONAL_MODE_AUTO == pScanMngr->scanningOperationalMode)
+    {
+        pScanParams = &(pScanMngr->scanParams);
+    }
+    else
+    {
+        pScanParams = &(pScanMngr->manualScanParams);  /* the scan params that were previously saved in the scanMngr_startManual()*/
+    }
+
+    status = scanCncn_Start1ShotScan(pScanMngr->hScanCncn, eClient, pScanParams);
+    return status;
+}
+
+/**
+*
+* scanMngr_immediateScanComplete API
+*
+* Description:
+*
+* called upon the immediate scan complete (manual or auto),
+  and call the roaming manager to handle this callback.
+*
+* ARGS:
+*  hScanMngr - Scan manager handle \n
+*  scanCmpltStatus - the scan complete status
+*
+* RETURNS:
+*  EScanCncnResultStatus - the scan concentrator result
+*/
+TI_STATUS scanMngr_immediateScanComplete(TI_HANDLE hScanMngr, scan_mngrResultStatus_e scanCmpltStatus)
+{
+    scanMngr_t* pScanMngr = (scanMngr_t*)hScanMngr;
+
+    if(SCANNING_OPERATIONAL_MODE_AUTO == pScanMngr->scanningOperationalMode)
+    {
+        roamingMngr_immediateScanComplete(pScanMngr->hRoamingMngr, scanCmpltStatus);
+    }
+    else
+    {
+        scanMngr_reportImmediateScanResults(hScanMngr, SCAN_MRS_SCAN_COMPLETE_OK);
+        roamingMngr_immediateScanByAppComplete(pScanMngr->hRoamingMngr, scanCmpltStatus);
+    }
+    return TI_OK;
+}
+
+
+/**
+*
+* scanMngr_reportImmediateScanResults API
+*
+* Description:
+*
+* report the immediate scan results to the application
+*
+* ARGS:
+*  hScanMngr - Scan manager handle \n
+*  scanCmpltStatus - the scan complete status
+*
+* RETURNS:
+*  EScanCncnResultStatus - the scan concentrator result
+*/
+TI_STATUS scanMngr_reportImmediateScanResults(TI_HANDLE hScanMngr, scan_mngrResultStatus_e scanCmpltStatus)
+{
+    scanMngr_t* pScanMngr = (scanMngr_t*)hScanMngr;
+    bssList_t   *pListOfAPs;
+
+
+    if (scanCmpltStatus == SCAN_MRS_SCAN_COMPLETE_OK)
+    {
+        TRACE0(pScanMngr->hReport, REPORT_SEVERITY_INFORMATION ,"scanMngr_reportImmediateScanResults(): reporting scan results to App \n");
+        pListOfAPs  = scanMngr_getBSSList(hScanMngr);
+        EvHandlerSendEvent(pScanMngr->hEvHandler, IPC_EVENT_IMMEDIATE_SCAN_REPORT, (TI_UINT8*)pListOfAPs, sizeof(bssList_t));
+    }
+    else
+    {
+        TRACE1(pScanMngr->hReport, REPORT_SEVERITY_ERROR, "scanMngr_reportImmediateScanResults was not completed successfully. status: %d\n", scanCmpltStatus);
+        return TI_NOK;
+    }
+
+    return TI_OK;
+}
+
+
+/**
+*
+* scanMngr_startContinuousScanByApp API
+*
+* Description:
+*
+* start continuous scan by application
+*
+* ARGS:
+*  hScanMngr - Scan manager handle \n
+*  pChannelList - the channel list to scan
+*
+* RETURNS:
+*  TI_OK - if connected, if not returns TI_NOK
+*/
+TI_STATUS scanMngr_startContinuousScanByApp (TI_HANDLE hScanMngr, channelList_t* pChannelList)
+{
+    scanMngr_t* 	pScanMngr = (scanMngr_t*)hScanMngr;
+    bssEntry_t      *pCurBssEntry;
+
+    scanMngr_setManualScanDefaultParams(hScanMngr);
+
+    TRACE1(pScanMngr->hReport, REPORT_SEVERITY_INFORMATION, "scanMngr_startContinuousScanByApp().pScanMngr->connStatus =  %d \n", pScanMngr->connStatus);
+
+    if (CONN_STATUS_CONNECTED == pScanMngr->connStatus)
+    {
+        scanMngr_setManualScanChannelList(hScanMngr,pChannelList);
+        pCurBssEntry = apConn_getBSSParams(pScanMngr->hAPConnection);
+        scanMngr_startContScan(hScanMngr, &pCurBssEntry->BSSID, pCurBssEntry->band);
+    }
+    else
+    {
+        TRACE1( pScanMngr->hReport, REPORT_SEVERITY_ERROR, "scanMngr_startContinuousScanByApp failed. connection status %d\n", pScanMngr->connStatus);
+        return TI_NOK;
+    }
+
+    return TI_OK;
+}
+
+/**
+*
+* scanMngr_stopContinuousScanByApp API
+*
+* Description:
+*
+* stop the continuous scan already started by and reoprt to application
+*
+* ARGS:
+*  hScanMngr - Scan manager handle \n
+*
+* RETURNS:
+*  TI_OK - always
+*/
+TI_STATUS scanMngr_stopContinuousScanByApp (TI_HANDLE hScanMngr)
+{
+    scanMngr_t* 	pScanMngr = (scanMngr_t*)hScanMngr;
+
+    TRACE0(pScanMngr->hReport, REPORT_SEVERITY_INFORMATION, "scanMngr_stopContinuousScanByApp(). call scanMngr_stopContScan() \n");
+    scanMngr_stopContScan(hScanMngr);
+    scanMngr_reportContinuousScanResults(hScanMngr,SCAN_CRS_SCAN_COMPLETE_OK);
+    return TI_OK;
+}
+
+
+
 
 
 #ifdef TI_DBG
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 26-May-2005\n
  * \brief Print scan manager statistics.\n
  *
@@ -3732,7 +4126,7 @@ void scanMngr_statsPrint( TI_HANDLE hScanMngr )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 26-May-2005\n
  * \brief Print scan result histogram statistics.\n
  *
@@ -3752,7 +4146,7 @@ void scanMngrStatsPrintScanResultHistogram( TI_UINT32 scanResultHistogram[] )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 26-May-2005\n
  * \brief Print track fail count histogram statistics.\n
  *
@@ -3772,7 +4166,7 @@ void scanMngrStatsPrintTrackFailHistogrsm( TI_UINT32 trackFailHistogram[] )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 24-July-2005\n
  * \brief Print SPS attendant channel histogram statistics.\n
  *
@@ -3800,7 +4194,7 @@ void scanMngrStatsPrintSPSChannelsHistogram( TI_UINT32 SPSChannelsNotAttendedHis
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 26-May-2005\n
  * \brief Reset scan manager statistics.\n
  *
@@ -3815,7 +4209,7 @@ void scanMngr_statsReset( TI_HANDLE hScanMngr )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 25-July-2005\n
  * \brief Print Neighbor AP list.\n
  *
@@ -3847,7 +4241,7 @@ void scanMngrDebugPrintNeighborAPList( TI_HANDLE hScanMngr )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 25-July-2005\n
  * \brief Print One neighbor AP entry.\n
  *
@@ -3864,7 +4258,7 @@ void scanMngrDebugPrintNeighborAP( neighborAP_t* pNeighborAp, scan_neighborDisco
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 27-July-2005\n
  * \brief Prints a scan command.\n
  *
@@ -3939,7 +4333,7 @@ void scanMngrDebugPrintScanCommand( TScanParams* pScanParams )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 27-July-2005\n
  * \brief Prints scan command single normal channel.\n
  *
@@ -3957,7 +4351,7 @@ void scanMngrDebugPrintNormalChannelParam( TScanNormalChannelEntry* pNormalChann
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 27-July-2005\n
  * \brief Prints scan command single SPS channel.\n
  *
@@ -3975,7 +4369,7 @@ void scanMngrDebugPrintSPSChannelParam( TScanSpsChannelEntry* pSPSChannel )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 25-July-2005\n
  * \brief Prints all data in the scan manager object.\n
  *

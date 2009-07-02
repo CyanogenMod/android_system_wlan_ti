@@ -92,6 +92,7 @@ typedef struct _TBusDrvObj
     TI_UINT32        uBlkSizeShift;      /* In block-mode:  uBlkSize = (1 << uBlkSizeShift) = 512 bytes */
     TI_UINT32        uBlkSize;           /* In block-mode:  uBlkSize = (1 << uBlkSizeShift) = 512 bytes */
     TI_UINT32        uBlkSizeMask;       /* In block-mode:  uBlkSizeMask = uBlkSize - 1 = 0x1FF*/
+    TI_UINT8 *       pDmaBuffer;         /* DMA-able buffer for buffering all write transactions */
 
 } TBusDrvObj;
 
@@ -224,11 +225,24 @@ TI_STATUS busDrv_ConnectBus (TI_HANDLE        hBusDrv,
     pBusDrv->uCurrTxnPartsCountSync = 0;
 
 	
-    /* Configure the SDIO driver parameters and handle SDIO enumeration */
+    /*
+     * Configure the SDIO driver parameters and handle SDIO enumeration.
+     *
+     * Note: The DMA-able buffer address to use for write transactions is provided from the 
+     *           SDIO driver into pBusDrv->pDmaBuffer.
+     */
     iStatus = sdioAdapt_ConnectBus (busDrv_TxnDoneCb, 
                                     hBusDrv, 
                                     pBusDrv->uBlkSizeShift, 
-                                    pBusDrvCfg->tSdioCfg.uBusDrvThreadPriority);
+                                    pBusDrvCfg->tSdioCfg.uBusDrvThreadPriority,
+                                    &pBusDrv->pDmaBuffer);
+
+    if (pBusDrv->pDmaBuffer == NULL)
+    {
+        TRACE0(pBusDrv->hReport, REPORT_SEVERITY_ERROR, "busDrv_ConnectBus: Didn't get DMA buffer from SDIO driver!!");
+        return TI_NOK;
+    }
+
 
     if (iStatus == 0) 
     {
@@ -309,6 +323,9 @@ ETxnStatus busDrv_Transact (TI_HANDLE hBusDrv, TTxnStruct *pTxn)
  * 
  * Called by busDrv_Transact().
  * Prepares the actual sequence of SDIO bus transactions in a table.
+ * Use a DMA-able buffer for the bus transaction, so all data is copied
+ *     to it from the host buffer(s) before write transactions,
+ *     or copied from it to the host buffers after read transactions.
  * 
  * \note   
  * \param  pBusDrv - The module's object
@@ -318,29 +335,44 @@ ETxnStatus busDrv_Transact (TI_HANDLE hBusDrv, TTxnStruct *pTxn)
  */ 
 static void busDrv_PrepareTxnParts (TBusDrvObj *pBusDrv, TTxnStruct *pTxn)
 {
-    TI_UINT32 uBufNum;
     TI_UINT32 uPartNum = 0;
-    TI_UINT32 uRemainderLen;
+    TI_UINT32 uTxnLength   = 0;
+    TI_UINT8 *pHostBuf     = pBusDrv->pDmaBuffer; /* Host buffer to use for actual transaction is the DMA buffer */
     TI_UINT32 uCurrHwAddr = pTxn->uHwAddr;
     TI_BOOL   bFixedHwAddr = TXN_PARAM_GET_FIXED_ADDR(pTxn);
+    TI_UINT32 uBufNum;
+    TI_UINT32 uBufLen;
+    TI_UINT32 uRemainderLen;
 
-    /* For all occupied buffers in current transaction do */
+    /* Go over the transaction buffers */
     for (uBufNum = 0; uBufNum < MAX_XFER_BUFS; uBufNum++) 
     {
-        /* If no more buffers, exit the for loop */
-        if (pTxn->aLen[uBufNum] == 0)
+        uBufLen = pTxn->aLen[uBufNum];
+
+        /* If no more buffers, exit the loop */
+        if (uBufLen == 0)
         {
             break;
         }
 
+        /* For write transaction, copy the data to the DMA buffer */
+        if (TXN_PARAM_GET_DIRECTION(pTxn) == TXN_DIRECTION_WRITE)
+        {
+            os_memoryCopy (pBusDrv->hOs, pHostBuf + uTxnLength, pTxn->aBuf[uBufNum], uBufLen);
+        }
+
+        /* Add buffer length to total transaction length */
+        uTxnLength += uBufLen;
+        }
+
         /* If current buffer has a remainder, prepare its transaction part */
-        uRemainderLen = pTxn->aLen[uBufNum] & pBusDrv->uBlkSizeMask;
+        uRemainderLen = uTxnLength & pBusDrv->uBlkSizeMask;
         if (uRemainderLen > 0)
         {
             pBusDrv->aTxnParts[uPartNum].bBlkMode  = TI_FALSE;
             pBusDrv->aTxnParts[uPartNum].uLength   = uRemainderLen;
             pBusDrv->aTxnParts[uPartNum].uHwAddr   = uCurrHwAddr;
-            pBusDrv->aTxnParts[uPartNum].pHostAddr = (void *)(pTxn->aBuf[uBufNum]);
+            pBusDrv->aTxnParts[uPartNum].pHostAddr = (void *)pHostBuf;
             pBusDrv->aTxnParts[uPartNum].bMore     = TI_TRUE;
 
             /* If not fixed HW address, increment it by this part's size */
@@ -358,12 +390,12 @@ static void busDrv_PrepareTxnParts (TBusDrvObj *pBusDrv, TTxnStruct *pTxn)
         {
             TI_UINT32 uLen;
 
-    		for (uLen = uRemainderLen; uLen < pTxn->aLen[uBufNum]; uLen += pBusDrv->uBlkSize)
+            for (uLen = uRemainderLen; uLen < uTxnLength; uLen += pBusDrv->uBlkSize)
     		{
     			pBusDrv->aTxnParts[uPartNum].bBlkMode  = TI_FALSE;
     			pBusDrv->aTxnParts[uPartNum].uLength   = pBusDrv->uBlkSize;
     			pBusDrv->aTxnParts[uPartNum].uHwAddr   = uCurrHwAddr;
-    			pBusDrv->aTxnParts[uPartNum].pHostAddr = (void *)(pTxn->aBuf[uBufNum] + uLen);
+                pBusDrv->aTxnParts[uPartNum].pHostAddr = (void *)(pHostBuf + uLen);
     			pBusDrv->aTxnParts[uPartNum].bMore     = TI_TRUE;
     
     			/* If not fixed HW address, increment it by this part's size */
@@ -381,22 +413,15 @@ static void busDrv_PrepareTxnParts (TBusDrvObj *pBusDrv, TTxnStruct *pTxn)
         else 
         {
             /* If current buffer has full SDIO blocks, prepare a block-mode transaction part */
-            if (pTxn->aLen[uBufNum] >= pBusDrv->uBlkSize)
+            if (uTxnLength >= pBusDrv->uBlkSize)
             {
                 pBusDrv->aTxnParts[uPartNum].bBlkMode  = TI_TRUE;
-                pBusDrv->aTxnParts[uPartNum].uLength   = pTxn->aLen[uBufNum] - uRemainderLen;
+                pBusDrv->aTxnParts[uPartNum].uLength   = uTxnLength - uRemainderLen;
                 pBusDrv->aTxnParts[uPartNum].uHwAddr   = uCurrHwAddr;
-                pBusDrv->aTxnParts[uPartNum].pHostAddr = (void *)(pTxn->aBuf[uBufNum] + uRemainderLen);
+                pBusDrv->aTxnParts[uPartNum].pHostAddr = (void *)(pHostBuf + uRemainderLen);
                 pBusDrv->aTxnParts[uPartNum].bMore     = TI_TRUE;
     
-                /* If not fixed HW address, increment it by this part's size */
-                if (!bFixedHwAddr)
-                {
-                    uCurrHwAddr += pTxn->aLen[uBufNum] - uRemainderLen;
-                }
-    
                 uPartNum++;
-            }
         }
     }
 
@@ -424,39 +449,41 @@ static void busDrv_SendTxnParts (TBusDrvObj *pBusDrv)
 {
     ETxnStatus  eStatus;
     TTxnPart   *pTxnPart;
+    TTxnStruct *pTxn = pBusDrv->pCurrTxn;
 
     /* While there are transaction parts to send */
     while (pBusDrv->uCurrTxnPartsCount < pBusDrv->uCurrTxnPartsNum)
     {
         pTxnPart = &(pBusDrv->aTxnParts[pBusDrv->uCurrTxnPartsCount]);
         pBusDrv->uCurrTxnPartsCount++;
+
         /* Assume pending to be ready in case we are preempted by the TxnDon CB !! */
         pBusDrv->eCurrTxnStatus = TXN_STATUS_PENDING;   
 
         /* If single step, send ELP byte */
-        if (TXN_PARAM_GET_SINGLE_STEP(pBusDrv->pCurrTxn)) 
+        if (TXN_PARAM_GET_SINGLE_STEP(pTxn)) 
         {
             /* Overwrite the function id with function 0 - for ELP register !!!! */
             eStatus = sdioAdapt_TransactBytes (TXN_FUNC_ID_CTRL,
                                                pTxnPart->uHwAddr,
                                                pTxnPart->pHostAddr,
                                                pTxnPart->uLength,
-                                               TXN_PARAM_GET_DIRECTION(pBusDrv->pCurrTxn),
+                                               TXN_PARAM_GET_DIRECTION(pTxn),
                                                pTxnPart->bMore);
         }
         else
         {
-            eStatus = sdioAdapt_Transact (TXN_PARAM_GET_FUNC_ID(pBusDrv->pCurrTxn),
+            eStatus = sdioAdapt_Transact (TXN_PARAM_GET_FUNC_ID(pTxn),
                                           pTxnPart->uHwAddr,
                                           pTxnPart->pHostAddr,
                                           pTxnPart->uLength,
-                                          TXN_PARAM_GET_DIRECTION(pBusDrv->pCurrTxn),
+                                          TXN_PARAM_GET_DIRECTION(pTxn),
                                           pTxnPart->bBlkMode,
-                                          ((TXN_PARAM_GET_FIXED_ADDR(pBusDrv->pCurrTxn)==1)?0:1),
+                                          ((TXN_PARAM_GET_FIXED_ADDR(pTxn) == 1) ? 0 : 1),
                                           pTxnPart->bMore);
         }
 
-        TRACE7(pBusDrv->hReport, REPORT_SEVERITY_INFORMATION, "busDrv_SendTxnParts: PartNum = %d, SingleStep = %d, Direction = %d, HwAddr = 0x%x, HostAddr = 0x%x, Length = %d, BlkMode = %d\n", pBusDrv->uCurrTxnPartsCount-1, TXN_PARAM_GET_SINGLE_STEP(pBusDrv->pCurrTxn), TXN_PARAM_GET_DIRECTION(pBusDrv->pCurrTxn), pTxnPart->uHwAddr, pTxnPart->pHostAddr, pTxnPart->uLength, pTxnPart->bBlkMode);
+        TRACE7(pBusDrv->hReport, REPORT_SEVERITY_INFORMATION, "busDrv_SendTxnParts: PartNum = %d, SingleStep = %d, Direction = %d, HwAddr = 0x%x, HostAddr = 0x%x, Length = %d, BlkMode = %d\n", pBusDrv->uCurrTxnPartsCount-1, TXN_PARAM_GET_SINGLE_STEP(pTxn), TXN_PARAM_GET_DIRECTION(pTxn), pTxnPart->uHwAddr, pTxnPart->pHostAddr, pTxnPart->uLength, pTxnPart->bBlkMode);
 
         /* If pending TxnDone (Async), continue this loop in the next TxnDone interrupt */
         if (eStatus == TXN_STATUS_PENDING)
@@ -467,13 +494,14 @@ static void busDrv_SendTxnParts (TBusDrvObj *pBusDrv)
         /* Update current transaction status to deduce if it is all finished in the original context (Sync) or not. */
         pBusDrv->eCurrTxnStatus = eStatus;
         pBusDrv->uCurrTxnPartsCountSync++;
+
         /* If error, set error in Txn struct, call TxnDone CB if not fully sync, and exit */
         if (eStatus == TXN_STATUS_ERROR)
         {
-            TXN_PARAM_SET_STATUS(pBusDrv->pCurrTxn, TXN_PARAM_STATUS_ERROR);
+            TXN_PARAM_SET_STATUS(pTxn, TXN_PARAM_STATUS_ERROR);
             if (pBusDrv->uCurrTxnPartsCountSync != pBusDrv->uCurrTxnPartsCount)
             {
-                pBusDrv->fTxnDoneCb (pBusDrv->hCbHandle, pBusDrv->pCurrTxn);
+                pBusDrv->fTxnDoneCb (pBusDrv->hCbHandle, pTxn);
             }
         	return;
         }
@@ -482,11 +510,33 @@ static void busDrv_SendTxnParts (TBusDrvObj *pBusDrv)
     /* If we got here we sent all buffers and we don't pend transaction end */
     TRACE3(pBusDrv->hReport, REPORT_SEVERITY_INFORMATION, "busDrv_SendTxnParts: Txn finished successfully, Status = %d, PartsCount = %d, SyncCount = %d\n", pBusDrv->eCurrTxnStatus, pBusDrv->uCurrTxnPartsCount, pBusDrv->uCurrTxnPartsCountSync);
 
+    /* For read transaction, copy the data from the DMA-able buffer to the host buffer(s) */
+    if (TXN_PARAM_GET_DIRECTION(pTxn) == TXN_DIRECTION_READ)
+    {
+        TI_UINT32 uBufNum;
+        TI_UINT32 uBufLen;
+        TI_UINT8 *pDmaBuf = pBusDrv->pDmaBuffer; /* After the read transaction the data is in the DMA buffer */
+
+        for (uBufNum = 0; uBufNum < MAX_XFER_BUFS; uBufNum++)
+        {
+            uBufLen = pTxn->aLen[uBufNum];
+
+            /* If no more buffers, exit the loop */
+            if (uBufLen == 0)
+            {
+                break;
+            }
+
+            os_memoryCopy (pBusDrv->hOs, pTxn->aBuf[uBufNum], pDmaBuf, uBufLen);
+            pDmaBuf += uBufLen;
+        }
+    }
+
     /* Set status OK in Txn struct, and call TxnDone CB if not fully sync */
-    TXN_PARAM_SET_STATUS(pBusDrv->pCurrTxn, TXN_PARAM_STATUS_OK);
+    TXN_PARAM_SET_STATUS(pTxn, TXN_PARAM_STATUS_OK);
     if (pBusDrv->uCurrTxnPartsCountSync != pBusDrv->uCurrTxnPartsCount)
     {
-        pBusDrv->fTxnDoneCb (pBusDrv->hCbHandle, pBusDrv->pCurrTxn);
+        pBusDrv->fTxnDoneCb (pBusDrv->hCbHandle, pTxn);
     }
 }
 

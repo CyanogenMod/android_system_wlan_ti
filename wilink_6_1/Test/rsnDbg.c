@@ -134,6 +134,20 @@ void rsnDebugFunction(TI_HANDLE hRsn, TI_UINT32 funcType, void *pParam)
         printRogueApTable(((XCCMngr_t*)((rsn_t*)hRsn)->hXCCMngr)->hRogueAp);
         break;
 #endif
+
+    case DBG_RSN_SET_PORT_STATUS:
+        WLAN_OS_REPORT(("Setting PORT STATUS to open\n"));
+        rsn_setPortStatus(hRsn,TI_TRUE);
+        break;
+
+    case DBG_RSN_PRINT_PORT_STATUS:
+        {
+            TI_BOOL portStatus = TI_FALSE;
+            portStatus = rsn_getPortStatus(((rsn_t*)hRsn));
+            WLAN_OS_REPORT(("\n\nPORT is %s !!\n",(portStatus)?"OPEN":"CLOSE"));
+        }
+
+        break;
 	default:
 		WLAN_OS_REPORT(("Invalid function type in RSN Function Command: %d\n", funcType));
 		break;

@@ -58,6 +58,7 @@
 #define DBG_HM_RECOVERY_BUS_FAILURE	          8   
 #define DBG_HM_RECOVERY_FROM_CLI              9
 #define DBG_HM_RECOVERY_FROM_HW_WD_EXPIRE     10
+#define DBG_HM_RECOVERY_RX_XFER_FAILURE       11
                                                
 /*                                            
  ***********************************************************************

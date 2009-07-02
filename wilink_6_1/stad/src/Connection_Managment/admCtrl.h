@@ -82,7 +82,7 @@ typedef TI_STATUS (*admCtrl_getInfoElement_t)(admCtrl_t *pAdmCtrl, TI_UINT8 *pIe
 
 typedef TI_STATUS (*admCtrl_setSite_t)(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *pAssocIe, TI_UINT8 *pAssocIeLen);
 
-typedef TI_STATUS (*admCtrl_evalSite_t)(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, ScanBssType_e bssType, TI_UINT32 *pEvaluation);
+typedef TI_STATUS (*admCtrl_evalSite_t)(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSiteParams *pRsnSiteParams, TI_UINT32 *pEvaluation);
 
 typedef TI_STATUS (*admCtrl_setMixedMode_t)(admCtrl_t *pAdmCtrl, TI_BOOL mixedMode);
 

@@ -57,7 +57,7 @@
 #include "admCtrlWpa2.h"
 #include "osDot11.h"
 #include "siteMgrApi.h"
-#include "sme.h"
+#include "smeApi.h"
 #include "EvHandler.h"
 #include "admCtrl.h"
 #ifdef XCC_MODULE_INCLUDED
@@ -814,15 +814,14 @@ TI_STATUS admCtrlWpa2_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 
 *
 * \sa 
 */
-TI_STATUS admCtrlWpa2_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, ScanBssType_e bssType, TI_UINT32 *pEvaluation)
+TI_STATUS admCtrlWpa2_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSiteParams *pRsnSiteParams, TI_UINT32 *pEvaluation)
 {
     TI_STATUS               status;
     wpa2IeData_t            wpa2Data;
     TI_UINT8                *pWpa2Ie;
-    ECipherSuite            uSuite, bSuite; 
+    ECipherSuite            uSuite, bSuite,encryptionStatus;
     TI_UINT8                i = 0;
 	paramInfo_t             param;
-	
 
     *pEvaluation = 0;
 
@@ -835,10 +834,17 @@ TI_STATUS admCtrlWpa2_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, ScanBssT
         return TI_NOK;
     }
     
-    if (bssType != BSS_INFRASTRUCTURE)
+    if (pRsnSiteParams->bssType != BSS_INFRASTRUCTURE)
     {
         return TI_NOK;
     }
+
+	pAdmCtrl->getCipherSuite(pAdmCtrl, &encryptionStatus);
+	if ((encryptionStatus == TWD_CIPHER_TKIP) && (pRsnSiteParams->pHTCapabilities->tHdr[0] != TI_FALSE) && (pRsnSiteParams->pHTInfo->tHdr[0] != TI_FALSE))
+	{
+		TRACE0(pAdmCtrl->hReport, REPORT_SEVERITY_INFORMATION,"Dismiss AP - HT with TKIP is not valid");
+        return TI_NOK; /* if the encyption is TKIP and the site does support HT(11n) the site can not be a candidate */
+	}
 
 	/* Get Simple-Config state */
     param.paramType = SITE_MGR_SIMPLE_CONFIG_MODE;
@@ -1739,7 +1745,10 @@ static void admCtrlWpa2_buildAndSendPMKIDCandList (TI_HANDLE hHandle, TBssidList
             }
             i ++;
         }
-        TRACE1(pAdmCtrl->hReport, REPORT_SEVERITY_INFORMATION, "admCtrlWpa2_buildAndSendPMKIDCandList - rsnIE-hdr.eleId = %x \n", rsnIE->hdr[0]);
+		if (rsnIE)
+		{
+			TRACE1(pAdmCtrl->hReport, REPORT_SEVERITY_INFORMATION, "admCtrlWpa2_buildAndSendPMKIDCandList - rsnIE-hdr.eleId = %x \n", rsnIE->hdr[0]);
+		}
 
         if(status == TI_OK)
            status = admCtrlWpa2_parseIe(pAdmCtrl, (TI_UINT8 *)rsnIE, &wpa2Data);

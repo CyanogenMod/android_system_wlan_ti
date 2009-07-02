@@ -205,6 +205,10 @@ TI_HANDLE report_Create (TI_HANDLE hOs)
     os_memoryCopy(hOs, (void *)(pReport->aFileName[FILE_ID_131]),  "rate                    "  ,  sizeof("rate                    "));
     os_memoryCopy(hOs, (void *)(pReport->aFileName[FILE_ID_132]),  "report                  "  ,  sizeof("report                  "));
     os_memoryCopy(hOs, (void *)(pReport->aFileName[FILE_ID_133]),  "stack                   "  ,  sizeof("stack                   "));
+    os_memoryCopy(hOs, (void *)(pReport->aFileName[FILE_ID_134]),  "externalSec             "  ,  sizeof("externalSec             "));
+    os_memoryCopy(hOs, (void *)(pReport->aFileName[FILE_ID_135]),  "roamingMngr_autoSM      "  ,  sizeof("roamingMngr_autoSM      "));
+    os_memoryCopy(hOs, (void *)(pReport->aFileName[FILE_ID_136]),  "roamingMngr_manualSM    "  ,  sizeof("roamingMngr_manualSM    "));
+    os_memoryCopy(hOs, (void *)(pReport->aFileName[FILE_ID_137]),  "cmdinterpretoid         "  ,  sizeof("cmdinterpretoid         "));
 
 #endif  /* PRINTF_ROLLBACK */
 

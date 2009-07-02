@@ -68,7 +68,7 @@
 #include "TWDriver.h"
 #include "DrvMainModules.h"
 #include "StaCap.h"
-#include "sme.h"
+#include "smeApi.h"
 
 /* Constants */
 
@@ -195,25 +195,26 @@ TI_HANDLE assoc_create(TI_HANDLE hOs)
 */
 TI_STATUS assoc_unload(TI_HANDLE hAssoc)
 {
-	TI_STATUS       status;
-	assoc_t     *pHandle;
+    TI_STATUS       status;
+    assoc_t     *pHandle;
 
-	pHandle = (assoc_t *)hAssoc;
-	if (!pHandle)
-		return TI_NOK;
+    pHandle = (assoc_t*)hAssoc;
 
-	status = fsm_Unload(pHandle->hOs, pHandle->pAssocSm);
-	if (status != TI_OK)
+    status = fsm_Unload(pHandle->hOs, pHandle->pAssocSm);
+    if (status != TI_OK)
+    {
+        /* report failure but don't stop... */
+        TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "ASSOC_SM: Error releasing FSM memory \n");
+    }
+    
+	if (pHandle->hAssocSmTimer)
 	{
-		/* report failure but don't stop... */
-		TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "ASSOC_SM: Error releasing FSM memory \n");
+		tmr_DestroyTimer (pHandle->hAssocSmTimer);
 	}
+    
+    os_memoryFree(pHandle->hOs, hAssoc, sizeof(assoc_t));
 
-	tmr_DestroyTimer (pHandle->hAssocSmTimer);
-
-	os_memoryFree(pHandle->hOs, hAssoc, sizeof(assoc_t));
-
-	return TI_OK;
+    return TI_OK;
 }
 
 /**
@@ -453,20 +454,19 @@ TI_STATUS assoc_setDisAssocFlag(TI_HANDLE hAssoc, TI_BOOL disAsoccFlag)
 TI_STATUS assoc_recv(TI_HANDLE hAssoc, mlmeFrameInfo_t *pFrame)
 {
     TI_STATUS       status;
-    assoc_t         *pHandle;
+    assoc_t         *pHandle = (assoc_t*)hAssoc;
     TTwdParamInfo   tTwdParam;
     TI_UINT16           rspStatus;
-
-    pHandle = (assoc_t*)hAssoc;
-
-    /* ensure that the SM is waiting for assoc response */
-    if(pHandle->currentState != ASSOC_SM_STATE_WAIT)
-        return TI_OK;
 
     if (pHandle == NULL)
     {
         return TI_NOK;
     }
+
+    /* ensure that the SM is waiting for assoc response */
+    if(pHandle->currentState != ASSOC_SM_STATE_WAIT)
+        return TI_OK;
+
     
     if ((pFrame->subType != ASSOC_RESPONSE) && (pFrame->subType != RE_ASSOC_RESPONSE))
     {
@@ -627,9 +627,16 @@ TI_STATUS assoc_getParam(TI_HANDLE hAssoc, paramInfo_t *pParam)
         pParam->content.siteMgrTiWlanCounters.AssocTimeouts = pHandle->assocTimeoutCount;
         break;
 
-    case ASSOC_ASSOCIATION_RESP_PARAM:
+    case ASSOC_ASSOCIATION_REQ_PARAM:
         pParam->content.assocReqBuffer.buffer = pHandle->assocReqBuffer;
+        pParam->content.assocReqBuffer.bufferSize = pHandle->assocReqLen;
+		pParam->content.assocReqBuffer.reAssoc = pHandle->reAssoc;
+        break;
+
+    case ASSOC_ASSOCIATION_RESP_PARAM:
+        pParam->content.assocReqBuffer.buffer = pHandle->assocRespBuffer;
         pParam->content.assocReqBuffer.bufferSize = pHandle->assocRespLen;
+		pParam->content.assocReqBuffer.reAssoc = pHandle->reAssocResp;
         break;
 
     case ASSOC_ASSOCIATION_INFORMATION_PARAM:
@@ -923,7 +930,6 @@ TI_STATUS assoc_smSendAssocReq(assoc_t *pAssoc)
     /* Save the association request message */
     assoc_saveAssocReqMessage(pAssoc, assocMsg, msgLen);
     status = mlmeBuilder_sendFrame(pAssoc->hMlme, assocType, assocMsg, msgLen, 0);
-    
     return status;
 }
 
@@ -1479,6 +1485,12 @@ TI_STATUS assoc_smRequestBuild(assoc_t *pCtx, TI_UINT8* reqBuf, TI_UINT32* reqLe
     *reqLen += len;
 #endif
 
+     /* Get Simple-Config state */
+    param.paramType = SITE_MGR_SIMPLE_CONFIG_MODE;
+    status = siteMgr_getParam(pCtx->hSiteMgr, &param);
+
+   if (param.content.siteMgrWSCMode.WSCMode == TIWLN_SIMPLE_CONFIG_OFF)
+   {
     /* insert RSN information elements */
     status = rsn_getInfoElement(pCtx->hRsn, pRequest, &len);
 	
@@ -1488,7 +1500,7 @@ TI_STATUS assoc_smRequestBuild(assoc_t *pCtx, TI_UINT8* reqBuf, TI_UINT32* reqLe
 	}
 	pRequest += len;
 	*reqLen += len;
-
+  }
 
     /* Primary Site support HT ? */
     param.paramType = SITE_MGR_PRIMARY_SITE_HT_SUPPORT;

@@ -515,11 +515,94 @@ TI_STATUS cmdBld_CfgBeaconFilterOpt (TI_HANDLE  hCmdBld,
     DB_WLAN(hCmdBld).beaconFilterParams.desiredState = uBeaconFilteringStatus;
     DB_WLAN(hCmdBld).beaconFilterParams.numOfElements = uNumOfBeaconsToBuffer;
 
-    return cmdBld_CfgIeBeaconFilterOpt (hCmdBld, 
-                                        uBeaconFilteringStatus, 
-                                        uNumOfBeaconsToBuffer, 
-                                        fCb, 
+    return cmdBld_CfgIeBeaconFilterOpt (hCmdBld,
+                                        uBeaconFilteringStatus,
+                                        uNumOfBeaconsToBuffer,
+                                        fCb,
                                         hCb);
+}
+
+/****************************************************************************
+ *                     cmdBld_CfgRateMngDbg
+ ****************************************************************************
+ * DESCRIPTION: Sets rate managment params
+ *
+ * INPUTS:  None
+ *
+ * OUTPUT:  None
+ *
+ * RETURNS: TI_OK or TI_NOK
+ ****************************************************************************/
+
+TI_STATUS cmdBld_CfgRateMngDbg (TI_HANDLE  hCmdBld,
+                                RateMangeParams_t *pRateMngParams ,
+                                void       *fCb,
+                                TI_HANDLE  hCb)
+{
+
+	TRateMngParams      *pRateMngParamsDB = &DB_RM(hCmdBld);
+	int uIndex;
+
+	pRateMngParamsDB->rateMngParams.paramIndex = pRateMngParams->paramIndex;
+
+	 switch (pRateMngParams->paramIndex)
+		{
+		case RATE_MGMT_RETRY_SCORE_PARAM:
+			pRateMngParamsDB->rateMngParams.RateRetryScore = pRateMngParams->RateRetryScore;
+			break;
+		case RATE_MGMT_PER_ADD_PARAM:
+			pRateMngParamsDB->rateMngParams.PerAdd = pRateMngParams->PerAdd;
+			break;
+		case RATE_MGMT_PER_TH1_PARAM:
+			pRateMngParamsDB->rateMngParams.PerTh1 = pRateMngParams->PerTh1;
+			break;
+		case RATE_MGMT_PER_TH2_PARAM:
+			pRateMngParamsDB->rateMngParams.PerTh2 = pRateMngParams->PerTh2;
+			break;
+		case RATE_MGMT_MAX_PER_PARAM:
+			pRateMngParamsDB->rateMngParams.MaxPer = pRateMngParams->MaxPer;
+			break;
+		case RATE_MGMT_INVERSE_CURIOSITY_FACTOR_PARAM:
+			pRateMngParamsDB->rateMngParams.InverseCuriosityFactor = pRateMngParams->InverseCuriosityFactor;
+			break;
+		case RATE_MGMT_TX_FAIL_LOW_TH_PARAM:
+			pRateMngParamsDB->rateMngParams.TxFailLowTh = pRateMngParams->TxFailLowTh;
+			break;
+		case RATE_MGMT_TX_FAIL_HIGH_TH_PARAM:
+			pRateMngParamsDB->rateMngParams.TxFailHighTh = pRateMngParams->TxFailHighTh;
+			break;
+		case RATE_MGMT_PER_ALPHA_SHIFT_PARAM:
+			pRateMngParamsDB->rateMngParams.PerAlphaShift = pRateMngParams->PerAlphaShift;
+			break;
+		case RATE_MGMT_PER_ADD_SHIFT_PARAM:
+			pRateMngParamsDB->rateMngParams.PerAddShift = pRateMngParams->PerAddShift;
+			break;
+		case RATE_MGMT_PER_BETA1_SHIFT_PARAM:
+			pRateMngParamsDB->rateMngParams.PerBeta1Shift = pRateMngParams->PerBeta1Shift;
+			break;
+		case RATE_MGMT_PER_BETA2_SHIFT_PARAM:
+			pRateMngParamsDB->rateMngParams.PerBeta2Shift = pRateMngParams->PerBeta2Shift;
+			break;
+		case RATE_MGMT_RATE_CHECK_UP_PARAM:
+			pRateMngParamsDB->rateMngParams.RateCheckUp = pRateMngParams->RateCheckUp;
+			break;
+		case RATE_MGMT_RATE_CHECK_DOWN_PARAM:
+			pRateMngParamsDB->rateMngParams.RateCheckDown = pRateMngParams->RateCheckDown;
+			break;
+	    case RATE_MGMT_RATE_RETRY_POLICY_PARAM:
+			for (uIndex = 0; uIndex < 13; uIndex++)
+				{
+					pRateMngParamsDB->rateMngParams.RateRetryPolicy[uIndex] = pRateMngParams->RateRetryPolicy[uIndex];
+				}
+			break;
+	 }
+
+
+    return cmdBld_CfgIeRateMngDbg (hCmdBld,
+                                   pRateMngParams,
+                                   fCb,
+                                   hCb);
+
 }
 
 
@@ -725,6 +808,30 @@ TI_STATUS cmdBld_CfgCoexActivity (TI_HANDLE hCmdBld, TCoexActivity *pCoexActivit
     }
 
     return cmdBld_CfgIeCoexActivity (hCmdBld, pCoexActivity, fCb, hCb);
+}
+
+/****************************************************************************
+ *                      cmdBld_CfgFmCoex()
+ ****************************************************************************
+ * DESCRIPTION: Save and configure FM coexistence parameters
+ *
+ * INPUTS:
+ *
+ * OUTPUT:
+ *
+ * RETURNS: TI_OK or TI_NOK
+ ****************************************************************************/
+TI_STATUS cmdBld_CfgFmCoex (TI_HANDLE hCmdBld, TFmCoexParams *pFmCoexParams, void *fCb, TI_HANDLE hCb)
+{
+    TCmdBld *pCmdBld = (TCmdBld *)hCmdBld;
+
+    /* Copy params for recovery */
+    os_memoryCopy (pCmdBld->hOs,
+                   (void*)&(DB_WLAN(hCmdBld).tFmCoexParams),
+                   (void*)pFmCoexParams,
+                   sizeof(TFmCoexParams));
+
+    return cmdBld_CfgIeFmCoex (hCmdBld, pFmCoexParams, fCb, hCb);
 }
 
 /****************************************************************************
@@ -954,7 +1061,6 @@ TI_STATUS cmdBld_CfgRxDataFilter (TI_HANDLE hCmdBld,
     TCmdBld         *pCmdBld  = (TCmdBld *)hCmdBld;
     TRxDataFilter   *pFilters = &(DB_RX_DATA_FLTR(hCmdBld).aRxDataFilter[index]);
 
-
     /* Save parameters for reconfig phase */
     pFilters->uIndex            = index;
     pFilters->uCommand          = command;
@@ -962,7 +1068,6 @@ TI_STATUS cmdBld_CfgRxDataFilter (TI_HANDLE hCmdBld,
     pFilters->uNumFieldPatterns = uNumFieldPatterns;
     pFilters->uLenFieldPatterns = uLenFieldPatterns;
     os_memoryCopy(pCmdBld->hOs, pFilters->aFieldPattern, pFieldPatterns, uLenFieldPatterns);
-
 
     return cmdBld_CfgIeRxDataFilter (hCmdBld, 
                                      index, 

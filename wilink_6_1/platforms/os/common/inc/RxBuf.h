@@ -89,6 +89,7 @@ typedef void BUF, *PBUF;
  * 
  * \param  hOs		- OS module object handle
  * \param  len		- Length of allocated WBUF
+ * \param  ePacketClassTag	- The RX packet type (used only in EMP)
  * \return On success: Pointer to WBUF	;	Otherwise: NULL
  * 
  * \par Description
@@ -96,7 +97,7 @@ typedef void BUF, *PBUF;
  * 
  * \sa
  */ 
-BUF* RxBufAlloc         (TI_HANDLE hOs, TI_UINT32 len);
+BUF* RxBufAlloc         (TI_HANDLE hOs, TI_UINT32 len, PacketClassTag_e ePacketClassTag);
 
 
 /** \brief BUF Free

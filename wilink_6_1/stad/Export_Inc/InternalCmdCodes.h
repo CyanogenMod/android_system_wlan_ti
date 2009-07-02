@@ -112,8 +112,9 @@ typedef enum
     /* Assoc section */
     ASSOC_RESPONSE_TIMEOUT_PARAM                        = SET_BIT | GET_BIT | ASSOC_MODULE_PARAM | 0x01,
     ASSOC_COUNTERS_PARAM                                =           GET_BIT | ASSOC_MODULE_PARAM | 0x02,
-    ASSOC_ASSOCIATION_INFORMATION_PARAM             =           GET_BIT | ASSOC_MODULE_PARAM | 0x03,
-    ASSOC_ASSOCIATION_RESP_PARAM                        =           GET_BIT | ASSOC_MODULE_PARAM | 0x04,
+    ASSOC_ASSOCIATION_INFORMATION_PARAM                 =           GET_BIT | ASSOC_MODULE_PARAM | 0x03,
+    ASSOC_ASSOCIATION_REQ_PARAM                        	=           GET_BIT | ASSOC_MODULE_PARAM | 0x04,
+    ASSOC_ASSOCIATION_RESP_PARAM                        =           GET_BIT | ASSOC_MODULE_PARAM | 0x05,
 
     /* RSN section */
     RSN_PRIVACY_OPTION_IMPLEMENTED_PARAM            =           GET_BIT | RSN_MODULE_PARAM | 0x01,
@@ -130,7 +131,8 @@ typedef enum
     /* RX data section */
     RX_DATA_COUNTERS_PARAM                          =           GET_BIT | RX_DATA_MODULE_PARAM | 0x01,
     RX_DATA_EXCLUDE_UNENCRYPTED_PARAM               = SET_BIT | GET_BIT | RX_DATA_MODULE_PARAM | 0x02,
-    RX_DATA_EXCLUDE_BROADCAST_UNENCRYPTED_PARAM = SET_BIT | GET_BIT | RX_DATA_MODULE_PARAM | 0x03,
+    RX_DATA_EXCLUDE_BROADCAST_UNENCRYPTED_PARAM     = SET_BIT | GET_BIT | RX_DATA_MODULE_PARAM | 0x03,
+    RX_DATA_RATE_PARAM                              =           GET_BIT | RX_DATA_MODULE_PARAM | 0x04,
      
     /* TX data section */
     TX_CTRL_GET_MEDIUM_USAGE_THRESHOLD              = SET_BIT | GET_BIT | TX_CTRL_MODULE_PARAM | 0x04,

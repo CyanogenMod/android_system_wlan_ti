@@ -342,7 +342,6 @@ TI_STATUS txCtrlParams_getParam(TI_HANDLE hTxCtrl, paramInfo_t *pParamInfo)
 
     if(pTxCtrl == NULL)  /* check handle validity */
     {
-        TRACE0(pTxCtrl->hReport, REPORT_SEVERITY_ERROR, ": Null handle\n");
         return TI_NOK;
     }
 
@@ -401,7 +400,6 @@ TI_STATUS txCtrlParams_setParam(TI_HANDLE hTxCtrl, paramInfo_t *pParamInfo)
 
     if(pTxCtrl == NULL)  /* check handle validity */
     {
-        TRACE0(pTxCtrl->hReport, REPORT_SEVERITY_ERROR, ": Null handle \n");
         return TI_NOK;
     }
 	

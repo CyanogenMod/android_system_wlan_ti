@@ -203,7 +203,11 @@ typedef enum
 	FILE_ID_131	   ,    /*   rate                     */
 	FILE_ID_132	   ,    /*   report                   */
 	FILE_ID_133	   ,    /*   stack                    */
+    FILE_ID_134	   ,    /*   externalSec              */
+    FILE_ID_135	   ,    /*   roamingMngr_autoSM       */
+    FILE_ID_136	   ,    /*   roamingMngr_manualSM     */
 
+	FILE_ID_137	   ,    /*   cmdinterpretoid          */
 	REPORT_FILES_NUM	/*   Number of files with trace reports   */
 
 } EReportFiles;

@@ -241,6 +241,8 @@ void smeSm_Stop (TI_HANDLE hSme)
 void smeSm_PreConnect (TI_HANDLE hSme)
 {
     TSme    *pSme = (TSme*)hSme;
+    paramInfo_t	        param;
+
 
     /* set the connection mode with which this connection attempt is starting */
     pSme->eLastConnectMode = pSme->eConnectMode;
@@ -275,13 +277,73 @@ void smeSm_PreConnect (TI_HANDLE hSme)
             }
 
         }
-        else
+        else		/* Manual mode */
         {
+			/* for IBSS or any, if no entries where found, add the self site */
+			if (pSme->eBssType == BSS_INFRASTRUCTURE)
+            {
             /* makr whether we need to stop the attempt connection in manual mode */
             pSme->bConnectRequired = TI_FALSE;
 
+				TRACE0(pSme->hReport, REPORT_SEVERITY_INFORMATION , "smeSm_PreConnect: No candidate available, sending connect failure\n");
             /* manual mode and no connection candidate is available - connection failed */
             genSM_Event (pSme->hSmeSm, SME_SM_EVENT_CONNECT_FAILURE, hSme);
+			}
+
+			else		/* IBSS */
+			{
+				TI_UINT8     uDesiredChannel;
+		        pSme->bConnectRequired = TI_FALSE;
+
+				param.paramType = SITE_MGR_DESIRED_CHANNEL_PARAM;
+				siteMgr_getParam(pSme->hSiteMgr, &param);
+				uDesiredChannel = param.content.siteMgrDesiredChannel;
+
+				if (uDesiredChannel >= SITE_MGR_CHANNEL_A_MIN)
+				{
+				   param.content.channelCapabilityReq.band = RADIO_BAND_5_0_GHZ;
+				}
+				else
+				{
+				   param.content.channelCapabilityReq.band = RADIO_BAND_2_4_GHZ;
+				}
+
+				/*
+				update the regulatory domain with the selected band
+				*/
+				/* Check if the selected channel is valid according to regDomain */
+				param.paramType = REGULATORY_DOMAIN_GET_SCAN_CAPABILITIES;
+				param.content.channelCapabilityReq.scanOption = ACTIVE_SCANNING;
+				param.content.channelCapabilityReq.channelNum = uDesiredChannel;
+
+				regulatoryDomain_getParam (pSme->hRegDomain,&param);
+				if (!param.content.channelCapabilityRet.channelValidity)
+				{
+				   TRACE0(pSme->hReport, REPORT_SEVERITY_INFORMATION , "IBSS SELECT FAILURE  - No channel !!!\n\n");
+
+				   genSM_Event (pSme->hSmeSm, SME_SM_EVENT_CONNECT_FAILURE, hSme);
+
+				   return;
+				}
+
+				pSme->pCandidate = (TSiteEntry *)addSelfSite(pSme->hSiteMgr);
+
+				if (pSme->pCandidate == NULL)
+				{
+				   TRACE0(pSme->hReport, REPORT_SEVERITY_ERROR , "IBSS SELECT FAILURE  - could not open self site !!!\n\n");
+
+				   genSM_Event (pSme->hSmeSm, SME_SM_EVENT_CONNECT_FAILURE, hSme);
+
+				   return;
+				}
+
+#ifdef REPORT_LOG
+				TRACE6(pSme->hReport, REPORT_SEVERITY_CONSOLE,"%%%%%%%%%%%%%%	SELF SELECT SUCCESS, bssid: %X-%X-%X-%X-%X-%X	%%%%%%%%%%%%%%\n\n", pSme->pCandidate->bssid[0], pSme->pCandidate->bssid[1], pSme->pCandidate->bssid[2], pSme->pCandidate->bssid[3], pSme->pCandidate->bssid[4], pSme->pCandidate->bssid[5]);
+                WLAN_OS_REPORT (("%%%%%%%%%%%%%%	SELF SELECT SUCCESS, bssid: %02x.%02x.%02x.%02x.%02x.%02x %%%%%%%%%%%%%%\n\n", pSme->pCandidate->bssid[0], pSme->pCandidate->bssid[1], pSme->pCandidate->bssid[2], pSme->pCandidate->bssid[3], pSme->pCandidate->bssid[4], pSme->pCandidate->bssid[5]));
+#endif
+				/* a connection candidate is available, send a connect event */
+				genSM_Event (pSme->hSmeSm, SME_SM_EVENT_CONNECT, hSme);
+			}
         }
     }
 }
@@ -647,12 +709,14 @@ TI_STATUS sme_StartScan (TI_HANDLE hSme)
         if (SSID_TYPE_ANY == pSme->eSsidType)
         {
             pSme->tScanParams.uSsidNum = 0;
+            pSme->tScanParams.uSsidListFilterEnabled = 1;
         }
         else
         {
             pSme->tScanParams.tDesiredSsid[ 0 ].eVisability = SCAN_SSID_VISABILITY_HIDDEN;
             os_memoryCopy (pSme->hOS, &(pSme->tScanParams.tDesiredSsid[ 0 ].tSsid), &(pSme->tSsid), sizeof (TSsid));
             pSme->tScanParams.uSsidNum = 1;
+            pSme->tScanParams.uSsidListFilterEnabled = 1;
         }
     }
     /* Country code exists and scan is performed on this band - take country expiry timr into account */
@@ -674,6 +738,7 @@ TI_STATUS sme_StartScan (TI_HANDLE hSme)
             pSme->tScanParams.tDesiredSsid[ 1 ].eVisability = SCAN_SSID_VISABILITY_PUBLIC;
             pSme->tScanParams.tDesiredSsid[ 1 ].tSsid.len = 0;
             pSme->tScanParams.uSsidNum = 2;
+            pSme->tScanParams.uSsidListFilterEnabled = 1;
             /* 
              * since we are also looking for an AP with country IE (not include in IBSS), we need to make sure
              * the desired BSS type include infrastructure BSSes.
@@ -692,6 +757,7 @@ TI_STATUS sme_StartScan (TI_HANDLE hSme)
         else
         {
             pSme->tScanParams.uSsidNum = 1;
+            pSme->tScanParams.uSsidListFilterEnabled = 1;
             /* only looking for the desired SSID - set the desired BSS type */
             pSme->tScanParams.eBssType = pSme->eBssType;
         }
@@ -702,6 +768,7 @@ TI_STATUS sme_StartScan (TI_HANDLE hSme)
         TRACE0(pSme->hReport, REPORT_SEVERITY_INFORMATION , "sme_StartScan: performing passive scan to find country IE\n");
         pSme->tScanParams.eBssType = BSS_INFRASTRUCTURE; /* only an AP would transmit a country IE */
         pSme->tScanParams.uSsidNum = 0;
+        pSme->tScanParams.uSsidListFilterEnabled = 1;
     }
 
     /* update scan cycle number and scan intervals according to 802.11d status and country availability  */

@@ -46,7 +46,7 @@
  * Allocate BUF Rx packets.
  * Add 16 bytes before the data buffer for WSPI overhead!
  */
-void* RxBufAlloc(TI_HANDLE hOs, TI_UINT32 len)
+void* RxBufAlloc(TI_HANDLE hOs, TI_UINT32 len,PacketClassTag_e ePacketClassTag)
 {
     TI_UINT32      alloc_len = len + WSPI_PAD_BYTES + PAYLOAD_ALIGN_PAD_BYTES + RX_HEAD_LEN_ALIGNED;
 	struct sk_buff *skb      = alloc_skb (alloc_len, GFP_ATOMIC);

@@ -1426,6 +1426,7 @@ typedef enum
     SCAN_SSID_FILTER_TYPE_ANY = 0,
     SCAN_SSID_FILTER_TYPE_SPECIFIC = 1,
     SCAN_SSID_FILTER_TYPE_LIST = 2,
+    SCAN_SSID_FILTER_TYPE_LIST_FILTER_DISABLED = 3,
     MAX_SCAN_SSID_FILTER_TYPE = 0xFF
 } ScanSsidFilterType_enum;
 
@@ -1468,7 +1469,7 @@ typedef struct
     uint8                   terminateOnReport;      /* Terminate after report */
     uint8                   resultsTag;             /* Tag for filtered scan results */
     ScanBssType_e           bssType;                /* BSS type to filter (0 - Infra, 1 - IBSS, 2 - Any) */
-    ScanSsidFilterType_e    ssidFilterType;         /* SSID filter Type (0 - Any, 1 - specified in command, 2 - use SSID list) */
+    ScanSsidFilterType_e    ssidFilterType;         /* SSID filter Type (0 - Any, 1 - specified in command, 2 - use SSID list, 3 - use SSID list no filter) */
     uint8                   ssidLength;             /* SSID Length (if ssidType is specified in command) */
     uint8                   ssid[32];               /* SSID (if ssidType is specified in command) */
     uint8                   numProbe;               /* Number of probe requests to transmit per (hidden) SSID per channel */

@@ -35,6 +35,7 @@
 #include <net/if.h>
 #include <linux/rtnetlink.h>
 #include <linux/wireless.h>
+#include <string.h>
 
 #include "TWDriver.h"
 #include "STADExternalIf.h"
@@ -137,7 +138,9 @@ static S32 CuWext_FillBssidList(struct iw_event *iwe, OS_802_11_BSSID_EX* bssidL
 
                 if(!os_strncmp(buffer, (PS8)"Bcn", 3))
                 {
-                    os_sscanf(buffer, (PS8)"Bcn int = %d ms", &bssidList[index-1].Configuration.BeaconPeriod );
+                    char *p1;
+                    p1 = strtok(&buffer[10], " ");
+                    bssidList[index-1].Configuration.BeaconPeriod = atoi(p1);
                 }
             }           
             break;          

@@ -81,7 +81,7 @@ TI_STATUS admCtrlWep_getInfoElement(admCtrl_t *pAdmCtrl, TI_UINT8 *pIe, TI_UINT3
 
 TI_STATUS admCtrlWep_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *pAssocIe, TI_UINT8 *pAssocIeLen);
 
-TI_STATUS admCtrlWep_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, ScanBssType_e bssType, TI_UINT32 *pEvaluation);
+TI_STATUS admCtrlWep_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSiteParams *pRsnSiteParams, TI_UINT32 *pEvaluation);
 
 
 /**
@@ -309,9 +309,8 @@ TI_STATUS admCtrlWep_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *
 *
 * \sa 
 */
-TI_STATUS admCtrlWep_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, ScanBssType_e bssType, TI_UINT32 *pEvaluation)
+TI_STATUS admCtrlWep_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSiteParams *pRsnSiteParams, TI_UINT32 *pEvaluation)
 {
-	
 	*pEvaluation = 0;
 	
 	if (pRsnData==NULL)
@@ -321,7 +320,7 @@ TI_STATUS admCtrlWep_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, ScanBssTy
     pAdmCtrl->setSiteFirst = TI_FALSE;
 
 #ifdef XCC_MODULE_INCLUDED
-	if (admCtrlXCC_evalSite(pAdmCtrl, pRsnData, bssType, pEvaluation, &pAdmCtrl->XCCSupport) != TI_OK)
+	if (admCtrlXCC_evalSite(pAdmCtrl, pRsnData, pRsnSiteParams, pEvaluation, &pAdmCtrl->XCCSupport) != TI_OK)
     {
         return TI_NOK;
     }

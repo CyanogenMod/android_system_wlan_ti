@@ -70,6 +70,8 @@
 #define TXN_NON_SLEEP_ELP           1
 #define TXN_SLEEP_ELP               0
 
+#define NUM_OF_PARTITION            4
+
 /************************************************************************
  * Macros
  ************************************************************************/
@@ -159,6 +161,12 @@ typedef union
 
 } TBusDrvCfg;
 
+
+typedef struct
+{
+    TI_UINT32   uMemAdrr;
+    TI_UINT32   uMemSize;
+} TPartition;
 
 /************************************************************************
  * Functions

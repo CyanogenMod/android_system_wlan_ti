@@ -151,6 +151,8 @@ TI_STATUS cmdBld_CfgSetFwHtCapabilities (TI_HANDLE hCmdBld, TI_UINT32 uHtCapabil
 TI_STATUS cmdBld_CfgSetFwHtInformation  (TI_HANDLE hCmdBld, TI_UINT8 uRifsMode,TI_UINT8 uHtProtection, TI_UINT8 uGfProtection, TI_UINT8 uHtTxBurstLimit, TI_UINT8 uDualCtsProtection, void *fCb, TI_HANDLE hCb);
 TI_STATUS cmdBld_CfgCoexActivity        (TI_HANDLE hCmdBld, TCoexActivity *pCoexActivity, void *fCb, TI_HANDLE hCb);
 TI_STATUS cmdBld_CfgBurstMode 			(TI_HANDLE hCmdBld, TI_BOOL bEnabled, void *fCb, TI_HANDLE hCb);
+TI_STATUS cmdBld_CfgFmCoex              (TI_HANDLE hCmdBld, TFmCoexParams *pFmCoexParams, void *fCb, TI_HANDLE hCb);
+
 /* Interrogate */
 TI_STATUS cmdBld_ItrRSSI                    (TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb, void *pCb);
 TI_STATUS cmdBld_ItrErrorCnt                (TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb, void *pCb);
@@ -160,6 +162,7 @@ TI_STATUS cmdBld_ItrMemoryMap               (TI_HANDLE hCmdBld, MemoryMap_t *pMa
 TI_STATUS cmdBld_ItrStatistics              (TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb, void *pCb);
 TI_STATUS cmdBld_ItrDataFilterStatistics    (TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb, void *pCb);
 TI_STATUS cmdBld_ItrPowerConsumptionstat    (TI_HANDLE hTWD, void *fCb, TI_HANDLE hCb, void* pCb);
+TI_STATUS cmdBld_ItrRateParams              (TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb, void* pCb);
 
 
 /* Get */
@@ -176,6 +179,12 @@ TI_STATUS cmdBld_GetPltRxCalibrationStatus  ( TI_HANDLE hCmdBld, TI_STATUS *pLas
 TI_STATUS cmdBld_SetRadioBand           (TI_HANDLE hCmdBld, ERadioBand eRadioBand);
 TI_STATUS cmdBld_SetRxFilter            (TI_HANDLE hCmdBld, TI_UINT32 uRxConfigOption, TI_UINT32 uRxFilterOption);
 TI_STATUS cmdBld_SetSecuritySeqNum      (TI_HANDLE hCmdBld, TI_UINT8 securitySeqNumLsByte);
+TI_STATUS cmdBld_CfgRateMngDbg 			(TI_HANDLE hCmdBld, RateMangeParams_t *pRateMngParams ,void *fCb, TI_HANDLE  hCb);
+
+
+/* this is a solution for the EMP project Enable/Disable Rx Data*/
+TI_STATUS cmdBld_SetDownlinkData  (TI_HANDLE hCmdBld, TI_BOOL bDownlinkFlag);
+
 
 #ifdef TI_DBG
 void cmdBld_DbgForceTemplatesRates (TI_HANDLE hCmdBld, TI_UINT32 uRateMask);
@@ -247,6 +256,8 @@ typedef struct
 #define DB_RX_DATA_FLTR(HCMDBLD)    (((TCmdBld *)HCMDBLD)->tDb.rxDataFilters)
 #define DB_RADIO(HCMDBLD)    (((TCmdBld *)HCMDBLD)->tDb.tRadioIniParams)
 #define DB_GEN(HCMDBLD)    (((TCmdBld *)HCMDBLD)->tDb.tPlatformGenParams)
+#define DB_SR(HCMDBLD)    (((TCmdBld *)HCMDBLD)->tDb.tSmartReflex)
+#define DB_RM(HCMDBLD)    (((TCmdBld *)HCMDBLD)->tDb.tRateMngParams)
 
 
 #define DB_DEFAULT_CHANNEL(HCMDBLD)                     \

@@ -107,8 +107,8 @@ typedef struct
 	TI_UINT32               policyEnabledRatesMaskOfdmA;
 	TI_UINT32               policyEnabledRatesMaskOfdmN;
 
-    /* holds the current used En/Dis Rates Mask */
-    TI_UINT32               uCurrPolicyEnabledRatesMask;
+    TI_UINT32               uCurrPolicyEnabledRatesMask;    /* holds the current used En/Dis Rates Mask */
+    TI_UINT32               uMgmtPolicyId;                  /* the management packets policy ID */
 
 #ifdef XCC_MODULE_INCLUDED
     /* Callback for update retries in Link Test */

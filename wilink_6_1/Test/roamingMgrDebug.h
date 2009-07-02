@@ -50,7 +50,15 @@
 #define TRIGGER_ROAMING_NOT_CONNECTED_EVENT		10
 #define TRIGGER_ROAMING_HANDOVER_SUCCESS_EVENT	11
 #define TRIGGER_ROAMING_HANDOVER_FAILURE_EVENT	12
-												
+
+/* Added for EMP project */
+#define ROAMING_REGISTER_BSS_LOSS_EVENT         13
+#define ROAMING_START_IMMEDIATE_SCAN            14
+#define ROAMING_CONNECT                         15
+#define ROAMING_START_CONT_SCAN_BY_APP          16
+#define ROAMING_STOP_CONT_SCAN_BY_APP           17
+#define RAOMING_SET_DEFAULT_SCAN_POLICY         18
+#define ROAMING_PRINT_MANUAL_MODE               19
 
 void roamingMgrDebugFunction(TI_HANDLE hRoamingMngr, 
 					   TI_UINT32	funcType, 

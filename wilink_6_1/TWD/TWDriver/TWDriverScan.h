@@ -297,6 +297,7 @@ typedef struct
 typedef struct
 {
     TI_UINT32               uSsidNum;												/**< Number of Desired SSID scanned			 					*/
+    TI_UINT8				uSsidListFilterEnabled;										/** 1: eneable filtering according to the list; 0: disable  */
     TPeriodicScanSsid       tDesiredSsid[ PERIODIC_SCAN_MAX_SSID_NUM ];				/**< Buffer of size of maximum possible Periodic Scanned SSIDs. 
 																					* This buffer holds the Parameters of Desired SSIDs (for each SSID: 
 																					* visibility, length, string buffer) --> number of init entries in 

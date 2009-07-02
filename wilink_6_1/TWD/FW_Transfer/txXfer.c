@@ -240,6 +240,7 @@ ETxnStatus txXfer_SendPacket (TI_HANDLE hTxXfer, TTxCtrlBlk *pPktCtrlBlk)
             TRACE1(pTxXfer->hReport, REPORT_SEVERITY_CONSOLE, "txXfer_SendPacket():  Tx Buffer %d:\n", i);
             WLAN_OS_REPORT (("txXfer_SendPacket():  Tx Buffer %d:\n", i));
             report_PrintDump(pPktCtrlBlk->tTxnStruct.aBuf[i], pPktCtrlBlk->tTxnStruct.aLen[i]);
+            return eStatus;
         }
     }
 

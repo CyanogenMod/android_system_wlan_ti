@@ -887,6 +887,12 @@ static TI_BOOL regulatoryDomain_isChannelSupprted(regulatoryDomain_t *pRegulator
 	else
 	{
 		channelIndex = (channel-BG_24G_BAND_MIN_CHANNEL);
+		if (channelIndex >= NUM_OF_CHANNELS_24)
+		{
+			TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_ERROR,
+				   "regulatoryDomain_isChannelSupprted(): 2.4G invalid channel # %u\n", channel );
+			return TI_FALSE;
+		}
 		pSupportedChannels = pRegulatoryDomain->supportedChannels_band_2_4;
 	}
 	if (pRegulatoryDomain->spectrumManagementEnabled 
@@ -1119,17 +1125,29 @@ static TI_STATUS regulatoryDomain_getChannelCapability(regulatoryDomain_t *pRegu
 	{
 		pSupportedChannels = pRegulatoryDomain->supportedChannels_band_2_4;
 		channelIndex = (channelCapabilityReq.channelNum-BG_24G_BAND_MIN_CHANNEL);
+		if (channelIndex >= NUM_OF_CHANNELS_24)
+		{
+			TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_ERROR,
+				   "regulatoryDomain_getChannelCapability(): 2.4G invalid channel # %u\n", channelCapabilityReq.channelNum );
+			return TI_NOK;
+		}
 		bCountryWasFound = pRegulatoryDomain->country_2_4_WasFound;
 	}
 	else if (channelCapabilityReq.band==RADIO_BAND_5_0_GHZ)
 	{
 		pSupportedChannels = pRegulatoryDomain->supportedChannels_band_5;
 		channelIndex = (channelCapabilityReq.channelNum - A_5G_BAND_MIN_CHANNEL);
+		if (channelIndex >= A_5G_BAND_NUM_CHANNELS)
+		{
+			TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_ERROR,
+				   "regulatoryDomain_getChannelCapability(): 5G invalid channel # %u\n", channelCapabilityReq.channelNum);
+			return TI_NOK;
+		}
 		bCountryWasFound = pRegulatoryDomain->country_5_WasFound;
 	}
 	else
 	{
-TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_ERROR, "regulatoryDomain_getChannelCapability, invalid band=%d \n", channelCapabilityReq.band);
+		TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_ERROR, "regulatoryDomain_getChannelCapability, invalid band=%d \n", channelCapabilityReq.band);
 		return TI_NOK;
 	}
 
@@ -1216,12 +1234,18 @@ static void regulatoryDomain_updateChannelsTs(regulatoryDomain_t *pRegulatoryDom
 	else
 	{
 		channelIndex = (channel-BG_24G_BAND_MIN_CHANNEL);
+		if (channelIndex >= NUM_OF_CHANNELS_24)
+		{
+			TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_ERROR,
+				   "regulatoryDomain_updateChannelsTs(): 2.4G invalid channel # %u\n", channel );
+			return;
+		}
 		pSupportedChannels = pRegulatoryDomain->supportedChannels_band_2_4;
 	}
 	
 	if((pSupportedChannels[channelIndex].bChanneInCountryIe == TI_FALSE) && (pRegulatoryDomain->regulatoryDomainEnabled == TI_TRUE))
   	{
-  TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_WARNING, "regulatoryDomain_updateChannelsTs: channelNum = %d isn't supported at the Country. wll not set to active!\n", channel);
+		TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_WARNING, "regulatoryDomain_updateChannelsTs: channelNum = %d isn't supported at the Country. wll not set to active!\n", channel);
   		return;
   	}
 

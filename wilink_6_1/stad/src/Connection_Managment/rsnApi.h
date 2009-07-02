@@ -203,9 +203,18 @@ typedef struct
     TI_BOOL             WPAMixedModeEnable;
     TI_BOOL             preAuthSupport;
     TI_UINT32           preAuthTimeout;
+    TI_BOOL             bRsnExternalMode;
     TI_BOOL             bPairwiseMicFailureFilter;
 
 } TRsnInitParams;
+
+typedef struct
+{
+	ScanBssType_e 				bssType;
+	TMacAddr 	  				bssid;
+	Tdot11HtInformationUnparse  *pHTInfo;
+	Tdot11HtCapabilitiesUnparse *pHTCapabilities;
+} TRsnSiteParams;
 
 
 /* Prototypes */
@@ -230,7 +239,7 @@ TI_STATUS rsn_setParam(TI_HANDLE hCtrlData, void *pParam);
 
 TI_STATUS rsn_getParam(TI_HANDLE hCtrlData, void *pParam);
 
-TI_STATUS rsn_evalSite(TI_HANDLE hRsn, TRsnData *pRsnData, ScanBssType_e bssType, TMacAddr bssid, TI_UINT32 *pMetric);
+TI_STATUS rsn_evalSite(TI_HANDLE hRsn, TRsnData *pRsnData, TRsnSiteParams *pRsnSiteParams, TI_UINT32 *pMetric);
 
 TI_STATUS rsn_setSite(TI_HANDLE hRsn, TRsnData *pRsnData, TI_UINT8 *pAssocIe, TI_UINT8 *pAssocIeLen);
 
@@ -256,5 +265,8 @@ TI_BOOL rsn_isSiteBanned(TI_HANDLE hRsn, TMacAddr siteBssid);
 
 void rsn_MboxFlushFinishCb(TI_HANDLE handle, TI_UINT16 MboxStatus, char *InterrogateParamsBuf);
 
+TI_STATUS rsn_setPortStatus(TI_HANDLE hRsn, TI_BOOL state);
+
+void rsn_reAuth(TI_HANDLE hRsn);
 
 #endif /* __RSN_API_H__*/

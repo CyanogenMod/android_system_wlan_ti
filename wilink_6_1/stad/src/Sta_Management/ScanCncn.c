@@ -51,7 +51,7 @@
 #include "ScanCncnPrivate.h"
 #include "ScanCncnOsSm.h"
 #include "scanResultTable.h"
-#include "sme.h"
+#include "smeApi.h"
 #include "apConnApi.h"
 #include "EvHandler.h"
 

@@ -134,12 +134,15 @@ static named_value_t event_type[] = {
     { IPC_EVENT_LINK_SPEED,             (PS8)"LinkSpeed" },
     { IPC_EVENT_AUTH_SUCC,              (PS8)"Authentication Success" },
     { IPC_EVENT_SCAN_COMPLETE,          (PS8)"ScanComplete" },
-    { IPC_EVENT_TIMEOUT,                (PS8)"Timeout" },
+    { IPC_EVENT_SCAN_STOPPED,           (PS8)"ScanStopped" },
 #ifdef XCC_MODULE_INCLUDED
     { IPC_EVENT_CCKM_START,             (PS8)"CCKM_Start" },
 #endif
     { IPC_EVENT_MEDIA_SPECIFIC,         (PS8)"Media_Specific" },
     { IPC_EVENT_EAPOL,                  (PS8)"EAPOL" },
+    { IPC_EVENT_RE_AUTH_STARTED,		(PS8)"IPC_EVENT_RE_AUTH_STARTED" },
+    { IPC_EVENT_RE_AUTH_COMPLETED,		(PS8)"IPC_EVENT_RE_AUTH_COMPLETED" },
+    { IPC_EVENT_RE_AUTH_TERMINATED,     (PS8)"IPC_EVENT_RE_AUTH_TERMINATED" },
     { IPC_EVENT_BOUND,                  (PS8)"Bound" },
     { IPC_EVENT_UNBOUND,                (PS8)"Unbound" },
 #ifdef WPA_ENTERPRISE
@@ -153,9 +156,11 @@ static named_value_t event_type[] = {
     { IPC_EVENT_EAP_AUTH_FAILURE,       (PS8)"EAP-FAST/LEAP Auth Failed"},
     { IPC_EVENT_WPA2_PREAUTHENTICATION, (PS8)"IPC_EVENT_WPA2_PREAUTHENTICATION" },
     { IPC_EVENT_TRAFFIC_INTENSITY_THRESHOLD_CROSSED, (PS8)"IPC_EVENT_TRAFFIC_INTENSITY_THRESHOLD_CROSSED" },
+    { IPC_EVENT_SCAN_FAILED,			(PS8)"ScanFailed" },
     { IPC_EVENT_WPS_SESSION_OVERLAP,    (PS8)"IPC_EVENT_WPS_SESSION_OVERLAP" },
     { IPC_EVENT_RSSI_SNR_TRIGGER_0,     (PS8)"IPC_EVENT_RSSI_SNR_TRIGGER_0" },
-    { IPC_EVENT_RSSI_SNR_TRIGGER_1,     (PS8)"IPC_EVENT_RSSI_SNR_TRIGGER_1" }
+    { IPC_EVENT_RSSI_SNR_TRIGGER_1,     (PS8)"IPC_EVENT_RSSI_SNR_TRIGGER_1" },
+    { IPC_EVENT_TIMEOUT,                (PS8)"Timeout" }
 };
 
 static named_value_t report_module[] =
@@ -500,6 +505,7 @@ static VOID CuCmd_Init_Scan_Params(CuCmd_t* pCuCmd)
 
     /* init periodic application scan params */
     pCuCmd->tPeriodicAppScanParams.uSsidNum = 0;
+    pCuCmd->tPeriodicAppScanParams.uSsidListFilterEnabled = 1;
     pCuCmd->tPeriodicAppScanParams.uCycleNum = 0; /* forever */
     pCuCmd->tPeriodicAppScanParams.uCycleIntervalMsec[ 0 ] = 3;
     for (i = 1; i < PERIODIC_SCAN_MAX_INTERVAL_NUM; i++)
@@ -644,14 +650,6 @@ static PS8 CuCmd_CreateRateStr(PS8 str, U8 rate)
 
     os_sprintf(str, (PS8)"%.3g Mbps", 
         RATE_2_MBPS(rate));
-
-    os_sprintf(str, (PS8)"%s (%d", 
-            str,
-            rate);
-
-    os_sprintf(str, (PS8)"%s %s)", 
-            str,
-            IS_BASIC_RATE(rate) ? " - basic" : " ");
 
     return str;
 }
@@ -955,6 +953,14 @@ THandle CuCmd_GetCuCommonHandle(THandle hCuCmd)
     CuCmd_t* pCuCmd = (CuCmd_t*)hCuCmd;
 
     return pCuCmd->hCuCommon;
+}
+
+THandle CuCmd_GetCuWpaHandle (THandle hCuCmd)
+{
+    CuCmd_t* pCuCmd = (CuCmd_t*)hCuCmd;
+
+    return pCuCmd->hWpaCore;
+
 }
 #endif
 
@@ -1335,19 +1341,19 @@ VOID CuCmd_GetTxRate(THandle hCuCmd, ConParm_t parm[], U16 nParms)
 VOID CuCmd_ModifyBssType(THandle hCuCmd, ConParm_t parm[], U16 nParms)
 {
     CuCmd_t* pCuCmd = (CuCmd_t*)hCuCmd;
-    U32 BssType;
+    U8 BssType;
     S32 i;
     
     if( nParms == 0 )
     {
         if(pCuCmd->hWpaCore == NULL)
         {
-            if(OK != CuCommon_GetU32(pCuCmd->hCuCommon, CTRL_DATA_CURRENT_BSS_TYPE_PARAM, &BssType)) return;
+            if(OK != CuCommon_GetU8(pCuCmd->hCuCommon, CTRL_DATA_CURRENT_BSS_TYPE_PARAM, &BssType)) return;
         }
         else
         {
 #ifndef NO_WPA_SUPPL
-            if(OK != WpaCore_GetBssType(pCuCmd->hWpaCore, &BssType)) return;
+            if(OK != WpaCore_GetBssType(pCuCmd->hWpaCore, (U32*)&BssType)) return;
 #endif
         }       
 
@@ -1375,7 +1381,7 @@ VOID CuCmd_ModifyBssType(THandle hCuCmd, ConParm_t parm[], U16 nParms)
         }       
         if(pCuCmd->hWpaCore == NULL)
         {
-            CuCommon_SetU32(pCuCmd->hCuCommon, CTRL_DATA_CURRENT_BSS_TYPE_PARAM, BssType);
+            CuCommon_SetU8(pCuCmd->hCuCommon, CTRL_DATA_CURRENT_BSS_TYPE_PARAM, BssType);
         }
         else
         {
@@ -1941,12 +1947,14 @@ VOID CuCmd_ShowStatistics(THandle hCuCmd, ConParm_t parm[], U16 nParms)
     S32 rtsTh;
     S32 fragTh;
     S32 txPowerLevel;
-    U32 bssType;
+    U8 bssType;
     U32 desiredPreambleType;
     TIWLN_COUNTERS driverCounters;
     U32 AuthMode;
     U8  CurrentTxRate;
     S8  CurrentTxRateStr[20];
+    U8  CurrentRxRate;
+    S8  CurrentRxRateStr[20];
     U32 DefaultKeyId;
     U32 WepStatus;
     S8 dRssi, bRssi;
@@ -1962,7 +1970,7 @@ VOID CuCmd_ShowStatistics(THandle hCuCmd, ConParm_t parm[], U16 nParms)
     if(OK != CuOs_GetRtsTh(pCuCmd->hCuWext, &rtsTh)) return;
     if(OK != CuOs_GetFragTh(pCuCmd->hCuWext, &fragTh)) return;
     if(OK != CuOs_GetTxPowerLevel(pCuCmd->hCuWext, &txPowerLevel)) return;
-    if(OK != CuCommon_GetU32(pCuCmd->hCuCommon, CTRL_DATA_CURRENT_BSS_TYPE_PARAM, &bssType)) return;
+    if(OK != CuCommon_GetU8(pCuCmd->hCuCommon, CTRL_DATA_CURRENT_BSS_TYPE_PARAM, &bssType)) return;
     if(OK != CuCommon_GetU32(pCuCmd->hCuCommon, TIWLN_802_11_SHORT_PREAMBLE_GET, &desiredPreambleType)) return;
     if(OK != CuCommon_GetBuffer(pCuCmd->hCuCommon, SITE_MGR_TI_WLAN_COUNTERS_PARAM, &driverCounters, sizeof(TIWLN_COUNTERS))) return;
     if(OK != CuCommon_GetU32(pCuCmd->hCuCommon, RSN_ENCRYPTION_STATUS_PARAM, &WepStatus)) return;
@@ -1982,6 +1990,9 @@ VOID CuCmd_ShowStatistics(THandle hCuCmd, ConParm_t parm[], U16 nParms)
 
     if(OK != CuCommon_GetU8(pCuCmd->hCuCommon, TIWLN_802_11_CURRENT_RATES_GET, &CurrentTxRate)) return;
     CuCmd_CreateRateStr(CurrentTxRateStr, CurrentTxRate);       
+
+    if(OK != CuCommon_GetU8(pCuCmd->hCuCommon, TIWLN_GET_RX_DATA_RATE, &CurrentRxRate)) return;
+    CuCmd_CreateRateStr(CurrentRxRateStr, CurrentRxRate);
     
 #ifdef XCC_MODULE_INCLUDED
     if(OK != CuCommon_GetU32(pCuCmd->hCuCommon, RSN_XCC_NETWORK_EAP, &XCCNetEap)) return;
@@ -1992,6 +2003,7 @@ VOID CuCmd_ShowStatistics(THandle hCuCmd, ConParm_t parm[], U16 nParms)
     os_error_printf(CU_MSG_INFO2, (PS8)"******************\n");
 
     os_error_printf(CU_MSG_INFO2, (PS8)"    dot11CurrentTxRate : %s\n", CurrentTxRateStr);
+	os_error_printf(CU_MSG_INFO2, (PS8)"         CurrentRxRate : %s\n", CurrentRxRateStr);
     os_error_printf(CU_MSG_INFO2, (PS8)"   dot11DesiredChannel : %d\n", desiredChannel);
     os_error_printf(CU_MSG_INFO2, (PS8)"     currentMACAddress : %02x.%02x.%02x.%02x.%02x.%02x\n",Mac[0],Mac[1],Mac[2],Mac[3],Mac[4],Mac[5]);
     os_error_printf(CU_MSG_INFO2, (PS8)"      dot11DesiredSSID : %s\n", ssid.Ssid);
@@ -2391,7 +2403,8 @@ VOID CuCmd_ConfigPeriodicScanGlobal (THandle hCuCmd, ConParm_t parm[], U16 nParm
     pCuCmd->tPeriodicAppScanParams.uProbeRequestNum = parm[ 5 ].value;
     pCuCmd->tPeriodicAppScanParams.uCycleNum = parm[ 6 ].value;
     pCuCmd->tPeriodicAppScanParams.uSsidNum = parm[ 7 ].value;
-    pCuCmd->tPeriodicAppScanParams.uChannelNum = parm[ 8 ].value;
+    pCuCmd->tPeriodicAppScanParams.uSsidListFilterEnabled = (U8)(parm[ 8 ].value);
+    pCuCmd->tPeriodicAppScanParams.uChannelNum = parm[ 9 ].value;
 }
 
 VOID CuCmd_ConfigPeriodicScanInterval (THandle hCuCmd, ConParm_t parm[], U16 nParms)
@@ -2464,6 +2477,8 @@ VOID CuCmd_DisplayPeriodicScanConfiguration (THandle hCuCmd, ConParm_t parm[], U
         os_error_printf(CU_MSG_INFO2, (PS8)"%s (%s), ", pCuCmd->tPeriodicAppScanParams.tDesiredSsid[ i ].tSsid.str,
                         ssidVisabilityStr[ j ].name);
     }
+    os_error_printf(CU_MSG_INFO2, (PS8)"\n\nSSID List Filter Enabled: %d\n", pCuCmd->tPeriodicAppScanParams.uSsidListFilterEnabled );
+
     os_error_printf(CU_MSG_INFO2, (PS8)"\n\nChannels:\n");
     os_error_printf(CU_MSG_INFO2, (PS8)"%-15s %-10s %-20s %-15s %-15s %-20s\n",
                     (PS8)"Band", (PS8)"Channel", (PS8)"Scan type", (PS8)"Min dwell time", (PS8)"Max dwell time", (PS8)"Power level (dBm*10)");
@@ -2972,7 +2987,7 @@ VOID CuCmd_RoamingGetConfParams(THandle hCuCmd, ConParm_t parm[], U16 nParms)
 					roamingMngrConfigParams.roamingMngrThresholdsConfig.txRateThreshold);
 }
 
-VOID CuCmd_RoamingUserDefinedTrigger(THandle hCuCmd, ConParm_t parm[], U16 nParms)
+VOID CuCmd_CurrBssUserDefinedTrigger(THandle hCuCmd, ConParm_t parm[], U16 nParms)
 {
     CuCmd_t *pCuCmd = (CuCmd_t*)hCuCmd;
     TUserDefinedQualityTrigger  userTrigger;
@@ -2989,7 +3004,9 @@ VOID CuCmd_RoamingUserDefinedTrigger(THandle hCuCmd, ConParm_t parm[], U16 nParm
     userTrigger.uHystersis = (U8)parm[6].value;
     userTrigger.uEnable    = (U8)parm[7].value;
 
-    if (OK != CuCommon_SetBuffer (pCuCmd->hCuCommon, ROAMING_MNGR_USER_DEFINED_TRIGGER,
+    userTrigger.uClientID = 0; /* '0' means that external application with no clientId has registered for the event */
+
+    if (OK != CuCommon_SetBuffer (pCuCmd->hCuCommon, CURR_BSS_REGISTER_LINK_QUALITY_EVENT_PARAM,
                                   &userTrigger, sizeof(TUserDefinedQualityTrigger)) ) 
         return;    
 
@@ -3549,19 +3566,41 @@ VOID CuCmd_ConfigBtCoe(THandle hCuCmd, ConParm_t parm[], U16 nParms)
 
     if( nParms != NUM_OF_CONFIG_PARAMS_IN_SG )
     {
-		os_error_printf(CU_MSG_INFO2, (PS8)"Param 1 - coexBtPerThreshold (0 - 10000000) PER threshold in PPM of the BT voice \n");
-		os_error_printf(CU_MSG_INFO2, (PS8)"Param 2 - coexAutoScanCompensationMaxTime (0 - 10000000)  \n");
-		os_error_printf(CU_MSG_INFO2, (PS8)"Param 3 - coexBtNfsSampleInterval (1 - 65000)  \n");
-		os_error_printf(CU_MSG_INFO2, (PS8)"Param 4 - coexBtLoadRatio (0 - 100)  \n");
-		os_error_printf(CU_MSG_INFO2, (PS8)"Param 5 - coexAutoPsMode (0 - 1) Auto Power Save 0 = Disabled, 1- Enabled \n");
-		os_error_printf(CU_MSG_INFO2, (PS8)"Param 6 - coexAutoScanEnlargedNumOfProbeReqPercent (0 - 255)  \n");
-		os_error_printf(CU_MSG_INFO2, (PS8)"Param 7 - coexAutoScanEnlargedScanWindowPercent (0 - 255)  \n");
-		os_error_printf(CU_MSG_INFO2, (PS8)"Param 8 - coexAntennaConfiguration (0 - 1) 0 - Single Antenna; 1 - Dual Antenna\n");
-		os_error_printf(CU_MSG_INFO2, (PS8)"Param 9 - coexMaxConsecutiveBeaconMissPrecent (1 - 100) \n");
-		os_error_printf(CU_MSG_INFO2, (PS8)"Param 10- coexAPRateAdapationThr - rates (1 - 54)\n");
-		os_error_printf(CU_MSG_INFO2, (PS8)"Param 11- coexAPRateAdapationSnr (-128 - 127)\n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Please enter <index (0,1..)> <value> \n");
+
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 0  - coexBtPerThreshold (0 - 10000000) PER threshold in PPM of the BT voice \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 1  - coexAutoScanCompensationMaxTime (0 - 10000000 usec)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 2  - coexBtNfsSampleInterval (1 - 65000 msec)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 3  - coexBtLoadRatio (0 - 100 %)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 4  - coexAutoPsMode (0 = Disabled, 1 = Enabled) Auto Power Save \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 5  - coexAutoScanEnlargedNumOfProbeReqPercent (%)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 6  - coexAutoScanEnlargedScanWindowPercent (%)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 7  - coexAntennaConfiguration (0 = Single, 1 = Dual)\n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 8  - coexMaxConsecutiveBeaconMissPrecent (1 - 100 %) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 9  - coexAPRateAdapationThr - rates (1 - 54)\n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 10 - coexAPRateAdapationSnr 	  (-128 - 127)\n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 11 - coexWlanPsBtAclMinBR    	  (usec) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 12 - coexWlanPsBtAclMaxBR    	  (usec) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 13 - coexbtAclWlanPsMaxBR       (usec) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 14 - coexWlanPsBtAclMinEDR   	  (usec) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 15 - coexWlanPsBtAclMaxEDR  	  (usec) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 16 - coexbtAclWlanPsMaxEDR      (usec) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 17 - coexRxt                    (usec) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 18 - coexTxt                    (usec) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 19 - coexAdaptiveRxtTxt    	  (0 = Disable, 1 = Enable) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 20 - coexPsPollTimeout          (msec) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 21 - coexUpsdTimeout       	  (msec) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 22 - coexBtAclWlanActiveBtMax   (usec) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 23 - coexBtAclWlanActiveWlanMax (usec) \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 24 - Temp param 1 \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 25 - Temp param 2 \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 26 - Temp param 3 \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 27 - Temp param 4 \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"Param 28 - Temp param 5 \n");
+
+		return;
     }
-    if (CuCmd_IsValueRate(parm[9].value) == FALSE)
+    if ((parm[0].value == SOFT_GEMINI_RATE_ADAPT_THRESH) && (CuCmd_IsValueRate(parm[1].value) == FALSE))
     {
         os_error_printf(CU_MSG_INFO2, (PS8)"Invalid rate - PHY rate valid values are: 1,2,5,6,9,11,12,18,24,36,48,54\n");
     }
@@ -3570,9 +3609,9 @@ VOID CuCmd_ConfigBtCoe(THandle hCuCmd, ConParm_t parm[], U16 nParms)
         for (Index = 0; Index < NUM_OF_CONFIG_PARAMS_IN_SG; Index++ )
         {
             Values[Index] = parm[Index].value;
+/* value[0] - parmater index, value[1] - parameter value */
         }
-        CuCommon_SetBuffer(pCuCmd->hCuCommon, SOFT_GEMINI_SET_CONFIG,
-            Values, sizeof(Values));
+        CuCommon_SetBuffer(pCuCmd->hCuCommon, SOFT_GEMINI_SET_CONFIG, Values, sizeof(Values));
     }
 }
 
@@ -3613,6 +3652,41 @@ VOID CuCmd_ConfigCoexActivity(THandle hCuCmd, ConParm_t parm[], U16 nParms)
 
         CuCommon_SetBuffer(pCuCmd->hCuCommon, TWD_COEX_ACTIVITY_PARAM,
         &tCoexActivity, sizeof(tCoexActivity));
+    }
+}
+
+VOID CuCmd_ConfigFmCoex(THandle hCuCmd, ConParm_t parm[], U16 nParms)
+{
+    CuCmd_t* pCuCmd = (CuCmd_t*)hCuCmd;
+    TFmCoexParams tFmCoexParams;
+
+    if (nParms != 10)
+    {
+		os_error_printf(CU_MSG_INFO2, (PS8)"1 - Enable                   (0 - 1)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"2 - SwallowPeriod            (0 - 255)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"3 - NDividerFrefSet1         (0 - 255)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"4 - NDividerFrefSet2         (0 - 255)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"5 - MDividerFrefSet1         (0 - 65535)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"6 - MDividerFrefSet2         (0 - 65535)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"7 - CoexPllStabilizationTime (0 - 4294967295)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"8 - LdoStabilizationTime     (0 - 65535)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"9 - FmDisturbedBandMargin    (0 - 255)  \n");
+		os_error_printf(CU_MSG_INFO2, (PS8)"10- SwallowClkDif            (0 - 255)  \n");
+    }
+    else
+    {
+        tFmCoexParams.uEnable                    = (TI_UINT8)parm[0].value;
+        tFmCoexParams.uSwallowPeriod             = (TI_UINT8)parm[1].value;
+        tFmCoexParams.uNDividerFrefSet1          = (TI_UINT8)parm[2].value;
+        tFmCoexParams.uNDividerFrefSet2          = (TI_UINT8)parm[3].value;
+        tFmCoexParams.uMDividerFrefSet1          = (TI_UINT16)parm[4].value;
+        tFmCoexParams.uMDividerFrefSet2          = (TI_UINT16)parm[5].value;
+        tFmCoexParams.uCoexPllStabilizationTime  = parm[6].value;
+        tFmCoexParams.uLdoStabilizationTime      = (TI_UINT16)parm[7].value;
+        tFmCoexParams.uFmDisturbedBandMargin     = (TI_UINT8)parm[8].value;
+        tFmCoexParams.uSwallowClkDif             = (TI_UINT8)parm[9].value;
+
+        CuCommon_SetBuffer(pCuCmd->hCuCommon, TWD_FM_COEX_PARAM, &tFmCoexParams, sizeof(TFmCoexParams));
     }
 }
 
@@ -4161,6 +4235,199 @@ VOID CuCmd_FwDebug(THandle hCuCmd, ConParm_t parm[], U16 nParms)
 
 }
 
+VOID CuCmd_SetRateMngDebug(THandle hCuCmd, ConParm_t parm[], U16 nParms)
+{
+    CuCmd_t* pCuCmd = (CuCmd_t*)hCuCmd;
+    RateMangeParams_t     RateParams;
+
+	RateParams.paramIndex = (TI_UINT8)parm[0].value;
+
+
+    if( nParms == 2 )
+    {
+		switch (RateParams.paramIndex)
+		{
+		case RATE_MGMT_RETRY_SCORE_PARAM:
+			RateParams.RateRetryScore = (TI_UINT16)parm[1].value;
+			break;
+		case RATE_MGMT_PER_ADD_PARAM:
+			RateParams.PerAdd = (TI_UINT16)parm[1].value;
+			break;
+		case RATE_MGMT_PER_TH1_PARAM:
+			RateParams.PerTh1 = (TI_UINT16)parm[1].value;
+			break;
+		case RATE_MGMT_PER_TH2_PARAM:
+			RateParams.PerTh2 = (TI_UINT16)parm[1].value;
+			break;
+		case RATE_MGMT_MAX_PER_PARAM:
+			RateParams.MaxPer = (TI_UINT16)parm[1].value;
+			break;
+		case RATE_MGMT_INVERSE_CURIOSITY_FACTOR_PARAM:
+			RateParams.InverseCuriosityFactor = (TI_UINT8)parm[1].value;
+			break;
+		case RATE_MGMT_TX_FAIL_LOW_TH_PARAM:
+			RateParams.TxFailLowTh = (TI_UINT8)parm[1].value;
+			break;
+		case RATE_MGMT_TX_FAIL_HIGH_TH_PARAM:
+			RateParams.TxFailHighTh = (TI_UINT8)parm[1].value;
+			break;
+		case RATE_MGMT_PER_ALPHA_SHIFT_PARAM:
+			RateParams.PerAlphaShift = (TI_UINT8)parm[1].value;
+			break;
+		case RATE_MGMT_PER_ADD_SHIFT_PARAM:
+			RateParams.PerAddShift = (TI_UINT8)parm[1].value;
+			break;
+		case RATE_MGMT_PER_BETA1_SHIFT_PARAM:
+			RateParams.PerBeta1Shift = (TI_UINT8)parm[1].value;
+			break;
+		case RATE_MGMT_PER_BETA2_SHIFT_PARAM:
+			RateParams.PerBeta2Shift = (TI_UINT8)parm[1].value;
+			break;
+		case RATE_MGMT_RATE_CHECK_UP_PARAM:
+			RateParams.RateCheckUp = (TI_UINT8)parm[1].value;
+			break;
+		case RATE_MGMT_RATE_CHECK_DOWN_PARAM:
+			RateParams.RateCheckDown = (TI_UINT8)parm[1].value;
+			break;
+		default:
+			os_error_printf(CU_MSG_INFO2,"Error: index is not valid! \n");
+			return;
+
+		}
+	}
+	else if ((nParms == NUM_OF_RATE_MNGT_PARAMS_MAX) && (parm[0].value == RATE_MGMT_RATE_RETRY_POLICY_PARAM ))
+	{
+		int i=0;
+		for (i=1; i < NUM_OF_RATE_MNGT_PARAMS_MAX; i++)
+		{
+			RateParams.RateRetryPolicy[i-1] = (TI_UINT8)parm[i].value;
+		}
+    }
+    else
+    {
+           os_error_printf(CU_MSG_INFO2,"(0)  RateMngRateRetryScore \n");
+           os_error_printf(CU_MSG_INFO2,"(1)  RateMngPerAdd \n");
+           os_error_printf(CU_MSG_INFO2,"(2)  RateMngPerTh1 \n");
+           os_error_printf(CU_MSG_INFO2,"(3)  RateMngPerTh2 \n");
+		   os_error_printf(CU_MSG_INFO2,"(4)  RateMngMaxPer \n");
+           os_error_printf(CU_MSG_INFO2,"(5)  RateMngInverseCuriosityFactor \n");
+           os_error_printf(CU_MSG_INFO2,"(6)  RateMngTxFailLowTh \n");
+		   os_error_printf(CU_MSG_INFO2,"(7)  RateMngTxFailHighTh \n");
+           os_error_printf(CU_MSG_INFO2,"(8)  RateMngPerAlphaShift \n");
+           os_error_printf(CU_MSG_INFO2,"(9)  RateMngPerAddShift \n");
+           os_error_printf(CU_MSG_INFO2,"(10) RateMngPerBeta1Shift \n");
+           os_error_printf(CU_MSG_INFO2,"(11) RateMngPerBeta2Shift \n");
+           os_error_printf(CU_MSG_INFO2,"(12) RateMngRateCheckUp \n");
+		   os_error_printf(CU_MSG_INFO2,"(13) RateMngRateCheckDown \n");
+		   os_error_printf(CU_MSG_INFO2,"(14) RateMngRateRetryPolicy[13] \n");
+		   return;
+    }
+
+	CuCommon_SetBuffer(pCuCmd->hCuCommon, TIWLN_RATE_MNG_SET,&RateParams, sizeof(RateMangeParams_t));
+}
+
+VOID CuCmd_GetRateMngDebug(THandle hCuCmd, ConParm_t parm[], U16 nParms)
+{
+    CuCmd_t* pCuCmd = (CuCmd_t*)hCuCmd;
+    AcxRateMangeParams ReadRateParams;
+	int i;
+
+    os_memset(&ReadRateParams,0,sizeof(AcxRateMangeParams));
+
+    CuCommon_GetBuffer(pCuCmd->hCuCommon, TIWLN_RATE_MNG_GET, &ReadRateParams, sizeof(AcxRateMangeParams));
+
+	if (0 == nParms)
+	{
+		parm[0].value =  RATE_MGMT_ALL_PARAMS;
+	}
+
+	 switch (parm[0].value)
+		{
+		case RATE_MGMT_RETRY_SCORE_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngRateRetryScore = %d \n", ReadRateParams.RateRetryScore);
+			break;
+		case RATE_MGMT_PER_ADD_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngPerAdd = %d\n" , ReadRateParams.PerAdd);
+			break;
+		case RATE_MGMT_PER_TH1_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngPerTh1 = %d\n" , ReadRateParams.PerTh1);
+			break;
+		case RATE_MGMT_PER_TH2_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngPerTh2 = %d\n" , ReadRateParams.PerTh2);
+			break;
+		case RATE_MGMT_MAX_PER_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngMaxPer = %d\n" , ReadRateParams.MaxPer);
+			break;
+		case RATE_MGMT_INVERSE_CURIOSITY_FACTOR_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngInverseCuriosityFactor = %d \n" , ReadRateParams.InverseCuriosityFactor);
+			break;
+		case RATE_MGMT_TX_FAIL_LOW_TH_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngTxFailLowTh = %d\n" , ReadRateParams.TxFailLowTh);
+			break;
+		case RATE_MGMT_TX_FAIL_HIGH_TH_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngTxFailHighTh = %d\n" , ReadRateParams.TxFailHighTh);
+			break;
+		case RATE_MGMT_PER_ALPHA_SHIFT_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngPerAlphaShift = %d\n" , ReadRateParams.PerAlphaShift);
+			break;
+		case RATE_MGMT_PER_ADD_SHIFT_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngPerAddShift = %d\n" , ReadRateParams.PerAddShift);
+			break;
+		case RATE_MGMT_PER_BETA1_SHIFT_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngPerBeta1Shift = %d\n" , ReadRateParams.PerBeta1Shift);
+			break;
+		case RATE_MGMT_PER_BETA2_SHIFT_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngPerBeta2Shift = %d\n" , ReadRateParams.PerBeta2Shift);
+			break;
+		case RATE_MGMT_RATE_CHECK_UP_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngRateCheckUp = %d\n" , ReadRateParams.RateCheckUp);
+			break;
+		case RATE_MGMT_RATE_CHECK_DOWN_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngRateCheckDown = %d\n" , ReadRateParams.RateCheckDown);
+			break;
+	    case RATE_MGMT_RATE_RETRY_POLICY_PARAM:
+			os_error_printf(CU_MSG_INFO2,"RateMngRateRetryPolicy = ");
+
+			for (i=0 ; i< RATE_MNG_MAX_RETRY_POLICY_PARAMS_LEN ; i++)
+			{
+				os_error_printf(CU_MSG_INFO2,"%d ",ReadRateParams.RateRetryPolicy[i]);
+			}
+
+			os_error_printf(CU_MSG_INFO2,"\n");
+
+			break;
+
+	    case RATE_MGMT_ALL_PARAMS:
+		   os_error_printf(CU_MSG_INFO2,"RateMngRateRetryScore = %d \n", ReadRateParams.RateRetryScore);
+           os_error_printf(CU_MSG_INFO2,"RateMngPerAdd = %d\n" , ReadRateParams.PerAdd);
+           os_error_printf(CU_MSG_INFO2,"RateMngPerTh1 = %d\n" , ReadRateParams.PerTh1);
+           os_error_printf(CU_MSG_INFO2,"RateMngPerTh2 = %d\n" , ReadRateParams.PerTh2);
+		   os_error_printf(CU_MSG_INFO2,"RateMngMaxPer = %d\n" , ReadRateParams.MaxPer);
+           os_error_printf(CU_MSG_INFO2,"RateMngInverseCuriosityFactor = %d \n" , ReadRateParams.InverseCuriosityFactor);
+           os_error_printf(CU_MSG_INFO2,"RateMngTxFailLowTh = %d\n" , ReadRateParams.TxFailLowTh);
+		   os_error_printf(CU_MSG_INFO2,"RateMngTxFailHighTh = %d\n" , ReadRateParams.TxFailHighTh);
+           os_error_printf(CU_MSG_INFO2,"RateMngPerAlphaShift = %d\n" , ReadRateParams.PerAlphaShift);
+           os_error_printf(CU_MSG_INFO2,"RateMngPerAddShift = %d\n" , ReadRateParams.PerAddShift);
+           os_error_printf(CU_MSG_INFO2,"RateMngPerBeta1Shift = %d\n" , ReadRateParams.PerBeta1Shift);
+           os_error_printf(CU_MSG_INFO2,"RateMngPerBeta2Shift = %d\n" , ReadRateParams.PerBeta2Shift);
+           os_error_printf(CU_MSG_INFO2,"RateMngRateCheckUp = %d\n" , ReadRateParams.RateCheckUp);
+		   os_error_printf(CU_MSG_INFO2,"RateMngRateCheckDown = %d\n" , ReadRateParams.RateCheckDown);
+		   os_error_printf(CU_MSG_INFO2,"RateMngRateRetryPolicy = ");
+
+			for (i=0 ; i< RATE_MNG_MAX_RETRY_POLICY_PARAMS_LEN ; i++)
+			{
+				os_error_printf(CU_MSG_INFO2,"%d ",ReadRateParams.RateRetryPolicy[i]);
+			}
+			os_error_printf(CU_MSG_INFO2,"\n");
+		 break;
+
+		default:
+			os_error_printf(CU_MSG_INFO2,"Error: index is not valid! \n");
+			return;
+	 }
+
+}
+
 
 VOID CuCmd_PrintDriverDebug(THandle hCuCmd, ConParm_t parm[], U16 nParms)
 {
@@ -4269,15 +4536,14 @@ VOID CuCmd_RadioDebug_StartTxCw(THandle hCuCmd, ConParm_t parm[], U16 nParms)
 	TTestCmd data;
 
 	/* check # of params OK */
-	if (nParms > 0)
+    if ((nParms == 0) || (nParms > 2))
     {
 		/* print help */
-        os_error_printf(CU_MSG_INFO2, (PS8)"That CMD doesn't get any parameters\n");
-        /* future use. not use at the FW for now
-        os_error_printf(CU_MSG_INFO2, (PS8)"Param 0  - Band\n");
-        os_error_printf(CU_MSG_INFO2, (PS8)"Param 1  - Channel\n");     
-        os_error_printf(CU_MSG_INFO2, (PS8)"Param 2  - Power\n");     
-        os_error_printf(CU_MSG_INFO2, (PS8)"Param 3  - Tone Type\n");     
+        os_error_printf(CU_MSG_INFO2, (PS8)"Param 0  - Power (0-25000 1/1000 db)\n");
+        os_error_printf(CU_MSG_INFO2, (PS8)"Param 1  - Tone Type (1-Single Tone, 2-Carrier Feed Through)\n");
+
+/*        os_error_printf(CU_MSG_INFO2, (PS8)"Param 2  - Band\n");
+        os_error_printf(CU_MSG_INFO2, (PS8)"Param 3  - Channel\n");
         os_error_printf(CU_MSG_INFO2, (PS8)"Param 4  - PPA Step\n");     
         os_error_printf(CU_MSG_INFO2, (PS8)"Param 5  - Tone no. Single Tones\n");     
         os_error_printf(CU_MSG_INFO2, (PS8)"Param 6  - Tone no. Two Tones\n");     
@@ -4286,17 +4552,15 @@ VOID CuCmd_RadioDebug_StartTxCw(THandle hCuCmd, ConParm_t parm[], U16 nParms)
         os_error_printf(CU_MSG_INFO2, (PS8)"Param 9  - Eleven N Span\n");     
         os_error_printf(CU_MSG_INFO2, (PS8)"Param 10 - Digital DC\n");     
         os_error_printf(CU_MSG_INFO2, (PS8)"Param 11 - Analog DC Fine\n");     
-        os_error_printf(CU_MSG_INFO2, (PS8)"Param 12 - Analog DC Course\n");
-        */
+        os_error_printf(CU_MSG_INFO2, (PS8)"Param 12 - Analog DC Course\n");*/
     }
     else
     {
 		os_memset(&data, 0, sizeof(TTestCmd));
 		data.testCmdId 										= TEST_CMD_TELEC;
-        /* future use. not use at the FW for now
-        data.testCmd_u.TxToneParams.iPower 					= (U16)parm[2].value;
-        data.testCmd_u.TxToneParams.iToneType 				= (U8)parm[3].value;
-		data.testCmd_u.TxToneParams.iPpaStep 				= (U8)parm[4].value;
+        data.testCmd_u.TxToneParams.iPower 					= (U16)parm[0].value;
+        data.testCmd_u.TxToneParams.iToneType 				= (U8)parm[1].value;
+/*		data.testCmd_u.TxToneParams.iPpaStep 				= (U8)parm[4].value;
 		data.testCmd_u.TxToneParams.iToneNumberSingleTones 	= (U8)parm[5].value;
 		data.testCmd_u.TxToneParams.iToneNumberTwoTones 	= (U8)parm[6].value;
 		data.testCmd_u.TxToneParams.iUseDigitalDC 			= (U8)parm[7].value;
@@ -4304,8 +4568,8 @@ VOID CuCmd_RadioDebug_StartTxCw(THandle hCuCmd, ConParm_t parm[], U16 nParms)
 		data.testCmd_u.TxToneParams.iElevenNSpan 			= (U8)parm[9].value;
 		data.testCmd_u.TxToneParams.iDigitalDC 				= (U8)parm[10].value;
 		data.testCmd_u.TxToneParams.iAnalogDCFine 			= (U8)parm[11].value;
-		data.testCmd_u.TxToneParams.iAnalogDCCoarse 		= (U8)parm[12].value;
-        */
+		data.testCmd_u.TxToneParams.iAnalogDCCoarse 		= (U8)parm[12].value;*/
+
 		if(OK != CuCommon_Radio_Test(pCuCmd->hCuCommon, &data))
 		{
 			os_error_printf(CU_MSG_INFO2, (PS8)"CW test failed\n");                   

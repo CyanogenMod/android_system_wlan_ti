@@ -30,6 +30,7 @@
 
 /* includes */
 /************/
+#include <stdio.h>
 #include "cu_osapi.h"
 #include "console.h"
 #include "cu_cmd.h"
@@ -47,6 +48,7 @@
 #define TOKEN_BREAK        "#"
 #define TOKEN_HELP         "?"
 #define TOKEN_DIRHELP      "help"
+#define TOKEN_QUIT         "q1"
 
 /* local types */
 /***************/
@@ -66,6 +68,7 @@ typedef enum
     BreakToken,
     HelpToken,
     DirHelpToken,
+    QuitToken,
     NameToken
 } TokenType_t;
 
@@ -115,6 +118,7 @@ typedef struct Console_t
 /* local fucntions */
 /*******************/
 static VOID Console_allocRoot(Console_t* pConsole);
+int consoleRunScript( char *script_file, THandle hConsole);
 
 
 /* Remove leading blanks */
@@ -148,6 +152,9 @@ static TokenType_t Console_analizeToken( PS8 name )
     if (!os_strcmp(name, (PS8)TOKEN_DIRHELP ) )
         return DirHelpToken;
     
+    if (!os_strcmp(name, (PS8)TOKEN_QUIT ) )
+        return QuitToken;
+
     return NameToken;
     
 }
@@ -638,7 +645,7 @@ static S32 Console_chooseAlias( ConEntry_t *p_dir, ConEntry_t *p_new_token )
 /* Parse the given input string and exit.
 All commands in the input string are executed one by one.
 */
-static VOID Console_ParseString(Console_t* pConsole, PS8 input_string )
+static U8 Console_ParseString(Console_t* pConsole, PS8 input_string )
 {
     ConEntry_t  *p_token;
     S8          name[MAX_NAME_LEN];
@@ -646,7 +653,7 @@ static VOID Console_ParseString(Console_t* pConsole, PS8 input_string )
     U16         nParms; 
         
     if (!pConsole->p_mon_root)
-        return;
+        return 1;
 
     if(!pConsole->isDeviceOpen)
     {
@@ -654,7 +661,7 @@ static VOID Console_ParseString(Console_t* pConsole, PS8 input_string )
         if(!pConsole->isDeviceOpen)
         {
             os_error_printf(CU_MSG_ERROR, (PS8)("ERROR - Console_ParseString - Device isn't loaded !!!\n") );
-            return;
+            return 1;
         }
     }
     
@@ -731,11 +738,15 @@ static VOID Console_ParseString(Console_t* pConsole, PS8 input_string )
             pConsole->p_inbuf = NULL;
             break;
             
+        case QuitToken: /* Go to upper directory */
+			return 1;
+
         case EmptyToken:
             break;
             
         }
     }
+	return 0;
 }
 
 /* functions */
@@ -1032,3 +1043,31 @@ consoleErr Console_AddToken(  THandle hConsole,
     return E_OK;
 }
 
+int consoleRunScript( char *script_file, THandle hConsole)
+{
+    FILE *hfile = fopen(script_file, "r" );
+	U8 status = 0;
+    Console_t* pConsole = (Console_t*)hConsole;
+
+    if( hfile )
+    {
+        char buf[INBUF_LENGTH];
+        pConsole->stop_UI_Monitor = FALSE;
+
+        while( fgets(buf, sizeof(buf), hfile ) )
+        {
+            status = Console_ParseString(pConsole, buf);
+			if (status == 1)
+				return TRUE;
+			if( pConsole->stop_UI_Monitor )
+                break;
+        }
+
+        fclose(hfile);
+    }
+    else
+	{
+		os_error_printf(CU_MSG_ERROR, (PS8)("ERROR in script: %s \n"), (PS8)script_file);
+	}
+    return pConsole->stop_UI_Monitor;
+}

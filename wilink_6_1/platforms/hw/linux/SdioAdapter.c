@@ -52,7 +52,9 @@
 #include <linux/mmc/sdio_ids.h>
 #include "TxnDefs.h"
 
-/* #define TI_SDIO_DEBUG */
+#define TI_SDIO_DEBUG
+
+#define TIWLAN_MMC_MAX_DMA                 8192
 
 int wifi_set_carddetect( int on );
 
@@ -127,10 +129,10 @@ ETxnStatus sdioAdapt_TransactBytes (unsigned int  uFuncId,
 int sdioAdapt_ConnectBus (void *        fCbFunc,
                           void *        hCbArg,
                           unsigned int  uBlkSizeShift,
-                          unsigned int  uSdioThreadPriority)
+                          unsigned int  uSdioThreadPriority,
+                          unsigned char **pTxDmaSrcAddr)
 {
 	int rc;
-	short ch;
 
 	init_completion(&sdio_wait);
 	wifi_set_carddetect( 1 );
@@ -143,6 +145,10 @@ int sdioAdapt_ConnectBus (void *        fCbFunc,
 		printk(KERN_ERR "%s: Timed out waiting for device detect\n", __func__);
 		sdio_unregister_driver(&sdio_wifi_driver);
 		return -ENODEV;
+	}
+	/* Provide the DMA buffer address to the upper layer so it will use it as the transactions host buffer. */
+	if (pTxDmaSrcAddr) { /* Dm: check what to do with it */
+		*pTxDmaSrcAddr = kmalloc(TIWLAN_MMC_MAX_DMA, GFP_ATOMIC | GFP_DMA);
 	}
 	return 0;
 }
@@ -223,7 +229,7 @@ ETxnStatus sdioAdapt_Transact (unsigned int  uFuncId,
 		if (bFixedAddr)
 			rc = sdio_memcpy_toio(tiwlan_func, uHwAddr, pHostAddr, uLength);
 		else
-			rc = sdio_writesb(tiwlan_func, pHostAddr, uHwAddr, uLength);
+			rc = sdio_writesb(tiwlan_func, uHwAddr, pHostAddr, uLength);
 	}
 #ifdef TI_SDIO_DEBUG
 	if (uLength == 1)
@@ -278,7 +284,8 @@ void sdioDrv_clk_disable(void);
 int sdioAdapt_ConnectBus (void *        fCbFunc,
                           void *        hCbArg,
                           unsigned int  uBlkSizeShift,
-                          unsigned int  uSdioThreadPriority)
+                          unsigned int  uSdioThreadPriority,
+                          unsigned char **pTxDmaSrcAddr)
 {
 	unsigned char  uByte;
 	unsigned long  uLong;
@@ -292,9 +299,8 @@ int sdioAdapt_ConnectBus (void *        fCbFunc,
 	}
 
 	/* Init SDIO driver and HW */
-	iStatus = sdioDrv_ConnectBus (fCbFunc, hCbArg, uBlkSizeShift, uSdioThreadPriority);
+	iStatus = sdioDrv_ConnectBus (fCbFunc, hCbArg, uBlkSizeShift,uSdioThreadPriority, pTxDmaSrcAddr);
 	if (iStatus) { return iStatus; }
-
   
 	/* Send commands sequence: 0, 5, 3, 7 */
 	iStatus = sdioDrv_ExecuteCmd (SD_IO_GO_IDLE_STATE, 0, MMC_RSP_NONE, &uByte, sizeof(uByte));

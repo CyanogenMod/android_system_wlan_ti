@@ -198,9 +198,9 @@ typedef struct _apConn_t
     TI_BOOL					bNonRoamingDisAssocReason; /**< Indicate whether last disconnection was called from outside (SME) */
     
     /** Callback functions, registered by Roaming manager */
-    apConn_roamMngrCallb_t  roamEventCallb;         /**< roam event triggers */ 
-    apConn_roamMngrCallb_t  reportStatusCallb;      /**< connection status events  */
-    apConn_roamMngrCallb_t  returnNeighborApsCallb; /**< neighbor APs list update */
+    apConn_roamMngrEventCallb_t  roamEventCallb;         /**< roam event triggers */
+    apConn_roamMngrCallb_t       reportStatusCallb;      /**< connection status events  */
+    apConn_roamMngrCallb_t       returnNeighborApsCallb; /**< neighbor APs list update */
     
     /* Handlers of other modules used by AP Connection */
     TI_HANDLE               hOs;
@@ -673,9 +673,9 @@ TI_STATUS apConn_setRoamThresholds(TI_HANDLE hAPConnection, roamingMngrThreshold
 }
 
 TI_STATUS apConn_registerRoamMngrCallb(TI_HANDLE hAPConnection, 
-                                       apConn_roamMngrCallb_t roamEventCallb,
-                                       apConn_roamMngrCallb_t reportStatusCallb,
-                                       apConn_roamMngrCallb_t returnNeighborApsCallb)
+                                       apConn_roamMngrEventCallb_t  roamEventCallb,
+                                       apConn_roamMngrCallb_t       reportStatusCallb,
+                                       apConn_roamMngrCallb_t       returnNeighborApsCallb)
 {
     apConn_t *pAPConnection;
     apConn_connStatus_t reportStatus;
@@ -689,7 +689,7 @@ TI_STATUS apConn_registerRoamMngrCallb(TI_HANDLE hAPConnection,
     pAPConnection->reportStatusCallb = reportStatusCallb;
     if ((pAPConnection->roamingEnabled) && (pAPConnection->currentState != AP_CONNECT_STATE_IDLE))
     {
-        param.paramType   = ASSOC_ASSOCIATION_RESP_PARAM;
+        param.paramType   = ASSOC_ASSOCIATION_REQ_PARAM;
 
         assoc_getParam(pAPConnection->hAssoc, &param);
         reportStatus.dataBuf = (char *)(param.content.assocReqBuffer.buffer);
@@ -1191,6 +1191,7 @@ TI_STATUS apConn_reportRoamingEvent(TI_HANDLE hAPConnection,
 {
     apConn_t *pAPConnection = (apConn_t *)hAPConnection; 
     paramInfo_t param;  /* parameter for retrieving BSSID */
+    TI_UINT16 reasonCode = 0;
     
     AP_CONN_VALIDATE_HANDLE(hAPConnection);
 
@@ -1203,6 +1204,7 @@ TI_STATUS apConn_reportRoamingEvent(TI_HANDLE hAPConnection,
 		{	/* Save the disconnect reason for future use */
 			pAPConnection->APDisconnect.uStatusCode     = pRoamingEventData->APDisconnect.uStatusCode;
 			pAPConnection->APDisconnect.bDeAuthenticate = pRoamingEventData->APDisconnect.bDeAuthenticate;
+            reasonCode = pRoamingEventData->APDisconnect.uStatusCode;
 		}
         if ((pAPConnection->ignoreDeauthReason0) && (pRoamingEventData!=NULL) &&
                (pAPConnection->APDisconnect.uStatusCode == 0))
@@ -1311,7 +1313,7 @@ TI_STATUS apConn_reportRoamingEvent(TI_HANDLE hAPConnection,
             EvHandlerSendEvent(pAPConnection->hEvHandler, IPC_EVENT_LOW_RSSI, NULL,0);
         }
         /* Report to Roaming Manager */
-        pAPConnection->roamEventCallb(pAPConnection->hRoamMng, &roamingEventType);
+        pAPConnection->roamEventCallb(pAPConnection->hRoamMng, &roamingEventType, reasonCode);
     }
 
     return TI_OK;
@@ -1663,7 +1665,7 @@ static TI_STATUS apConn_startWaitingForTriggers(void *pData)
     
     if ((pAPConnection->roamingEnabled) && (pAPConnection->reportStatusCallb != NULL))
     {
-        param.paramType   = ASSOC_ASSOCIATION_RESP_PARAM;
+        param.paramType   = ASSOC_ASSOCIATION_REQ_PARAM;
 
         assoc_getParam(pAPConnection->hAssoc, &param);
         reportStatus.dataBuf = (char *)(param.content.assocReqBuffer.buffer);
@@ -1725,7 +1727,7 @@ static TI_STATUS apConn_connectedToNewAP(void *pData)
     /* Report Roaming Manager */
     if (pAPConnection->reportStatusCallb != NULL)
     {
-        param.paramType   = ASSOC_ASSOCIATION_RESP_PARAM;
+        param.paramType   = ASSOC_ASSOCIATION_REQ_PARAM;
 
         assoc_getParam(pAPConnection->hAssoc, &param);
         reportStatus.dataBuf = (char *)(param.content.assocReqBuffer.buffer);
@@ -1806,7 +1808,7 @@ static TI_STATUS apConn_stopConnection(void *pData)
 	conn_stop(pAPConnection->hConnSm, 
 			  disConnType,
 			  pAPConnection->deauthPacketReasonCode,
-			  TI_FALSE,   /* pAPConnection->removeKeys - for Roaming, do not remove the keys */              
+			  pAPConnection->removeKeys, /* for Roaming, do not remove the keys */
 			  apConn_DisconnCompleteInd,
 			  pAPConnection);
 	
@@ -1890,7 +1892,7 @@ static TI_STATUS apConn_retainAP(void *data)
     /* Report Roaming Manager */
     if (pAPConnection->reportStatusCallb != NULL) 
     {
-        param.paramType   = ASSOC_ASSOCIATION_RESP_PARAM;
+        param.paramType   = ASSOC_ASSOCIATION_REQ_PARAM;
 
         assoc_getParam(pAPConnection->hAssoc, &param);
         reportStatus.dataBuf = (char *)(param.content.assocReqBuffer.buffer);
@@ -2156,7 +2158,7 @@ static TI_STATUS apConn_reportConnFail(void *data)
     /* Report to Roaming Manager */
     if (pAPConnection->reportStatusCallb != NULL)
     {
-        param.paramType   = ASSOC_ASSOCIATION_RESP_PARAM;
+        param.paramType   = ASSOC_ASSOCIATION_REQ_PARAM;
 
         assoc_getParam(pAPConnection->hAssoc, &param);
         reportStatus.dataBuf = (char *)(param.content.assocReqBuffer.buffer);
@@ -2239,7 +2241,7 @@ static TI_STATUS apConn_swChFinished(void *pData)
             (pAPConnection->roamEventCallb != NULL))
         {
             /* Report to Roaming Manager */
-            pAPConnection->roamEventCallb(pAPConnection->hRoamMng, &pAPConnection->roamReason);
+            pAPConnection->roamEventCallb(pAPConnection->hRoamMng, &pAPConnection->roamReason, (TI_UINT16)0);
         }
     }
     else

@@ -46,6 +46,7 @@ VOID CuCmd_StopDriver(THandle hCuCmd);
 
 #ifdef XCC_MODULE_INCLUDED
 THandle CuCmd_GetCuCommonHandle(THandle hCuCmd);
+THandle CuCmd_GetCuWpaHandle (THandle hCuCmd);
 #endif
 
 
@@ -136,7 +137,7 @@ VOID CuCmd_RoamingLowSnrThreshold(THandle hCuCmd, ConParm_t parm[], U16 nParms);
 VOID CuCmd_RoamingLowQualityForBackgroungScanCondition(THandle hCuCmd, ConParm_t parm[], U16 nParms); 
 VOID CuCmd_RoamingNormalQualityForBackgroungScanCondition(THandle hCuCmd, ConParm_t parm[], U16 nParms);
 VOID CuCmd_RoamingGetConfParams(THandle hCuCmd, ConParm_t parm[], U16 nParms);
-VOID CuCmd_RoamingUserDefinedTrigger(THandle hCuCmd, ConParm_t parm[], U16 nParms);
+VOID CuCmd_CurrBssUserDefinedTrigger(THandle hCuCmd, ConParm_t parm[], U16 nParms);
 
 VOID CuCmd_AddTspec(THandle hCuCmd, ConParm_t parm[], U16 nParms);
 VOID CuCmd_GetTspec(THandle hCuCmd, ConParm_t parm[], U16 nParms);
@@ -160,6 +161,7 @@ VOID CuCmd_EnableBtCoe(THandle hCuCmd, ConParm_t parm[], U16 nParms);
 VOID CuCmd_ConfigBtCoe(THandle hCuCmd, ConParm_t parm[], U16 nParms);
 VOID CuCmd_GetBtCoeStatus(THandle hCuCmd, ConParm_t parm[], U16 nParms);
 VOID CuCmd_ConfigCoexActivity(THandle hCuCmd, ConParm_t parm[], U16 nParms);
+VOID CuCmd_ConfigFmCoex(THandle hCuCmd, ConParm_t parm[], U16 nParms);
 
 VOID CuCmd_SetPowerMode(THandle hCuCmd, ConParm_t parm[], U16 nParms);
 VOID CuCmd_SetPowerSavePowerLevel(THandle hCuCmd, ConParm_t parm[], U16 nParms);
@@ -182,6 +184,8 @@ VOID CuCmd_PrintDriverDebug(THandle hCuCmd, ConParm_t parm[], U16 nParms);
 VOID CuCmd_PrintDriverDebugBuffer(THandle hCuCmd, ConParm_t parm[], U16 nParms);
 
 VOID CuCmd_FwDebug(THandle hCuCmd, ConParm_t parm[], U16 nParms);
+VOID CuCmd_SetRateMngDebug(THandle hCuCmd, ConParm_t parm[], U16 nParms);
+VOID CuCmd_GetRateMngDebug(THandle hCuCmd, ConParm_t parm[], U16 nParms);
 
 VOID CuCmd_ShowAbout(THandle hCuCmd, ConParm_t parm[], U16 nParms);
 VOID CuCmd_Quit(THandle hCuCmd, ConParm_t parm[], U16 nParms);

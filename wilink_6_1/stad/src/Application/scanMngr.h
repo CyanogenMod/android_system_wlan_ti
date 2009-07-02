@@ -304,6 +304,8 @@ typedef struct
 
     TI_HANDLE                       hTimer;                                         /* handle to the timer module */
 
+    TI_HANDLE                       hEvHandler;                                     /* handle to the eventHandler module */
+    TI_HANDLE                       hAPConnection;                                  /* handle to the AP connection module */
     /* start / stop flag */
     TI_BOOL                         bContinuousScanStarted;                         /**<
                                                                                      * Indicates whether continuous scan
@@ -378,6 +380,13 @@ typedef struct
                                                                                      */
     TScanParams                     scanParams;                                     /**< temporary storage for scan command */
     scan_BSSList_t                  BSSList;                                        /**< BSS list (also used for tracking) */
+
+    scanMngr_connStatus_e           connStatus;                                /* save the connection status during manual roaming */
+	TI_UINT8                        scanningOperationalMode;                   /* 0 - manual ,  1 - auto */
+    TScanParams                     manualScanParams;                          /* temporary storage for manual scan command */
+
+
+
 #ifdef TI_DBG
     scan_mngrStat_t                 stats;                                          /**< statistics */
     ERadioBand                      statsLastDiscoveryBand;                         /**< 
@@ -385,6 +394,7 @@ typedef struct
                                                                                      * discovery was last performed.
                                                                                      */
 #endif
+
 } scanMngr_t;
 
 /*
@@ -400,7 +410,7 @@ typedef struct
  */
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 01-Mar-2005\n
  * \brief Frees scan manager resources.\n
  *
@@ -410,7 +420,7 @@ typedef struct
 void scanMngrFreeMem (TI_HANDLE hScanMngr);
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 01-Mar-2005\n
  * \brief Starts a continuous scan operation.\n
  *
@@ -423,7 +433,7 @@ void scanMngrGetCurrentTsfDtimMibCB(TI_HANDLE hScanMngr, TI_STATUS status, TI_UI
 void scanMngr_GetUpdatedTsfDtimMibForScan (TI_HANDLE hScanMngr, TI_BOOL bTwdInitOccured) ;
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 01-Mar-2005\n
  * \brief Perform aging on the BSS list.\n
  *
@@ -433,7 +443,7 @@ void scanMngr_GetUpdatedTsfDtimMibForScan (TI_HANDLE hScanMngr, TI_BOOL bTwdInit
 void scanMngrPerformAging( TI_HANDLE hScanMngr );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 01-Mar-2005\n
  * \brief Updates object data according to a received frame.\n
  *
@@ -444,7 +454,7 @@ void scanMngrPerformAging( TI_HANDLE hScanMngr );
 void scanMngrUpdateReceivedFrame( TI_HANDLE hScanMngr, TScanFrameInfo* frameInfo );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 17-Mar-2005\n
  * \brief Cerate a new tracking entry and store the newly discovered AP info in it.\n
  *
@@ -455,7 +465,7 @@ void scanMngrUpdateReceivedFrame( TI_HANDLE hScanMngr, TScanFrameInfo* frameInfo
 void scanMngrInsertNewBSSToTrackingList( TI_HANDLE hScanMngr, TScanFrameInfo* frameInfo );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 17-Mar-2005\n
  * \brief Updates tracked AP information.\n
  *
@@ -467,7 +477,7 @@ void scanMngrInsertNewBSSToTrackingList( TI_HANDLE hScanMngr, TScanFrameInfo* fr
 void scanMngrUpdateBSSInfo( TI_HANDLE hScanMngr, TI_UINT8 BSSListIndex, TScanFrameInfo* frameInfo );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 16-Mar-2005\n
  * \brief Searched tracking list for an entry matching given BSSID.\n
  *
@@ -479,7 +489,7 @@ void scanMngrUpdateBSSInfo( TI_HANDLE hScanMngr, TI_UINT8 BSSListIndex, TScanFra
 TI_INT8 scanMngrGetTrackIndexByBssid( TI_HANDLE hScanMngr, TMacAddr* bssId );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Search current policy for band policy
  *
@@ -491,7 +501,7 @@ TI_INT8 scanMngrGetTrackIndexByBssid( TI_HANDLE hScanMngr, TMacAddr* bssId );
 TScanBandPolicy* scanMngrGetPolicyByBand( TI_HANDLE hScanMngr, ERadioBand band );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 06-Mar-2005\n
  * \brief Sets the next discovery part according to current discovery part, policies and neighbor APs availability .\n
  *
@@ -501,7 +511,7 @@ TScanBandPolicy* scanMngrGetPolicyByBand( TI_HANDLE hScanMngr, ERadioBand band )
 void scanMngrSetNextDiscoveryPart( TI_HANDLE hScanMngr );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 06-Mar-2005\n
  * \brief Checks whether discovery should be performed on the specified discovery part.\n
  *
@@ -512,7 +522,7 @@ void scanMngrSetNextDiscoveryPart( TI_HANDLE hScanMngr );
 TI_BOOL scanMngrIsDiscoveryValid( TI_HANDLE hScanMngr, scan_discoveryPart_e discoveryPart );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 07-Mar-2005\n
  * \brief Check whether there are neighbor APs to track on the given band.\n
  *
@@ -524,7 +534,7 @@ TI_BOOL scanMngrIsDiscoveryValid( TI_HANDLE hScanMngr, scan_discoveryPart_e disc
 TI_BOOL scanMngrNeighborAPsAvailableForDiscovery( TI_HANDLE hScanMngr, ERadioBand band );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Builds a scan command on the object workspace for immediate scan.\n
  *
@@ -536,7 +546,7 @@ TI_BOOL scanMngrNeighborAPsAvailableForDiscovery( TI_HANDLE hScanMngr, ERadioBan
 void scanMngrBuildImmediateScanCommand( TI_HANDLE hScanMngr, TScanBandPolicy* bandPolicy, TI_BOOL bNeighborAPsOnly );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 03-Mar-2005\n
  * \brief Builds a scan command on the object workspace for tracking.\n
  *
@@ -548,7 +558,7 @@ void scanMngrBuildImmediateScanCommand( TI_HANDLE hScanMngr, TScanBandPolicy* ba
 void scanMngrBuildTrackScanCommand( TI_HANDLE hScanMngr, TScanBandPolicy* bandPolicy, ERadioBand band );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 03-Mar-2005\n
  * \brief Builds a scan command on the object workspace for discovery.\n
  *
@@ -558,7 +568,7 @@ void scanMngrBuildTrackScanCommand( TI_HANDLE hScanMngr, TScanBandPolicy* bandPo
 void scanMngrBuildDiscoveryScanCommand( TI_HANDLE hScanMngr );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Builds the scan command header on the object workspace.\n
  *
@@ -570,7 +580,7 @@ void scanMngrBuildDiscoveryScanCommand( TI_HANDLE hScanMngr );
 void scanMngrBuildScanCommandHeader( TI_HANDLE hScanMngr, TScanMethod* scanMethod, ERadioBand band );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 06-Mar-2005\n
  * \brief Add neighbor APs to scan command on the object workspace for discovery scan.\n
  *
@@ -581,7 +591,7 @@ void scanMngrBuildScanCommandHeader( TI_HANDLE hScanMngr, TScanMethod* scanMetho
 void scanMngrAddNeighborAPsForDiscovery( TI_HANDLE hScanMngr, TScanBandPolicy* bandPolicy );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 06-Mar-2005\n
  * \brief Add channel from policy channels list to scan command on the object workspace for discovery scan.\n
  *
@@ -592,7 +602,7 @@ void scanMngrAddNeighborAPsForDiscovery( TI_HANDLE hScanMngr, TScanBandPolicy* b
 void scanMngrAddChannelListForDiscovery( TI_HANDLE hScanMngr, TScanBandPolicy* bandPolicy );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Add SPS channels to scan command on the object workspace.\n
  *
@@ -604,7 +614,7 @@ void scanMngrAddChannelListForDiscovery( TI_HANDLE hScanMngr, TScanBandPolicy* b
 void scanMngrAddSPSChannels( TI_HANDLE hScanMngr, TScanMethod* scanMethod, ERadioBand band );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 07-Mar-2005\n
  * \brief Calculates local TSF of the next event (beacon or GPR) of the given tracked AP.\n
  *
@@ -618,7 +628,7 @@ void scanMngrAddSPSChannels( TI_HANDLE hScanMngr, TScanMethod* scanMethod, ERadi
 TI_UINT64 scanMngrCalculateNextEventTSF( TI_HANDLE hScanMngr, scan_BSSList_t* BSSList, TI_UINT8 entryIndex, TI_UINT64 initialTSFValue );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 20-September-2005\n
  * \brief Check whether a time range collides with current AP DTIM
  *
@@ -631,7 +641,7 @@ TI_UINT64 scanMngrCalculateNextEventTSF( TI_HANDLE hScanMngr, scan_BSSList_t* BS
 TI_BOOL scanMngrDTIMInRange( TI_HANDLE hScanMngr, TI_UINT64 eventStart, TI_UINT64 eventEnd );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 03-Mar-2005\n
  * \brief Add a normal channel entry to the object workspace scan command.\n
  *
@@ -645,7 +655,7 @@ TI_BOOL scanMngrDTIMInRange( TI_HANDLE hScanMngr, TI_UINT64 eventStart, TI_UINT6
 void scanMngrAddNormalChannel( TI_HANDLE hScanMngr, TScanMethod* scanMethod, TI_UINT8 channel, 
                                TMacAddr* BSSID, TI_UINT8 txPowerDbm );
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Removes an entry from the BSS list (by replacing it with another entry, if any).\n
  *
@@ -656,7 +666,7 @@ void scanMngrAddNormalChannel( TI_HANDLE hScanMngr, TScanMethod* scanMethod, TI_
 void scanMngrRemoveBSSListEntry( TI_HANDLE hScanMngr, TI_UINT8 BSSEntryIndex );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Removes all BSS list entries that are neither neighbor APs not on a policy defined channel.\n
  *
@@ -668,7 +678,7 @@ void scanMngrRemoveBSSListEntry( TI_HANDLE hScanMngr, TI_UINT8 BSSEntryIndex );
 void scanMngrUpdateBSSList( TI_HANDLE hScanMngr, TI_BOOL bCheckNeighborAPs, TI_BOOL bCheckChannels );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief returns the index of a neighbor AP.\n
  *
@@ -681,7 +691,7 @@ void scanMngrUpdateBSSList( TI_HANDLE hScanMngr, TI_BOOL bCheckNeighborAPs, TI_B
 TI_INT8 scanMngrGetNeighborAPIndex( TI_HANDLE hScanMngr, ERadioBand band, TMacAddr* bssId );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 02-Mar-2005\n
  * \brief Checks whether a channel is defined on a policy.\n
  *
@@ -694,7 +704,7 @@ TI_INT8 scanMngrGetNeighborAPIndex( TI_HANDLE hScanMngr, ERadioBand band, TMacAd
 TI_BOOL scanMngrIsPolicyChannel( TI_HANDLE hScanMngr, ERadioBand band, TI_UINT8 channel );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 18-Apr-2005\n
  * \brief Converts scan concentrator result status to scan manager result status, to be returned to roaming manager.\n
  *
@@ -705,7 +715,7 @@ TI_BOOL scanMngrIsPolicyChannel( TI_HANDLE hScanMngr, ERadioBand band, TI_UINT8 
 scan_mngrResultStatus_e scanMngrConvertResultStatus( EScanCncnResultStatus resultStatus );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief Print a neighbor AP list.\n
  *
@@ -716,7 +726,7 @@ scan_mngrResultStatus_e scanMngrConvertResultStatus( EScanCncnResultStatus resul
 void scanMngrTracePrintNeighborAPsList( TI_HANDLE hScanMngr, neighborAPList_t *neighborAPList );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief Print a neighbor AP.\n
  *
@@ -727,7 +737,7 @@ void scanMngrTracePrintNeighborAPsList( TI_HANDLE hScanMngr, neighborAPList_t *n
 void scanMngrTracePrintNeighborAP( TI_HANDLE hScanMngr, neighborAP_t* neighborAP );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief Print a band scan policy AP.\n
  *
@@ -737,7 +747,7 @@ void scanMngrTracePrintNeighborAP( TI_HANDLE hScanMngr, neighborAP_t* neighborAP
 void scanMngrTracePrintBandScanPolicy( TScanBandPolicy* bandPolicy );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief Print a scan method
  *
@@ -747,7 +757,7 @@ void scanMngrTracePrintBandScanPolicy( TScanBandPolicy* bandPolicy );
 void scanMngrTracePrintScanMethod( TScanMethod* scanMethod );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief print a normal scan method
  *
@@ -757,7 +767,7 @@ void scanMngrTracePrintScanMethod( TScanMethod* scanMethod );
 void scanMngrTracePrintNormalScanMethod( TScanBasicMethodParams* basicMethodParams );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief print an AC triggered scan method
  *
@@ -767,7 +777,7 @@ void scanMngrTracePrintNormalScanMethod( TScanBasicMethodParams* basicMethodPara
 void scanMngrTracePrintTriggeredScanMethod( TScanTidTriggeredMethodParams* triggeredMethodParams );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 09-Mar-2005\n
  * \brief print a SPS scan method
  *
@@ -778,7 +788,7 @@ void scanMngrTracePrintSPSScanMethod( TScanSPSMethodParams* SPSMethodParams );
 
 #ifdef TI_DBG
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 31-Mar-2005\n
  * \brief print debug information for every received frame.\n
  *
@@ -789,7 +799,7 @@ void scanMngrTracePrintSPSScanMethod( TScanSPSMethodParams* SPSMethodParams );
 void scanMngrDebugPrintReceivedFrame( TI_HANDLE hScanMngr, TScanFrameInfo *frameInfo );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 31-Mar-2005\n
  * \brief print BSS list.\n
  *
@@ -799,7 +809,7 @@ void scanMngrDebugPrintReceivedFrame( TI_HANDLE hScanMngr, TScanFrameInfo *frame
 void scanMngrDebugPrintBSSList( TI_HANDLE hScanMngr );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 31-Mar-2005\n
  * \brief print one entry in the BSS list.\n
  *
@@ -810,7 +820,7 @@ void scanMngrDebugPrintBSSList( TI_HANDLE hScanMngr );
 void scanMngrDebugPrintBSSEntry( TI_HANDLE hScanMngr, TI_UINT8 entryIndex );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 14-Apr-2005\n
  * \brief print SPS helper list
  *
@@ -823,7 +833,7 @@ void scanMngrDebugPrintBSSEntry( TI_HANDLE hScanMngr, TI_UINT8 entryIndex );
 void scanMngrDebugPrintSPSHelperList( TI_HANDLE hScanMngr, scan_SPSHelper_t* spsHelperList, int arrayHead, int arraySize );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 26-May-2005\n
  * \brief Print scan result histogram statistics.\n
  *
@@ -833,7 +843,7 @@ void scanMngrDebugPrintSPSHelperList( TI_HANDLE hScanMngr, scan_SPSHelper_t* sps
 void scanMngrStatsPrintScanResultHistogram( TI_UINT32 scanResultHistogram[] );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 26-May-2005\n
  * \brief Print track fail count histogram statistics.\n
  *
@@ -843,7 +853,7 @@ void scanMngrStatsPrintScanResultHistogram( TI_UINT32 scanResultHistogram[] );
 void scanMngrStatsPrintTrackFailHistogrsm( TI_UINT32 trackFailHistogram[] );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 26-May-2005\n
  * \brief Print SPS attendant channel histogram statistics.\n
  *
@@ -853,7 +863,7 @@ void scanMngrStatsPrintTrackFailHistogrsm( TI_UINT32 trackFailHistogram[] );
 void scanMngrStatsPrintSPSChannelsHistogram( TI_UINT32 SPSChannelsNotAttendedHistogram[] );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 25-July-2005\n
  * \brief Print One neighbor AP entry.\n
  *
@@ -864,7 +874,7 @@ void scanMngrStatsPrintSPSChannelsHistogram( TI_UINT32 SPSChannelsNotAttendedHis
 void scanMngrDebugPrintNeighborAP( neighborAP_t* pNeighborAp, scan_neighborDiscoveryState_e discoveryState );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 27-July-2005\n
  * \brief Prints a scan command.\n
  *
@@ -874,7 +884,7 @@ void scanMngrDebugPrintNeighborAP( neighborAP_t* pNeighborAp, scan_neighborDisco
 void scanMngrDebugPrintScanCommand( TScanParams* pScanParams );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 27-July-2005\n
  * \brief Prints scan command single normal channel.\n
  *
@@ -884,7 +894,7 @@ void scanMngrDebugPrintScanCommand( TScanParams* pScanParams );
 void scanMngrDebugPrintNormalChannelParam( TScanNormalChannelEntry* pNormalChannel );
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 27-July-2005\n
  * \brief Prints scan command single SPS channel.\n
  *

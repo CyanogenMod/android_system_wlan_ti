@@ -223,6 +223,15 @@
 #define BURST_MODE_ENABLE_MAX         TI_TRUE
 #define BURST_MODE_ENABLE_DEF         TI_FALSE
 
+#define SMART_REFLEX_STATE_MIN        TI_FALSE
+#define SMART_REFLEX_STATE_MAX        TI_TRUE
+#define SMART_REFLEX_STATE_DEF        TI_TRUE
+
+#define SMART_REFLEX_DEBUG_MIN        0
+#define SMART_REFLEX_DEBUG_MAX        0xFFFF
+#define SMART_REFLEX_DEBUG_DEF        0
+
+#define SMART_REFLEX_CONFIG_PARAMS_DEF_TABLE  "0,0,0,0,0,0,0,0,0,0,0,0,0,0"
 
 #define TWD_FRAG_THRESHOLD_MIN          256
 #define TWD_FRAG_THRESHOLD_MAX          4096
@@ -261,21 +270,27 @@
 /*
  * Tx and Rx interrupts pacing (threshold in packets, timeouts in milliseconds)
  */
-#define TWD_TX_CMPLT_THRESHOLD_DEF      8   /* 0 means no pacing so send interrupt on every event */
+#define TWD_TX_CMPLT_THRESHOLD_DEF      4   /* 0 means no pacing so send interrupt on every event */
 #define TWD_TX_CMPLT_THRESHOLD_MIN      0
 #define TWD_TX_CMPLT_THRESHOLD_MAX      30
 
-#define TWD_TX_CMPLT_TIMEOUT_DEF        10
+#define TWD_TX_CMPLT_TIMEOUT_DEF        5
 #define TWD_TX_CMPLT_TIMEOUT_MIN        1
 #define TWD_TX_CMPLT_TIMEOUT_MAX        100
 
 #define TWD_RX_INTR_THRESHOLD_DEF       0   /* 0 means no pacing so send interrupt on every event */
 #define TWD_RX_INTR_THRESHOLD_MIN       0
 #define TWD_RX_INTR_THRESHOLD_MAX       30
+#define TWD_RX_INTR_THRESHOLD_DEF_WIFI_MODE  0 /* No Rx interrupt pacing so send interrupt on every event */
 
-#define TWD_RX_INTR_TIMEOUT_DEF         5
+#define TWD_RX_INTR_TIMEOUT_DEF         1
 #define TWD_RX_INTR_TIMEOUT_MIN         1 
 #define TWD_RX_INTR_TIMEOUT_MAX         100
+
+/* Rx aggregation packets number limit (max packets in one aggregation) */
+#define TWD_RX_AGGREG_PKTS_LIMIT_DEF    4
+#define TWD_RX_AGGREG_PKTS_LIMIT_MIN    1
+#define TWD_RX_AGGREG_PKTS_LIMIT_MAX    4
 
 /*
  * Tx power level 
@@ -601,9 +616,10 @@ typedef enum
 /*	0x24	*/	TWD_RSSI_LEVEL_PARAM_ID,						/**< */
 /*	0x25	*/	TWD_SNR_RATIO_PARAM_ID,							/**< */
 /*	0x26	*/	TWD_COEX_ACTIVITY_PARAM_ID,	    				/**< */
+/*	0x27	*/	TWD_FM_COEX_PARAM_ID,	    				    /**< */
 
 				/* must be last!!! */
-/*	0x27	*/	TWD_LAST_PARAM_ID								/**< */
+/*	0x28    */	TWD_LAST_PARAM_ID								/**< */
 } ETwdParam;
 
 /** \enum ETwdCallbackOwner
@@ -842,9 +858,10 @@ typedef enum
 /*	6	*/	MEASUREMENT_FAILURE,			/**< 	Measurement Failure Event			*/
 /*	7	*/	BUS_FAILURE,					/**< 	Bus Failure Event					*/
 /*	8	*/	HW_WD_EXPIRE,					/**< 	HW Watchdog Expire Event			*/
+/*	9	*/	RX_XFER_FAILURE,			    /**< 	Rx pkt xfer failure                 */
 
 /* must be last!!! */
-/*	9	*/	MAX_FAILURE_EVENTS				/**< 	Maximum number of Failure Events	*/
+/* 10	*/	MAX_FAILURE_EVENTS				/**< 	Maximum number of Failure Events	*/
 
 } EFailureEvent;
 
@@ -1855,7 +1872,7 @@ typedef struct
  * 
  * \par Description 
  * 
- * \sa	TWD_CmdPSMode
+ * \sa
  */ 
 typedef struct
 {
@@ -2082,87 +2099,62 @@ typedef struct
 
 } TQueueTrafficParams;
 
-/** \struct TSoftGeminiParams
- * \brief Soft Gemini Parameters
- * 
+
+
+/** \struct TFmCoexParams
+ * \brief FM Coexistence Parameters
+ *
  * \par Description
- * Used for Setting/Printing Soft Gemini Parameters
+ * Used for Setting/Printing FM Coexistence Parameters
  * 
  * \sa
  */ 
 typedef struct
 {	
-	TI_UINT32	coexBtPerThreshold;	/* Defines the PER threshold in PPM of the BT voice of which reaching this value 
-							       will trigger raising the priority of the BT voice by the BT IP until next 
-								   NFS sample interval time as defined in coexBtNfsSampleInterval.
-								   Unit: PER value in PPM(part per million) = #Error_packets / #Total_packets
-								   Range: uint32
-								   Default Value: 7500 --> 1 voice packet(HV3) drop every 500msec
-								*/
+    TI_UINT8   uEnable;                 /* enable(1) / disable(0) the FM Coex feature */
 
-    TI_UINT32   coexAutoScanCompensationMaxTime;		/* This value is an absolute time in micro-seconds to 
-			                                           limit the maximum scan duration compenstation while in SG*/
+    TI_UINT8   uSwallowPeriod;          /* Swallow period used in COEX PLL swallowing mechanism,
+                                           Range: 0-0xFF,  0xFF = use FW default
+                                        */
 
-	TI_UINT32	coexBtNfsSampleInterval; /* Defines the PER threshold of the BT voice of which reaching this 
-										value will trigger raising the priority of the BT voice until next NFS 
-										sample interval time as defined in coexBtNfsSampleInterval.
-										Unit: msec
-										Range: 1-65000
-										Default Value: 400msec									 
-									 */
+    TI_UINT8   uNDividerFrefSet1;       /* The N divider used in COEX PLL swallowing mechanism for Fref of 38.4/19.2 Mhz.
+                                           Range: 0-0xFF,  0xFF = use FW default
+                                        */
 
-	TI_UINT32	coexBtLoadRatio;	/* Defines the load ratio for the BT. The WLAN ratio is: 100-coexBtLoadRatio. 
-				   				   Unit: Percent
-								   Range: 0-100
-								   Default Value: 50  
-								*/
+    TI_UINT8   uNDividerFrefSet2;       /* The N divider used in COEX PLL swallowing mechanism for Fref of 26/52 Mhz.
+                                           Range: 0-0xFF,  0xFF = use FW default
+                                        */
 
+    TI_UINT16  uMDividerFrefSet1;       /* The M divider used in COEX PLL swallowing mechanism for Fref of 38.4/19.2 Mhz.
+                                           Range: 0-0x1FF,  0xFFFF = use FW default
+                                        */
 
-	TI_UINT32	coexAutoPsMode;					/* TRUE -  Co-ex is allowed to enter/exit P.S automatically and transparently to 
-													the host
-													FALSE - Co-ex is disallowed to enter/exit P.S and will trigger an event to the 
-									   host to notify for the need to enter/exit P.S due to BT change state 
-							   Default Value: TRUE
-							 */
+    TI_UINT16  uMDividerFrefSet2;       /* The M divider used in COEX PLL swallowing mechanism for Fref of 26/52 Mhz.
+                                           Range: 0-0x1FF,  0xFFFF = use FW default
+                                        */
 
-	TI_UINT32	coexAutoScanEnlargedNumOfProbeReqPercent; /* This parameter defines the compensation percentage of 
-														 num of probe requests in case scan is initiated during
-														 BT voice/BT ACL guaranteed link. 
-														 Unit: Percent
-														 Range: 0-255 (0 - No compensation)
-														 Default Value: 50
-													   */
+    TI_UINT32  uCoexPllStabilizationTime;/* The time duration in uSec required for COEX PLL to stabilize.
+                                           0xFFFFFFFF = use FW default
+                                        */
 
-	TI_UINT32	coexAutoScanEnlargedScanWindowPercent; /* This parameter defines the compensation percentage of 
-													  scan window size in case scan is initiated during
-													  BT voice/BT ACL Guaranteed link.
-													  Unit: Percent
-													  Range: 0-255 (0 - No compensation)
-													  Default Value: 50
-													*/
-	
-	TI_UINT32	coexAntennaConfiguration;				/* Defines the antenna configuration.
-													   Range: 0 - Single Antenna; 1 - Dual Antenna
-													   Default Value: 0 - Single Antenna													   
-													 */	
-    TI_UINT32   coexMaxConsecutiveBeaconMissPrecent;    /* The percent out of the Max consecutive beacon miss 
-                                                        roaming trigger which is the threshold for raising 
-                                                        the priority of beacon reception. 
-                                                        Values 1-100 
-                                                        N = MaxConsecutiveBeaconMiss; 
-                                                        P = coexMaxConsecutiveBeaconMissPrecent; 
-                                                        Threshold = MIN( N-1, round(N * P/100))
-                                                     */ 
-    TI_UINT32   coexAPRateAdapationThr;                /* The RX rate threshold below which rate adaptation  
-                                                        is assumed to be occurring at the AP which will raise 
-                                                        priority for ACTIVE_RX and RX SP. 
-                                                        Values: EHwRateBitFiled. 
-                                                     */ 
-    TI_UINT32   coexAPRateAdapationSnr;                 /* The SNR above which the RX rate threshold indicating  
-                                                        AP rate adaptation is valid  
-                                                        Values: -128 - 127 
-                                                     */ 
-} TSoftGeminiParams;
+    TI_UINT16  uLdoStabilizationTime;   /* The time duration in uSec required for LDO to stabilize.
+                                           0xFFFFFFFF = use FW default
+                                        */
+
+    TI_UINT8   uFmDisturbedBandMargin;  /* The disturbed frequency band margin around the disturbed
+                                             frequency center (single sided).
+                                           For example, if 2 is configured, the following channels
+                                             will be considered disturbed channel:
+                                             80 +- 0.1 MHz, 91 +- 0.1 MHz, 98 +- 0.1 MHz, 102 +- 0.1 MHz
+                                           0xFF = use FW default
+                                        */
+
+	TI_UINT8   uSwallowClkDif;          /* The swallow clock difference of the swallowing mechanism.
+                                           0xFF = use FW default
+                                        */
+
+} TFmCoexParams;
+
 
 /** \struct TMibBeaconFilterIeTable
  * \brief MIB Beacon Filter IE table
@@ -2430,7 +2422,9 @@ typedef union
     
     ESoftGeminiEnableModes              SoftGeminiEnable;				/**< */
     TSoftGeminiParams                   SoftGeminiParam;				/**< */
-    
+
+    TFmCoexParams                       tFmCoexParams;                  /**< */
+
     TI_UINT32                           halCtrlMaxRxMsduLifetime;		/**< */
 
     /* Beacon Broadcast options */
@@ -2537,6 +2531,7 @@ typedef struct
     TI_UINT16                           RxIntrPacingThreshold;			    /**< */
     TI_UINT16                           RxIntrPacingTimeout;			    /**< */
 
+    TI_UINT32                           uRxAggregPktsLimit;					/**< */
     TI_UINT8                            hwAccessMethod;						/**< */
     TI_UINT8                            maxSitesFragCollect;				/**< */
     TI_UINT8                            packetDetectionThreshold;			/**< */
@@ -2568,6 +2563,7 @@ typedef struct
     TI_UINT32                           uHostClkSettlingTime;				/**< */
     TI_UINT8                            uHostFastWakeupSupport;             /**< */
     THalCoexActivityTable               halCoexActivityTable;               /**< */
+    TFmCoexParams                       tFmCoexParams;                      /**< */
 
 } TGeneralInitParams;
 
@@ -2630,6 +2626,32 @@ typedef struct
 
 } TMacAddrFilterInitParams;
 
+/** \struct RateMangeParams_t
+ * \brief Rate Maangement params structure
+ *
+ * \par Description
+ *
+ * \sa
+ */
+typedef struct
+{
+	rateAdaptParam_e paramIndex;
+	uint16 RateRetryScore;
+	uint16 PerAdd;
+	uint16 PerTh1;
+	uint16 PerTh2;
+	uint16 MaxPer;
+	uint8 InverseCuriosityFactor;
+	uint8 TxFailLowTh;
+	uint8 TxFailHighTh;
+	uint8 PerAlphaShift;
+	uint8 PerAddShift;
+	uint8 PerBeta1Shift;
+	uint8 PerBeta2Shift;
+	uint8 RateCheckUp;
+	uint8 RateCheckDown;
+	uint8 RateRetryPolicy[13];
+}RateMangeParams_t;
 
 /*
  * IMPORTANT NOTE:
@@ -2655,6 +2677,10 @@ typedef struct
     TMacAddrFilterInitParams            tMacAddrFilter;		 /**< MAC Address Initialization Parameters		*/
     IniFileRadioParam                   tIniFileRadioParams; /**< Radio Initialization Parameters   		*/
     IniFileGeneralParam                 tPlatformGenParams; /**< Radio Initialization Parameters   	        */
+    ACXSmartReflexConfigParams_t        tSmartReflexParams;       /**< Smart Refelx Parameters   	            */
+    ACXSmartReflexDebugParams_t         tSmartReflexDebugParams;  /**< Smart Refelx Debug Parameters   	        */
+    ACXSmartReflexState_t               tSmartReflexState;        /**< Smart Refelx state   	                */
+	RateMangeParams_t					tRateMngParams;
    
 } TTwdInitParams;
 
@@ -2680,6 +2706,18 @@ typedef struct
 	TI_UINT32   uHTCapabilitiesBitMask;				/**< */    
 	TI_UINT8    uMCSFeedback;						/**< */    
 } TTwdHtCapabilities;
+
+typedef struct
+{
+    int32  SNRCorrectionHighLimit;
+    int32  SNRCorrectionLowLimit;
+    int32  PERErrorTH;
+    int32  attemptEvaluateTH;
+    int32  goodAttemptTH;
+    int32  curveCorrectionStep;
+
+ }RateMangeReadParams_t;
+
 
 /*
  * --------------------------------------------------------------
@@ -2726,7 +2764,7 @@ typedef void (* TSendPacketDebugCb)  (TI_HANDLE CBObj, TTxCtrlBlk *pPktCtrlBlk, 
  *
  * \sa	TWD_RegisterCb
  */ 
-typedef ERxBufferStatus (*TRequestForBufferCb) (TI_HANDLE hObj, void **pRxBuffer, TI_UINT16 aLength, TI_UINT32 uEncryptionFlag);
+typedef ERxBufferStatus (*TRequestForBufferCb) (TI_HANDLE hObj, void **pRxBuffer, TI_UINT16 aLength, TI_UINT32 uEncryptionFlag, PacketClassTag_e ePacketClassTag);
 /** @ingroup Control
  * \brief Send Packet Debug CB
  * 
@@ -3407,7 +3445,6 @@ TI_STATUS TWD_DisableEvent (TI_HANDLE hTWD, TI_UINT32 event);
  * \sa
  */ 
 TI_STATUS TWD_EnableEvent (TI_HANDLE hTWD, TI_UINT32 event);
-TI_STATUS TWD_dbgRoamingCommands (TI_HANDLE hTWD);
 /** @ingroup Control
  * \brief Convert RSSI to RX Level
  * 
@@ -3537,8 +3574,6 @@ TI_UINT32 TWD_GetMaxNumberOfCommandsInQueue (TI_HANDLE hTWD);
  */ 
 TI_BOOL TWD_GetPsStatus (TI_HANDLE hTWD);
 
-TI_STATUS TWD_GetRxFilters (TI_HANDLE hTWD, TI_UINT32 *pRxConfigOption, TI_UINT32* pRxFilterOption);
-TI_STATUS TWD_GetRadioStandByState (TI_HANDLE hTWD);
 
 /** @ingroup Control
  * \brief  Get FW Information
@@ -3705,19 +3740,6 @@ void TWD_UpdateDtimTbtt (TI_HANDLE hTWD, TI_UINT8 uDtimPeriod, TI_UINT16 uBeacon
 /*---------*/
 
 
-TI_STATUS TWD_CmdStartScan (TI_HANDLE hTWD, 
-							TScanParams *pScanVals, 
-							TI_BOOL bHighPriority, 
-							void* fScanCommandResponseCb, 
-							TI_HANDLE hCb);
-TI_STATUS TWD_CmdStartSPSScan (TI_HANDLE hTWD, 
-							   TScanParams *pScanVals, 
-							   void *fScanCommandResponseCb, 
-							   TI_HANDLE hCb);
-TI_STATUS TWD_CmdStopScan (TI_HANDLE hTWD, void *fScanCommandResponseCb, TI_HANDLE hCb);
-
-TI_STATUS TWD_CmdStopSPSScan (TI_HANDLE hTWD, void *fScanCommandResponseCb, TI_HANDLE hCb);
-
 /** @ingroup Measurement
  * \brief  Set Split scan time out
  * 
@@ -3799,7 +3821,6 @@ TI_STATUS TWD_CmdDisableTx (TI_HANDLE hTWD);
  */ 
 TI_STATUS TWD_CmdNoiseHistogram (TI_HANDLE hTWD, TNoiseHistogram *pNoiseHistParams);
 
-TI_STATUS TWD_CmdPSMode (TI_HANDLE hTWD, TPowerSaveParams *pPowerSaveParams);
 /** @ingroup Radio
  * \brief  Command Switch Channel
  * 
@@ -3890,7 +3911,6 @@ TI_STATUS TWD_CmdApDiscovery (TI_HANDLE hTWD, TApDiscoveryParams *pApDiscoveryPa
  */ 
 TI_STATUS TWD_CmdApDiscoveryStop (TI_HANDLE hTWD);
 
-TI_STATUS TWD_CmdTest (TI_HANDLE hTWD, void *fCb, TI_HANDLE hCb, TTestCmd* pTestCmd);
 /** @ingroup Control
  * \brief	Helth Check
  * 
@@ -4367,6 +4387,20 @@ TI_STATUS TWD_CfgSetFwHtCapabilities (TI_HANDLE hTWD,
  */
 TI_STATUS TWD_CfgSetFwHtInformation (TI_HANDLE hTWD, Tdot11HtInformationUnparse *pHtInformationIe);
 
+
+/** @ingroup UnKnown
+ * \brief Enable/Disabel burst mode
+ *
+ * \param  hTWD    				- TWD module object handle
+ * \param  bEnabled 	        - burst mode: Enable/Disable
+ * \return TI_OK
+ *
+ * \par Description
+ *
+ * \sa
+ */
+TI_STATUS TWD_CfgBurstMode (TI_HANDLE hTWD, TI_BOOL bEnabled);
+
 /*-------------*/
 /* Interrogate */
 /*-------------*/
@@ -4633,6 +4667,7 @@ void TWD_FinalizePolarityRead(TI_HANDLE hTWD);
  * \sa
  */ 
 TI_STATUS TWD_CfgBurstMode (TI_HANDLE hTWD, TI_BOOL bEnabled);
-
+TI_STATUS TWD_SetRateMngDebug(TI_HANDLE hTWD, RateMangeParams_t *pRateMngParams);
+TI_STATUS TWD_GetRateMngDebug(TI_HANDLE hTWD, RateMangeReadParams_t  *pParamInfo);
 
 #endif  /* TWDRIVER_H */

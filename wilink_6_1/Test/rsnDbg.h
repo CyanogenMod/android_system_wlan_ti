@@ -48,7 +48,8 @@
 #define DBG_RSN_GET_PMKID_CACHE              8
 #define DBG_RSN_RESET_PMKID_CACHE            9
 #define DBG_RSN_PRINT_ROGUE_AP_TABLE         10
-
+#define DBG_RSN_SET_PORT_STATUS              11
+#define DBG_RSN_PRINT_PORT_STATUS            12
 
 void rsnDebugFunction(TI_HANDLE hRsn, TI_UINT32 funcType, void *pParam);
 

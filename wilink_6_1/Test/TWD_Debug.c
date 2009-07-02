@@ -629,6 +629,13 @@ TI_STATUS TWD_Debug (TI_HANDLE hTWD, TI_UINT32 funcType, void *pParam)
     static TI_UINT32 GenericAddr;
     static int    iStart[100];
 
+	/* check paramemters validity */
+	if (pMemDebug == NULL)
+	{
+		WLAN_OS_REPORT(("TWD_Debug: Error - pParam is NULL\n"));
+		return TI_NOK;
+	}
+
     switch (funcType)
     {
 	case TWD_PRINT_SYS_INFO:

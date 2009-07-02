@@ -95,7 +95,8 @@ TI_HANDLE cmdHndlr_Create (TI_HANDLE hOs, TI_HANDLE hEvHandler)
     pCmdHndlr->hOs = hOs;
 
     pCmdHndlr->hCmdInterpret = cmdInterpret_Create (hOs);
-    if (pCmdHndlr == NULL) 
+
+    if (pCmdHndlr->hCmdInterpret == NULL) 
     {
 		cmdHndlr_Destroy ((TI_HANDLE) pCmdHndlr, (TI_HANDLE) hEvHandler);
         return NULL;
@@ -120,11 +121,19 @@ TI_STATUS cmdHndlr_Destroy (TI_HANDLE hCmdHndlr, TI_HANDLE hEvHandler)
 {
     TCmdHndlrObj *pCmdHndlr = (TCmdHndlrObj *)hCmdHndlr;
 
-	cmdInterpret_Destroy (pCmdHndlr->hCmdInterpret, hEvHandler);
+	if (pCmdHndlr->hCmdInterpret)
+	{
+		cmdInterpret_Destroy (pCmdHndlr->hCmdInterpret, hEvHandler);
+	}
 
     cmdHndlr_ClearQueue (hCmdHndlr);
-    que_Destroy (pCmdHndlr->hCmdQueue);
-    os_memoryFree (pCmdHndlr->hOs, hCmdHndlr, sizeof(TCmdHndlrObj));
+
+	if (pCmdHndlr->hCmdQueue)
+	{
+		que_Destroy (pCmdHndlr->hCmdQueue);
+	}
+
+	os_memoryFree (pCmdHndlr->hOs, hCmdHndlr, sizeof(TCmdHndlrObj));
 
     return TI_OK;
 }

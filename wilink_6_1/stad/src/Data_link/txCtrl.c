@@ -293,21 +293,24 @@ TI_STATUS txCtrl_SetDefaults (TI_HANDLE hTxCtrl, txDataInitParams_t *txDataInitP
 ***************************************************************************/
 TI_STATUS txCtrl_Unload (TI_HANDLE hTxCtrl)
 {
-	txCtrl_t *pTxCtrl = (txCtrl_t *)hTxCtrl;
+    txCtrl_t *pTxCtrl = (txCtrl_t *)hTxCtrl;
 
-	if (pTxCtrl == NULL)
+    if (pTxCtrl == NULL)
+    {
+        return TI_NOK;
+    }
+
+    DistributorMgr_Destroy (pTxCtrl->TxEventDistributor);
+
+	if (pTxCtrl->hCreditTimer)
 	{
-		return TI_NOK;
+		tmr_DestroyTimer (pTxCtrl->hCreditTimer);
 	}
 
-	DistributorMgr_Destroy (pTxCtrl->TxEventDistributor);
+    /* free Tx Data control block */
+    os_memoryFree (pTxCtrl->hOs, pTxCtrl, sizeof(txCtrl_t));
 
-	tmr_DestroyTimer (pTxCtrl->hCreditTimer);
-
-	/* free Tx Data control block */
-	os_memoryFree (pTxCtrl->hOs, pTxCtrl, sizeof(txCtrl_t));
-
-	return TI_OK;
+    return TI_OK;
 }
 
 
@@ -657,7 +660,6 @@ TRACE3(pTxCtrl->hReport, REPORT_SEVERITY_INFORMATION, ": Pkt Tx Complete, DescID
 *
 * RETURNS:      uHdrAlignPad - Num of bytes (0 or 2) added at the header's beginning for 4-bytes alignment.
 ***************************************************************************/
-const TI_UINT8 SNAP_OUI_RFC1042[] = SNAP_OUI_RFC1042_BYTES;
 
 TI_UINT32 txCtrl_BuildDataPktHdr (TI_HANDLE hTxCtrl, TTxCtrlBlk *pPktCtrlBlk, AckPolicy_e eAckPolicy)
 {
@@ -670,6 +672,7 @@ TI_UINT32 txCtrl_BuildDataPktHdr (TI_HANDLE hTxCtrl, TTxCtrlBlk *pPktCtrlBlk, Ac
 	TI_UINT32			uHdrAlignPad;
 	TI_UINT16			uQosControl;
 	TI_UINT16			fc = 0;
+ 	TI_UINT16           typeLength;
 
 	/* 
 	 * Handle QoS if needed:
@@ -762,18 +765,51 @@ TI_UINT32 txCtrl_BuildDataPktHdr (TI_HANDLE hTxCtrl, TTxCtrlBlk *pPktCtrlBlk, Ac
     /* Set the SNAP header pointer right after the other header parts handled above. */
     pWlanSnapHeader = (Wlan_LlcHeader_T *)&(pPktCtrlBlk->aPktHdr[uHdrLen]);
     
+
+	typeLength = WLANTOHS(pEthHeader->type);
+
+    /* Detect the packet type and decide if to create a     */
+    /*          new SNAP or leave the original LLC.         */
+    /*------------------------------------------------------*/
+   	if( typeLength > ETHERNET_MAX_PAYLOAD_SIZE )
+    {
+        /* Create the SNAP Header:     */
+        /*-----------------------------*/
+        /*
+         * Make a working copy of the SNAP header
+         * initialised to zero
+         */
+
    	pWlanSnapHeader->DSAP = SNAP_CHANNEL_ID;
    	pWlanSnapHeader->SSAP = SNAP_CHANNEL_ID;
    	pWlanSnapHeader->Control = LLC_CONTROL_UNNUMBERED_INFORMATION;
 
-    /* add RFC1042. */
-    os_memoryCopy(pTxCtrl->hOs, &pWlanSnapHeader->OUI, (void *)SNAP_OUI_RFC1042, sizeof(pWlanSnapHeader->OUI) );
+        /* Check to see if the Ethertype matches anything in the translation     */
+        /* table (Appletalk AARP or DixII/IPX).  If so, add the 802.1h           */
+        /* SNAP.                                                                 */
 
+        if(( ETHERTYPE_APPLE_AARP == typeLength ) ||
+           ( ETHERTYPE_DIX_II_IPX == typeLength ))
+        {
+            /* Fill out the SNAP Header with 802.1H extention   */
+            pWlanSnapHeader->OUI[0] = SNAP_OUI_802_1H_BYTE0;
+			pWlanSnapHeader->OUI[1] = SNAP_OUI_802_1H_BYTE1;
+			pWlanSnapHeader->OUI[2] = SNAP_OUI_802_1H_BYTE2;
+
+        }
+        else
+        {
+            /* otherwise, add the RFC1042 SNAP   */
+    		pWlanSnapHeader->OUI[0] = SNAP_OUI_RFC1042_BYTE0;
+			pWlanSnapHeader->OUI[1] = SNAP_OUI_RFC1042_BYTE0;
+			pWlanSnapHeader->OUI[2] = SNAP_OUI_RFC1042_BYTE0;
+        }
     /* set type length */
     pWlanSnapHeader->Type = pEthHeader->type;
 
     /* Add the SNAP length to the total header length. */
     uHdrLen += sizeof(Wlan_LlcHeader_T);
+    }
 
     /* Replace first buffer pointer and length to the descriptor and WLAN-header (instead of Ether header) */
     pPktCtrlBlk->tTxnStruct.aBuf[0] = (TI_UINT8 *)&(pPktCtrlBlk->tTxDescriptor);

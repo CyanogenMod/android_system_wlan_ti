@@ -135,7 +135,6 @@ TI_STATUS conn_ibssConfig(conn_t *pConn)
 			{STATE_CONN_IBSS_RSN_WAIT,  rsnw_merge_rsnw     							},  /* CONN_IBSS_MERGE */
 			{STATE_CONN_IBSS_RSN_WAIT, actionUnexpected    								}   /* CONN_IBSS_DISCONN_COMPLETE */
         },
-
 		
         /* next state and actions for CONNECTED state */
         {   {STATE_CONN_IBSS_CONNECTED, actionUnexpected    							},  /* CONN_IBSS_CREATE */
@@ -449,8 +448,9 @@ RETURN:     TI_OK on success, TI_NOK otherwise
 static TI_STATUS rsnWait_to_waitToDisconnCmplt(void *pData)
 {
     paramInfo_t     param;  
+	TI_STATUS		tStatus;
 
-    rsn_stop(((conn_t *)pData)->hRsn, TI_FALSE);
+    tStatus = rsn_stop(((conn_t *)pData)->hRsn, TI_FALSE);
 
     param.paramType = RX_DATA_PORT_STATUS_PARAM;
     param.content.rxDataPortStatus = CLOSE;
@@ -465,7 +465,7 @@ static TI_STATUS rsnWait_to_waitToDisconnCmplt(void *pData)
     /* Stop beacon generation */
     TWD_CmdFwDisconnect (((conn_t *)pData)->hTWD, DISCONNECT_IMMEDIATE, STATUS_UNSPECIFIED); 
 
-    return TI_OK;
+    return tStatus;
 }
 
 

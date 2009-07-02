@@ -83,14 +83,12 @@ void        twIf_Init (TI_HANDLE hTwIf, TI_HANDLE hReport, TI_HANDLE hContext, T
 void        twIf_RegisterErrCb (TI_HANDLE hTwIf, void *fErrCb, TI_HANDLE hErrCb);
 ETxnStatus  twIf_Restart (TI_HANDLE hTwIf);
 void        twIf_SetPartition (TI_HANDLE hTwIf,
-                               TI_UINT32 uMemAddr,
-                               TI_UINT32 uMemSize,
-                               TI_UINT32 uRegAddr,
-                               TI_UINT32 uRegSize);
+                               TPartition *pPartition);
 void        twIf_Awake (TI_HANDLE hTwIf);
 void        twIf_Sleep (TI_HANDLE hTwIf);
 void        twIf_HwAvailable (TI_HANDLE hTwIf);
 ETxnStatus  twIf_Transact (TI_HANDLE hTwIf, TTxnStruct *pTxn);
+ETxnStatus  twIf_TransactReadFWStatus (TI_HANDLE hTwIf, TTxnStruct *pTxn);
 
 TI_BOOL		twIf_isValidMemoryAddr(TI_HANDLE hTwIf, TI_UINT32 Address, TI_UINT32 Length);
 TI_BOOL		twIf_isValidRegAddr(TI_HANDLE hTwIf, TI_UINT32 Address, TI_UINT32 Length);

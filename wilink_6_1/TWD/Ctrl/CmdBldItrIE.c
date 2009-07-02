@@ -161,6 +161,31 @@ TI_STATUS cmdBld_ItrIeSg (TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb, void* pCb
 
    return cmdQueue_SendCommand (pCmdBld->hCmdQueue, CMD_INTERROGATE, pCfg, sizeof(ACXBluetoothWlanCoParamsStruct), fCb, hCb, pCb);
 }
+/****************************************************************************
+ *                      cmdBld_ItrIeRateParams()
+ ****************************************************************************
+ * DESCRIPTION: Get the rate managment configuration
+ *
+ *
+ * OUTPUT:  None
+ *
+ * RETURNS: TI_OK or TI_NOK
+ ****************************************************************************/
+
+TI_STATUS cmdBld_ItrIeRateParams (TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb, void* pCb)
+{
+    TCmdBld *pCmdBld = (TCmdBld *)hCmdBld;
+	AcxRateMangeParams  RateParams;
+    AcxRateMangeParams* pCfg = &RateParams;
+
+    TRACE0(pCmdBld->hReport, REPORT_SEVERITY_INFORMATION, "cmdBld_ItrIeRateParams \n");
+
+    /* Set information element header */
+    pCfg->EleHdr.id = ACX_GET_RATE_MAMAGEMENT_PARAMS;
+    pCfg->EleHdr.len = sizeof(*pCfg) - sizeof(EleHdrStruct);
+
+    return cmdQueue_SendCommand (pCmdBld->hCmdQueue, CMD_INTERROGATE, pCfg, sizeof(AcxRateMangeParams), fCb, hCb, pCb);
+}
 
 /****************************************************************************
  *                      cmdBld_ItrIePowerConsumptionstat()

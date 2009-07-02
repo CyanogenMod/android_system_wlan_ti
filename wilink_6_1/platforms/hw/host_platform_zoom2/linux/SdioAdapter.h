@@ -60,6 +60,7 @@
  * \param  fCbFunc       - The bus driver's callback upon async transaction completion
  * \param  hCbArg        - The CB function handle
  * \param  uBlkSizeShift - In block-mode:   BlkSize = (1 << uBlkSizeShift)
+ * \param  uSdioThreadPriority - The SDIO interrupt handler thread priority
  * \return 0 = OK, otherwise = error
  * 
  * \par Description
@@ -70,7 +71,9 @@
 int        sdioAdapt_ConnectBus    (void *        fCbFunc,
                                     void *        hCbArg,
                                     unsigned int  uBlkSizeShift,
-                                    unsigned int  uSdioThreadPriority);
+                                    unsigned int  uSdioThreadPriority,
+                                    unsigned char **pTxDmaSrcAddr);
+
 /** \brief	sdioAdapt_DisconnectBus: Disconnect SDIO driver
  * 
  * \param  void

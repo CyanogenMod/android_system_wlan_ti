@@ -229,8 +229,8 @@ static struct omap_hsmmc_regs hsmmc_ctx;
 
 module_param(g_sdio_debug_level, int, 0644);
 MODULE_PARM_DESC(g_sdio_debug_level, "debug level");
-int g_sdio_debug_level = SDIO_DEBUGLEVEL_DEBUG;
-EXPORT_SYMBOL(g_sdio_debug_level);
+int g_sdio_debug_level = SDIO_DEBUGLEVEL_ERR;
+EXPORT_SYMBOL( g_sdio_debug_level);
 
 OMAP3430_sdiodrv_t g_drv;
 
@@ -272,16 +272,19 @@ static void sdioDrv_hsmmc_save_ctx(void)
         /* MMC : context save */
         hsmmc_ctx.hctl = OMAP_HSMMC_READ(HCTL);
         hsmmc_ctx.capa = OMAP_HSMMC_READ(CAPA);
+        hsmmc_ctx.sysconfig = OMAP_HSMMC_READ(SYSCONFIG);
         hsmmc_ctx.ise = OMAP_HSMMC_READ(ISE);
         hsmmc_ctx.ie = OMAP_HSMMC_READ(IE);
         hsmmc_ctx.con = OMAP_HSMMC_READ(CON);
         hsmmc_ctx.sysctl = OMAP_HSMMC_READ(SYSCTL);
 }
-static void sdioDrv_hsmmc_restore_ctx()
+
+static void sdioDrv_hsmmc_restore_ctx(void)
 {
         /* MMC : context restore */
         OMAP_HSMMC_WRITE(HCTL, hsmmc_ctx.hctl);
         OMAP_HSMMC_WRITE(CAPA, hsmmc_ctx.capa);
+        OMAP_HSMMC_WRITE(SYSCONFIG, hsmmc_ctx.sysconfig);
         OMAP_HSMMC_WRITE(CON, hsmmc_ctx.con);
         OMAP_HSMMC_WRITE(ISE, hsmmc_ctx.ise);
         OMAP_HSMMC_WRITE(IE, hsmmc_ctx.ie);
@@ -337,15 +340,19 @@ void sdiodrv_dma_read_cb(int lch, u16 ch_status, void *data)
 	PDEBUG("sdiodrv_dma_read_cb() channel=%d status=0x%x\n", lch, (int)ch_status);
 
 	g_drv.async_status = ch_status & (1 << 7);
-	
+
 	schedule_work(&sdiodrv_work);
+}
+
+void sdiodrv_dma_write_cb(int lch, u16 ch_status, void *data)
+{
 }
 
 int sdiodrv_dma_init(void)
 {
 	int rc;
 
-	rc = omap_request_dma(TIWLAN_MMC_DMA_TX, "SDIO WRITE", NULL /* sdiodrv_dma_write_cb */, &g_drv, &g_drv.dma_tx_channel);
+	rc = omap_request_dma(TIWLAN_MMC_DMA_TX, "SDIO WRITE", sdiodrv_dma_write_cb, &g_drv, &g_drv.dma_tx_channel);
 	if (rc != 0) {
 		PERR("sdiodrv_dma_init() omap_request_dma(TIWLAN_MMC_DMA_TX) FAILED\n");
 		goto out;
@@ -412,7 +419,7 @@ void dumpreg(void)
 {
 	printk(KERN_ERR "\n MMCHS_SYSCONFIG   for mmc3 = %x  ", omap_readl( 0x480AD010 ));
 	printk(KERN_ERR "\n MMCHS_SYSSTATUS   for mmc3 = %x  ", omap_readl( 0x480AD014 ));
-	printk(KERN_ERR "\n MMCHS_CSRE	       for mmc3 = %x  ", omap_readl( 0x480AD024 ));
+	printk(KERN_ERR "\n MMCHS_CSRE	      for mmc3 = %x  ", omap_readl( 0x480AD024 ));
 	printk(KERN_ERR "\n MMCHS_SYSTEST     for mmc3 = %x  ", omap_readl( 0x480AD028 ));
 	printk(KERN_ERR "\n MMCHS_CON         for mmc3 = %x  ", omap_readl( 0x480AD02C ));
 	printk(KERN_ERR "\n MMCHS_PWCNT       for mmc3 = %x  ", omap_readl( 0x480AD030 ));
@@ -504,7 +511,7 @@ static void OMAP3430_mmc_set_clock(unsigned int clock, OMAP3430_sdiodrv_t *host)
 	OMAP_HSMMC_WRITE(SYSCTL, regVal);
 	OMAP_HSMMC_WRITE(SYSCTL, OMAP_HSMMC_READ(SYSCTL) | ICE);//internal clock enable. obc not mentioned in the spec
 	/* 
-     * wait till the the clock is satble (ICS) bit is set
+     * wait till the the clock is stable (ICS) bit is set
 	 */
 	status  = sdiodrv_poll_status(OMAP_HSMMC_SYSCTL, ICS, MMC_TIMEOUT_MS);
 	if(!(status & ICS)) {
@@ -519,8 +526,8 @@ static void OMAP3430_mmc_set_clock(unsigned int clock, OMAP3430_sdiodrv_t *host)
 
 static void sdiodrv_free_resources(void)
 {
-       if(g_drv.ifclks_enabled) {
-                sdioDrv_clk_disable();
+	if(g_drv.ifclks_enabled) {
+		sdioDrv_clk_disable();
 	}
 
 	if (sdiodrv_fclk_got) {
@@ -542,7 +549,6 @@ static void sdiodrv_free_resources(void)
                 sdiodrv_dma_shutdown();
                 sdiodrv_dma_on = 0;
         }
-
 }
 
 int sdioDrv_InitHw(void)
@@ -666,7 +672,11 @@ int sdiodrv_data_xfer_sync(u32 cmd, u32 cmdarg, void *data, int length, u32 buff
 
 } /* sdiodrv_data_xfer_sync() */
 
-int sdioDrv_ConnectBus (void *fCbFunc, void *hCbArg, unsigned int uBlkSizeShift, unsigned int uSdioThreadPriority)
+int sdioDrv_ConnectBus (void *       fCbFunc,
+                        void *       hCbArg,
+                        unsigned int uBlkSizeShift,
+                        unsigned int uSdioThreadPriority,
+                        unsigned char **pTxDmaSrcAddr)
 {
 	g_drv.BusTxnCB      = fCbFunc;
 	g_drv.BusTxnHandle  = hCbArg;
@@ -675,6 +685,12 @@ int sdioDrv_ConnectBus (void *fCbFunc, void *hCbArg, unsigned int uBlkSizeShift,
 
 	INIT_WORK(&sdiodrv_work, sdiodrv_task);
 
+	/* Provide the DMA buffer address to the upper layer so it will use it 
+	   as the transactions host buffer. */
+	if (pTxDmaSrcAddr)
+	{
+		*pTxDmaSrcAddr = g_drv.dma_buffer;
+	}
 	return sdioDrv_InitHw ();
 }
 
@@ -1053,6 +1069,8 @@ static int sdioDrv_probe(struct platform_device *pdev)
                 return rc;
         }
         sdiodrv_dma_on = 1;
+
+	spin_lock_init(&g_drv.clk_lock);
 	
 	g_drv.fclk = clk_get(&pdev->dev, "mmchs_fck");
 	if (IS_ERR(g_drv.fclk)) {
@@ -1136,7 +1154,7 @@ static int sdioDrv_suspend(struct platform_device *pdev, pm_message_t state)
 {
 #if 0
 	int rc = 0;
-	
+
 	/* Tell WLAN driver to suspend, if a suspension function has been registered */
 	if (g_drv.wlanDrvIf_pm_suspend) {
 		printk(KERN_INFO "TISDIO: Asking TIWLAN to suspend\n");
@@ -1154,7 +1172,7 @@ static int sdioDrv_suspend(struct platform_device *pdev, pm_message_t state)
 /* Routine to resume the MMC device */
 static int sdioDrv_resume(struct platform_device *pdev)
 {
-//	int rc;
+/*	int rc; */
 	
 	printk(KERN_INFO "TISDIO: sdioDrv is resuming\n");
 #if 0	
@@ -1248,6 +1266,7 @@ int __init sdioDrv_init(int sdcnum)
 #endif
 {
 	memset(&g_drv, 0, sizeof(g_drv));
+	memset(&hsmmc_ctx, 0, sizeof(hsmmc_ctx));
 
 	printk(KERN_INFO "TIWLAN SDIO init\n");
 #ifndef TI_SDIO_STANDALONE

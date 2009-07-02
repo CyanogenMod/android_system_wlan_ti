@@ -74,11 +74,15 @@ int g_ssd_debug_level=4;
 #define FN0_FBR2_REG_108                    0x210
 #define FN0_FBR2_REG_108_BIT_MASK           0xFFF 
 
+int sdioDrv_clk_enable(void);
+void sdioDrv_clk_disable(void);
 
 int sdioAdapt_ConnectBus (void *        fCbFunc,
                           void *        hCbArg,
                           unsigned int  uBlkSizeShift,
-                          unsigned int  uSdioThreadPriority)
+                          unsigned int  uSdioThreadPriority,
+                          unsigned char **pTxDmaSrcAddr)
+
 {
 	unsigned char  uByte;
     unsigned long  uLong;
@@ -92,7 +96,7 @@ int sdioAdapt_ConnectBus (void *        fCbFunc,
     }
 
     /* Init SDIO driver and HW */
-    iStatus = sdioDrv_ConnectBus (fCbFunc, hCbArg, uBlkSizeShift, uSdioThreadPriority);
+    iStatus = sdioDrv_ConnectBus (fCbFunc, hCbArg, uBlkSizeShift,uSdioThreadPriority, pTxDmaSrcAddr);
 	if (iStatus) { return iStatus; }
 
   
@@ -297,6 +301,11 @@ ETxnStatus sdioAdapt_TransactBytes (unsigned int  uFuncId,
 {
     int iStatus;
 
+    if(bMore == 1)
+    {
+        sdioDrv_clk_enable();
+    }
+
     /* Call read or write bytes Sync method */
     if (bDirection) 
     {
@@ -305,6 +314,11 @@ ETxnStatus sdioAdapt_TransactBytes (unsigned int  uFuncId,
     else 
     {
         iStatus = sdioDrv_WriteSyncBytes (uFuncId, uHwAddr, pHostAddr, uLength, bMore);
+    }
+
+    if(bMore == 0)
+    {
+        sdioDrv_clk_disable();
     }
 
     /* If failed return ERROR, if succeeded return COMPLETE */

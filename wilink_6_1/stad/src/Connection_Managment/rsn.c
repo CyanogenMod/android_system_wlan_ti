@@ -64,6 +64,8 @@
 #include "sme.h"
 #include "apConn.h"
 #include "802_11Defs.h"
+#include "externalSec.h"
+#include "connApi.h"
 #ifdef XCC_MODULE_INCLUDED
 #include "admCtrlWpa.h"
 #include "XCCMngr.h"
@@ -71,6 +73,7 @@
 #endif
 #include "TWDriver.h"
 #include "DrvMainModules.h"
+#include "PowerMgr_API.h"
 
 /* Constants */
 
@@ -120,7 +123,7 @@ static rsn_siteBanEntry_t * findBannedSiteAndCleanup(TI_HANDLE hRsn, TMacAddr si
 TI_HANDLE rsn_create(TI_HANDLE hOs)
 {
     rsn_t  *pRsn;
- 
+
     /* allocate rsniation context memory */
     pRsn = (rsn_t*)os_memoryAlloc (hOs, sizeof(rsn_t));
     if (pRsn == NULL)
@@ -185,9 +188,18 @@ TI_STATUS rsn_unload (TI_HANDLE hRsn)
 
     pRsn = (rsn_t*)hRsn;
 
-    tmr_DestroyTimer (pRsn->hMicFailureReportWaitTimer);    
-    tmr_DestroyTimer (pRsn->hMicFailureGroupReKeyTimer);
-    tmr_DestroyTimer (pRsn->hMicFailurePairwiseReKeyTimer);
+	if (pRsn->hMicFailureReportWaitTimer)
+	{
+		tmr_DestroyTimer (pRsn->hMicFailureReportWaitTimer);
+	}
+	if (pRsn->hMicFailureGroupReKeyTimer)
+	{
+		tmr_DestroyTimer (pRsn->hMicFailureGroupReKeyTimer);
+	}
+	if (pRsn->hMicFailurePairwiseReKeyTimer)
+	{
+		tmr_DestroyTimer (pRsn->hMicFailurePairwiseReKeyTimer);
+	}
 
     status = admCtrl_unload (pRsn->pAdmCtrl);
     status = mainSec_unload (pRsn->pMainSecSm);
@@ -268,6 +280,9 @@ TI_STATUS rsn_SetDefaults (TI_HANDLE hRsn, TRsnInitParams *pInitParam)
         TRACE0(pRsn->hReport, REPORT_SEVERITY_ERROR, "rsn_SetDefaults(): Failed to create hMicFailureGroupReKeyTimer!\n");
 		return TI_NOK;
     }
+
+    /* Configure the RSN external mode */
+    pRsn->bRsnExternalMode = pInitParam->bRsnExternalMode;
 
     pRsn->hMicFailurePairwiseReKeyTimer = tmr_CreateTimer (pRsn->hTimer);
     if (pRsn->hMicFailurePairwiseReKeyTimer == NULL)
@@ -441,7 +456,6 @@ TI_STATUS rsn_start(TI_HANDLE hRsn)
     }
 
     TRACE0(pRsn->hReport, REPORT_SEVERITY_INFORMATION, "rsn_start ...\n");
-
     pRsn->rsnStartedTs = os_timeStampMs (pRsn->hOs);
 
     status = pRsn->pMainSecSm->start (pRsn->pMainSecSm);
@@ -1024,6 +1038,65 @@ TRACE0(pRsn->hReport, REPORT_SEVERITY_INFORMATION, "RSN: remove all Keys\n");
 	pRsn->defaultKeysOn = TI_TRUE;
         break;
 
+    case RSN_SET_KEY_PARAM:
+        {
+            TSecurityKeys *pSecurityKey = pParam->content.pRsnKey;
+            TI_UINT32     keyIndex;
+            TI_UINT8      j=0;
+
+            TRACE2(pRsn->hReport,REPORT_SEVERITY_INFORMATION,"RSN:Set RSN_SET_KEY_PARAM KeyIndex %x,keyLength=%d\n",pSecurityKey->keyIndex,pSecurityKey->encLen);
+
+            if(pSecurityKey->keyIndex >= MAX_KEYS_NUM)
+            {
+                return TI_NOK;
+            }
+
+           keyIndex = (TI_UINT8)pSecurityKey->keyIndex;
+           status = rsn_setKey (pRsn, pSecurityKey);  /* send key to FW*/
+
+           if (status == TI_OK)
+           {
+               //os_memoryCopy(pKeyDerive->hOs,&pRsn->pKeyParser->pUcastKey/pBcastKey, pEncodedKey, sizeof(encodedKeyMaterial_t));	
+           } /* check this copy */
+
+
+           /* If the Key is not BAD, it may be that WEP key is sent before WEP status is set,
+           save the key, and set it later at rsn_start */
+
+           pRsn->keys[keyIndex].keyIndex = pSecurityKey->keyIndex;
+           pRsn->keys[keyIndex].encLen = pSecurityKey->encLen;
+           MAC_COPY (pRsn->keys[keyIndex].macAddress, pSecurityKey->macAddress);
+           os_memoryCopy(pRsn->hOs,(void*)pRsn->keys[keyIndex].keyRsc, (TI_UINT8*)&(pSecurityKey->keyRsc), KEY_RSC_LEN);
+           os_memoryCopy (pRsn->hOs, (void *)pRsn->keys[keyIndex].encKey, (void*)pSecurityKey->encKey, MAX_KEY_LEN);
+
+           /* Process the transmit flag (31-st bit of keyIndex).        */
+           /* If the added key has the TX bit set to TI_TRUE (i.e. the key */
+           /* is the new transmit key (default key), update             */
+           /* RSN data def.key Id and clean this bit in all other keys  */
+           if (pSecurityKey->keyIndex & 0x80000000)
+           {
+               pRsn->defaultKeyId = keyIndex;
+
+               for (j = 0; j < MAX_KEYS_NUM; j++)
+               {
+                   if (j != keyIndex)
+                   {
+                       pRsn->keys[j].keyIndex &= 0x7FFFFFFF;
+                   }
+               }
+           }
+
+           if (pRsn->defaultKeysOn)
+           {   /* This is a WEP default key */
+               TRACE1(pRsn->hReport,REPORT_SEVERITY_INFORMATION, "RSN_SET_KEY_PARAM, Default key configured-keyIndex=%d-TI_TRUE\n", keyIndex);
+
+               pRsn->wepDefaultKeys[keyIndex] = TI_TRUE;
+               pRsn->wepStaticKey = TI_TRUE;
+               status = TI_OK;
+           }
+           break;
+        }
+
     default:
         return TI_NOK;
     }
@@ -1240,10 +1313,11 @@ TI_STATUS rsn_getNetworkMode(rsn_t *pRsn, ERsnNetworkMode *pNetMode)
 *
 * \sa rsn_Start, rsn_Stop
 */
-TI_STATUS rsn_evalSite(TI_HANDLE hRsn, TRsnData *pRsnData, ScanBssType_e bssType, TMacAddr bssid, TI_UINT32 *pMetric)
+TI_STATUS rsn_evalSite(TI_HANDLE hRsn, TRsnData *pRsnData, TRsnSiteParams *pRsnSiteParams, TI_UINT32 *pMetric)
 {
+
     rsn_t       *pRsn;
-    TI_STATUS       status;
+    TI_STATUS    status;
 
     if ( (NULL == pRsnData) || (NULL == hRsn) )
     {
@@ -1253,14 +1327,14 @@ TI_STATUS rsn_evalSite(TI_HANDLE hRsn, TRsnData *pRsnData, ScanBssType_e bssType
 
     pRsn = (rsn_t*)hRsn;
 
-    if (rsn_isSiteBanned(hRsn, bssid) == TI_TRUE)
+    if (rsn_isSiteBanned(hRsn, pRsnSiteParams->bssid) == TI_TRUE)
     {
         *pMetric = 0;
         TRACE0(pRsn->hReport, REPORT_SEVERITY_INFORMATION, ": Site is banned!\n");
         return TI_NOK;
     }
 
-    status = pRsn->pAdmCtrl->evalSite (pRsn->pAdmCtrl, pRsnData, bssType, pMetric);
+    status = pRsn->pAdmCtrl->evalSite (pRsn->pAdmCtrl, pRsnData, pRsnSiteParams, pMetric);
 
     TRACE2(pRsn->hReport, REPORT_SEVERITY_INFORMATION, ": pMetric=%d status=%d\n", *pMetric, status);
 
@@ -1396,8 +1470,13 @@ TI_STATUS rsn_setKey (rsn_t *pRsn, TSecurityKeys *pKey)
     TI_BOOL				macIsBroadcast = TI_FALSE;
     TI_STATUS           status = TI_OK;
 
+	if (pRsn == NULL || pKey == NULL)
+	{
+		return TI_NOK;
+	}
+
 	keyIndex = (TI_UINT8)pKey->keyIndex;
-    if ((pRsn == NULL) || (pKey == NULL) || ((keyIndex)>=MAX_KEYS_NUM))
+    if (keyIndex >= MAX_KEYS_NUM)
     {
         return TI_NOK;
     }
@@ -1427,7 +1506,7 @@ TI_STATUS rsn_setKey (rsn_t *pRsn, TSecurityKeys *pKey)
             }
 
         }
-         
+
         
         macIsBroadcast = MAC_BROADCAST (pKey->macAddress);
 		if ((pRsn->keys[keyIndex].keyType != KEY_NULL )&&
@@ -1446,7 +1525,7 @@ TI_STATUS rsn_setKey (rsn_t *pRsn, TSecurityKeys *pKey)
         tTwdParam.content.configureCmdCBParams.hCb = NULL;
 
 		if (macIsBroadcast)
-        { 
+        {
             TRACE0(pRsn->hReport, REPORT_SEVERITY_INFORMATION, "RSN: rsn_setKey, Group ReKey timer started\n");
             tmr_StopTimer (pRsn->hMicFailureGroupReKeyTimer);
             tmr_StartTimer (pRsn->hMicFailureGroupReKeyTimer,
@@ -1506,8 +1585,13 @@ TI_STATUS rsn_removeKey (rsn_t *pRsn, TSecurityKeys *pKey)
     TTwdParamInfo       tTwdParam;
     TI_UINT8               keyIndex;
 
-    keyIndex = (TI_UINT8)pKey->keyIndex;
-    if ( (NULL == pRsn) || (NULL == pKey) || (keyIndex >= MAX_KEYS_NUM) )
+	if (pRsn == NULL || pKey == NULL)
+	{
+		return TI_NOK;
+	}
+
+	keyIndex = (TI_UINT8)pKey->keyIndex;
+    if (keyIndex >= MAX_KEYS_NUM)
     {
         return TI_NOK;
     }
@@ -1633,7 +1717,7 @@ TI_STATUS rsn_reportMicFailure(TI_HANDLE hRsn, TI_UINT8 *pType, TI_UINT32 Length
     paramInfo_t                         param;
     TI_UINT8                               failureType;
 
-    failureType = *pType; 
+    failureType = *pType;
 
    if (((pRsn->paeConfig.unicastSuite == TWD_CIPHER_TKIP) && (failureType == KEY_TKIP_MIC_PAIRWISE)) ||
         ((pRsn->paeConfig.broadcastSuite == TWD_CIPHER_TKIP) && (failureType == KEY_TKIP_MIC_GROUP)))
@@ -1880,6 +1964,35 @@ TI_BOOL rsn_isSiteBanned(TI_HANDLE hRsn, TMacAddr siteBssid)
 
 /**
  *
+ * rsn_PortStatus_Set API implementation-
+ *
+ * \b Description:
+ *
+ * set the status port according to the status flag
+ *
+ * \b ARGS:
+ *
+ *  I   - hRsn - RSN module context \n
+ *  I   - state - The status flag \n
+ *
+ * \b RETURNS:
+ *
+ *  TI_STATUS.
+ *
+ */
+TI_STATUS rsn_setPortStatus(TI_HANDLE hRsn, TI_BOOL state)
+{
+    rsn_t                   *pRsn = (rsn_t *)hRsn;
+    struct externalSec_t	*pExtSec;
+
+    pExtSec = pRsn->pMainSecSm->pExternalSec;
+    pExtSec->bPortStatus = state;
+    return externalSec_rsnComplete(pExtSec);
+}
+
+
+/**
+ *
  * rsn_banSite - 
  *
  * \b Description: 
@@ -2027,6 +2140,32 @@ static rsn_siteBanEntry_t * findBannedSiteAndCleanup(TI_HANDLE hRsn, TMacAddr si
     return NULL;
 }
 
+/**
+ *
+ * rsn_getPortStatus -
+ *
+ * \b Description:
+ *
+ * Returns the extrenalSec port status
+ *
+ * \b ARGS:
+ *
+ *  pRsn - pointer to RSN module context \n
+ *
+ * \b RETURNS:
+ *
+ *  TI_BOOL - the port status True = Open , False = Close
+ *
+ */
+TI_BOOL rsn_getPortStatus(rsn_t *pRsn)
+{
+    struct externalSec_t	*pExtSec;
+
+    pExtSec = pRsn->pMainSecSm->pExternalSec;
+    return pExtSec->bPortStatus;
+}
+
+
 #ifdef RSN_NOT_USED
 
 static TI_INT16 convertAscii2Unicode(TI_INT8* userPwd, TI_INT16 len)
@@ -2048,3 +2187,41 @@ static TI_INT16 convertAscii2Unicode(TI_INT8* userPwd, TI_INT16 len)
 }
 
 #endif
+
+/***************************************************************************
+*							rsn_reAuth				                   *
+****************************************************************************
+* DESCRIPTION:	This is a callback function called by the whalWPA module whenever
+*				a broadcast TKIP key was configured to the FW.
+*				It does the following:
+*					-	resets the ReAuth flag
+*					-	stops the ReAuth timer
+*					-	restore the PS state
+*					-	Send RE_AUTH_COMPLETED event to the upper layer.
+*
+* INPUTS:		hRsn - the object
+*
+* OUTPUT:		None
+*
+* RETURNS:		None
+*
+***************************************************************************/
+void rsn_reAuth(TI_HANDLE hRsn)
+{
+	rsn_t *pRsn;
+
+	pRsn = (rsn_t*)hRsn;
+
+	if (pRsn == NULL)
+	{
+		return;
+	}
+
+	if (rxData_IsReAuthInProgress(pRsn->hRx))
+	{
+		rxData_SetReAuthInProgress(pRsn->hRx, TI_FALSE);
+		rxData_StopReAuthActiveTimer(pRsn->hRx);
+		rxData_ReauthDisablePriority(pRsn->hRx);
+		EvHandlerSendEvent(pRsn->hEvHandler, IPC_EVENT_RE_AUTH_COMPLETED, NULL, 0);
+	}
+}

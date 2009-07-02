@@ -134,6 +134,10 @@ void healthMonitorDebugFunction (TStadHandlesList *pStadHandles, TI_UINT32 funcT
         healthMonitor_sendFailureEvent (hHealthMonitor, HW_WD_EXPIRE);
         break;
 
+	case DBG_HM_RECOVERY_RX_XFER_FAILURE:
+        healthMonitor_sendFailureEvent (hHealthMonitor, RX_XFER_FAILURE);
+        break;
+
     default:
         WLAN_OS_REPORT(("Invalid function type in health monitor debug function: %d\n", funcType));
         break;
@@ -163,6 +167,7 @@ void printHealthMonitorDbgFunctions(void)
     WLAN_OS_REPORT(("2008 - Trigger BUS_FAILURE             \n"));
     WLAN_OS_REPORT(("2009 - Start RECOVERY_FROM_CLI         \n"));
     WLAN_OS_REPORT(("2010 - Trigger HW_WD_EXPIRE            \n"));
+    WLAN_OS_REPORT(("2011 - Trigger RX_XFER_FAILURE         \n"));
 }
 
 static void noScanCompleteTimer (TI_HANDLE hTWD)

@@ -100,41 +100,64 @@ Return Value:
 
 int hPlatform_hardResetTnetw(void)
 {
-	int err;
+  int err;
 
-	/* Turn power OFF*/
-	if ((err = OMAP3430_TNETW_Power(0)) == 0) {
-		mdelay(500);
-		/* Turn power ON*/
-		err = OMAP3430_TNETW_Power(1);
-		mdelay(50);
-	}
-	return err;
+    /* Turn power OFF*/
+  if ((err = OMAP3430_TNETW_Power(0)) == 0)
+  {
+    mdelay(500);
+    /* Turn power ON*/
+    err = OMAP3430_TNETW_Power(1);
+    mdelay(50);
+  }
+  return err;
+
 } /* hPlatform_hardResetTnetw() */
 
 /* Turn device power off */
 int hPlatform_DevicePowerOff (void)
 {
-	int err;
-
-	err = OMAP3430_TNETW_Power(0);
-
-	mdelay(10);
-
-	return err;
+    int err;
+    
+    err = OMAP3430_TNETW_Power(0);
+    
+    mdelay(10);
+    
+    return err;
 }
+
+
+/* Turn device power off according to a given delay */
+int hPlatform_DevicePowerOffSetLongerDelay(void)
+{
+    int err;
+    
+    err = OMAP3430_TNETW_Power(0);
+    
+    mdelay(SDIO_ATTEMPT_LONGER_DELAY_LINUX);
+    
+    return err;
+}
+
 
 /* Turn device power on */
 int hPlatform_DevicePowerOn (void)
 {
-	int err;
+    int err;
 
-	err = OMAP3430_TNETW_Power(1);
+    err = OMAP3430_TNETW_Power(1);
 
-	/* Should not be changed, 50 msec cause failures */
-	mdelay(70);
+    /* New Power Up Sequence */
+    mdelay(15);
+    err = OMAP3430_TNETW_Power(0);
+    mdelay(1);
 
-	return err;
+    err = OMAP3430_TNETW_Power(1);
+
+    /* Should not be changed, 50 msec cause failures */
+    mdelay(70);
+
+    return err;
 }
 
 /*--------------------------------------------------------------------------------------*/

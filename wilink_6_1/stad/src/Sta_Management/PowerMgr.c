@@ -200,6 +200,9 @@ TI_STATUS PowerMgr_SetDefaults (TI_HANDLE hPowerMgr, PowerMgrInitParams_t* pPowe
     /* used to initialize the Traffic Monitor for Auto Ps events */
     TrafficAlertRegParm_t tmRegParam;
     TI_STATUS status;
+
+	pPowerMgr->reAuthActivePriority		= pPowerMgrInitParams->reAuthActivePriority;
+
     /* init power management options */
     pPowerMgr->beaconListenInterval = pPowerMgrInitParams->beaconListenInterval;
     pPowerMgr->dtimListenInterval = pPowerMgrInitParams->dtimListenInterval;
@@ -220,7 +223,6 @@ TI_STATUS PowerMgr_SetDefaults (TI_HANDLE hPowerMgr, PowerMgrInitParams_t* pPowe
     /*
      register threshold in the traffic monitor.
      */
-
   	pPowerMgr->betEnable = pPowerMgrInitParams->BetEnable; /* save BET enable flag for CLI configuration */
 	pPowerMgr->betTrafficEnable = TI_FALSE;                   /* starting without BET */
 
@@ -322,6 +324,10 @@ TI_STATUS PowerMgr_SetDefaults (TI_HANDLE hPowerMgr, PowerMgrInitParams_t* pPowe
         pPowerMgr->powerMngModePriority[index].priorityEnable = TI_FALSE;
     }
     pPowerMgr->powerMngModePriority[POWER_MANAGER_USER_PRIORITY].priorityEnable = TI_TRUE;
+
+    if (pPowerMgr->reAuthActivePriority)
+		pPowerMgr->powerMngModePriority[POWER_MANAGER_REAUTH_PRIORITY].powerMode = POWER_MODE_ACTIVE;
+
     /* set the defualt power policy */
     TWD_CfgSleepAuth (pPowerMgr->hTWD, pPowerMgr->defaultPowerLevel);
 
@@ -425,7 +431,6 @@ TI_STATUS PowerMgr_startPS(TI_HANDLE hPowerMgr)
 		{
 			pPowerMgr->betTrafficEnable = TI_FALSE;
         }
-
        
 		PowerMgrConfigBetToFw(hPowerMgr,pPowerMgr->betTrafficEnable);
 	}
@@ -1403,3 +1408,8 @@ static void powerMgr_PsPollFailureTimeout( TI_HANDLE hPowerMgr, TI_BOOL bTwdInit
 	return;
 }
 
+TI_BOOL PowerMgr_getReAuthActivePriority(TI_HANDLE thePowerMgrHandle)
+{
+    PowerMgr_t *pPowerMgr = (PowerMgr_t*)thePowerMgrHandle;
+	return pPowerMgr->reAuthActivePriority;
+}

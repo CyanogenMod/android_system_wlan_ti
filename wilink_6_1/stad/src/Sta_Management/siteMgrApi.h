@@ -164,6 +164,25 @@ TI_BOOL siteMgr_SelectRateMatch (TI_HANDLE hSiteMgr, TSiteEntry *pCurrentSite);
 
 siteEntry_t *addSelfSite(TI_HANDLE hSiteMgr);
 
+TI_STATUS siteMgr_updateSite(TI_HANDLE			hSiteMgr,
+						  TMacAddr		*bssid,
+						  mlmeFrameInfo_t	*pFrameInfo,
+						  TI_UINT8				rxChannel,
+                          ERadioBand       band,
+						  TI_BOOL				measuring);
+
+TI_STATUS siteMgr_IbssMerge(TI_HANDLE       hSiteMgr,
+                          TMacAddr      	our_bssid,
+						  TMacAddr      	new_bssid,
+                          mlmeFrameInfo_t   *pFrameInfo,
+                          TI_UINT8          rxChannel,
+                          ERadioBand        band);
+
+TI_STATUS siteMgr_saveProbeRespBuffer(TI_HANDLE hSiteMgr, TMacAddr	*bssid, TI_UINT8 *pProbeRespBuffer, TI_UINT32 length);
+
+TI_STATUS siteMgr_saveBeaconBuffer(TI_HANDLE hSiteMgr, TMacAddr *bssid, TI_UINT8 *pBeaconBuffer, TI_UINT32 length);
+
+
 #ifdef REPORT_LOG
 void siteMgr_printPrimarySiteDesc(TI_HANDLE hSiteMgr );
 #endif

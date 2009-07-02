@@ -46,8 +46,7 @@
 #include "802_11Defs.h"
 #include "qosMngr_API.h"
 #include "Device1273.h"
-#include "sme.h"
-
+#include "smeApi.h"
 
 /** 
  * \fn     staCap_Create 

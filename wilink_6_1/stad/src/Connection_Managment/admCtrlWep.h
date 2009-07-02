@@ -73,7 +73,6 @@ TI_STATUS admCtrlWep_getInfoElement(admCtrl_t *pAdmCtrl, TI_UINT8 *pIe, TI_UINT3
 
 TI_STATUS admCtrlWep_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *pAssocIe, TI_UINT8 *pAssocIeLen);
 
-TI_STATUS admCtrlWep_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, ScanBssType_e bssType, TI_UINT32 *pEvaluation);
+TI_STATUS admCtrlWep_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSiteParams *pRsnSiteParams, TI_UINT32 *pEvaluation);
 
 #endif /*  _ADM_CTRL_WEP_H_*/
-

@@ -179,17 +179,7 @@ typedef struct
 typedef struct
 {
     ESoftGeminiEnableModes  SoftGeminiEnable;
-	TI_UINT32	coexBtPerThreshold;
-	TI_UINT32   coexAutoScanCompensationMaxTime;
-	TI_UINT32   coexBtNfsSampleInterval;
-	TI_UINT32	coexBtLoadRatio;
-	TI_UINT32   coexAutoPsMode;	
-	TI_UINT32	coexAutoScanEnlargedNumOfProbeReqPercent;
-	TI_UINT32	coexAutoScanEnlargedScanWindowPercent;
-	TI_UINT32	coexAntennaConfiguration;
-    TI_UINT32   coexMaxConsecutiveBeaconMissPrecent;    
-    TI_UINT32   coexAPRateAdapationThr;                
-    TI_UINT32   coexAPRateAdapationSnr;                 
+	TI_UINT32   coexParams[SOFT_GEMINI_PARAMS_MAX];
  } SoftGeminiInitParams_t;
 
 typedef enum
@@ -418,6 +408,7 @@ typedef struct
 {
 	TI_UINT16		bufferSize;
 	TI_UINT8		*buffer;
+    TI_BOOL 		reAssoc;
 } TAssocReqBuffer;
 
 typedef struct
@@ -545,6 +536,7 @@ typedef struct{
         TRates                 				siteMgrDesiredSupportedRateSet;
         rateMask_t              			siteMgrCurrentRateMask;
         TI_UINT8                			siteMgrCurrentTxRate;
+        TI_UINT8                			siteMgrCurrentRxRate;
         EModulationType         			siteMgrDesiredModulationType;
         TI_UINT16               			siteMgrDesiredBeaconInterval;
         EPreamble               			siteMgrDesiredPreambleType;
@@ -733,6 +725,7 @@ typedef struct{
 
         /* Application Config Parameters Manager */
 		TAssocReqBuffer						assocReqBuffer;
+        TAssocReqBuffer						assocResBuffer;
 		roamingMngrConfigParams_t			roamingConfigBuffer;
 		TI_UINT32							roamingTriggerType;
 		TI_UINT32							roamingConnStatus;
@@ -799,6 +792,8 @@ typedef struct{
 
 		/* debug */
 		TDebugRegisterReq					HwRegister;
+        RateMangeParams_t                   RateMng;
+        RateMangeReadParams_t               RateMngParams;
 
     } content;
 }paramInfo_t;
@@ -909,6 +904,13 @@ typedef struct
     TI_UINT32       uChannelNum;
     TSmeScanChannel tChannelList[ PERIODIC_SCAN_MAX_CHANNEL_NUM ];
 } TSmeInitParams;
+
+
+typedef struct
+{
+    TI_BOOL  RoamingScanning_2_4G_enable;
+	TI_UINT8 RoamingOperationalMode;
+}   TRoamScanMngrInitParams;
 
 typedef struct
 {
@@ -1082,6 +1084,8 @@ typedef struct
     TI_UINT8   						BetEnable;             
     TI_UINT8   						MaximumConsecutiveET;
     TI_UINT32						PsPollDeliveryFailureRecoveryPeriod;
+
+	TI_BOOL							reAuthActivePriority;
 }PowerMgrInitParams_t;
 
 typedef struct
@@ -1105,6 +1109,7 @@ typedef struct
 typedef struct
 {
     TI_UINT8       uNullDataKeepAlivePeriod;
+    TI_UINT8	   RoamingOperationalMode;
 } TCurrBssInitParams;
 
 typedef struct
@@ -1113,6 +1118,7 @@ typedef struct
     TI_BOOL                rxDataFiltersEnabled;
     filter_e            rxDataFiltersDefaultAction;
     TRxDataFilterRequest    rxDataFilterRequests[MAX_DATA_FILTERS];
+	TI_UINT32				reAuthActiveTimeout;
 }rxDataInitParams_t;
 
 typedef struct
@@ -1121,7 +1127,6 @@ typedef struct
     TI_UINT32       uBusDrvThreadPriority;  /* Default setting of the bus driver thread priority */
     TI_UINT32       uSdioBlkSizeShift;      /* In block-mode:  uBlkSize = (1 << uBlkSizeShift)   */
 }TDrvMainParams;
-
 
 /* This table is forwarded to the driver upon creation by the OS abstraction layer. */
 typedef struct
@@ -1158,7 +1163,7 @@ typedef struct
     TContextInitParams              tContextInitParams;
     TMlmeInitParams                 tMlmeInitParams;
     TDrvMainParams                  tDrvMainParams;
-
+    TRoamScanMngrInitParams         tRoamScanMngrInitParams;
 } TInitTable;
 
 

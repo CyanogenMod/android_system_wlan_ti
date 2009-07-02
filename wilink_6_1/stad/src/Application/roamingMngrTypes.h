@@ -52,6 +52,9 @@
 #define ROAMING_ENABLED 		1
 #define ROAMING_DISABLED		0
 
+#define ROAMING_OPERATIONAL_MODE_MANUAL    0
+#define ROAMING_OPERATIONAL_MODE_AUTO 	   1
+
 /*--------------*/
 /* Enumerations */
 /*--------------*/
@@ -152,7 +155,7 @@ typedef struct
     TI_UINT8  uIndex; 		/**< User Index (0 .. 1) 																	*/
     TI_UINT8  uEnable;		/**< User trigger Enable. 0 - Disable, 1 - Enable 											*/
     TI_UINT8  padding[2];  	/**< */ 	
-
+    TI_UINT16 uClientID;    /**< the client ID that registered for the trigger event									*/
 } TUserDefinedQualityTrigger;
 
 

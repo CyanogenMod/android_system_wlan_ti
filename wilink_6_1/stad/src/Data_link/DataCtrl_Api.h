@@ -110,6 +110,12 @@ TI_STATUS rxData_UnRegNotif(TI_HANDLE hRxData,TI_HANDLE RegEventHandle);
 
 TI_STATUS rxData_AddToNotifMask(TI_HANDLE hRxData,TI_HANDLE Notifh,TI_UINT16 EventMask);
 
+void rxData_SetReAuthInProgress(TI_HANDLE hRxData, TI_BOOL	value);
+
+TI_BOOL rxData_IsReAuthInProgress(TI_HANDLE hRxData);
+
+void rxData_StopReAuthActiveTimer(TI_HANDLE hRxData);
+void rxData_ReauthDisablePriority(TI_HANDLE hRxData);
 
 /* debug functions */
 void rxData_resetDbgCounters(TI_HANDLE hRxData);

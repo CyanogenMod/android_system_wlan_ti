@@ -158,6 +158,7 @@ typedef struct
 	TI_UINT8					BetDisableThreshold;
     TI_UINT32                   PsPollDeliveryFailureRecoveryPeriod; /* Time to exit PS after receiving PsPoll failure event */
 
+	TI_BOOL						reAuthActivePriority;
 } PowerMgr_t;
 
 

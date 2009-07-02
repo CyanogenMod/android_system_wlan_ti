@@ -90,9 +90,6 @@ MODULE_LICENSE("GPL");
 /* linux/irq.h declarations */ 
 extern void disable_irq(unsigned int);
 
-/* exported clk function */
-//DM: int sdioDrv_acquire_clk(void);
-//void sdiodrv_shutdown(void);
 
 /** 
  * \fn     wlanDrvIf_Xmit
@@ -462,13 +459,14 @@ int wlanDrvIf_GetFile (TI_HANDLE hOs, TFileInfo *pFileInfo)
 {
     TWlanDrvIfObj *drv = (TWlanDrvIfObj *)hOs;
 
-    /* Future option for getting the FW image part by part */ 
-    pFileInfo->hOsFileDesc = NULL;
-
 	if (drv == NULL || pFileInfo == NULL) {
 		ti_dprintf(TIWLAN_LOG_ERROR, "wlanDrv_GetFile: ERROR: Null File Handler, Exiting");
 		return TI_NOK;
 	}
+
+    /* Future option for getting the FW image part by part */ 
+    pFileInfo->hOsFileDesc = NULL;
+
     /* Fill the file's location and size in the file's info structure */
     switch (pFileInfo->eFileType) 
     {
@@ -612,10 +610,6 @@ int wlanDrvIf_Start (struct net_device *dev)
         return -ENODEV;
     }
 
-    /* enable resources/clock */
-#ifndef CONFIG_MMC_EMBEDDED_SDIO
-//Dm:    sdioDrv_acquire_clk();
-#endif
 
     /*
      *  Insert Start command in DrvMain action queue, request driver scheduling 
@@ -623,21 +617,6 @@ int wlanDrvIf_Start (struct net_device *dev)
      */
     drvMain_InsertAction (drv->tCommon.hDrvMain, ACTION_TYPE_START);
 
-#if 0
-    /* 
-     *  Finalize network interface setup
-     */
-    drv->netdev->hard_start_xmit = wlanDrvIf_Xmit;
-    drv->netdev->addr_len = MAC_ADDR_LEN;
-    netif_start_queue (dev);
-
-    /* register 3430 PM hooks in our SDIO driver */
-#if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-#ifndef CONFIG_MMC_EMBEDDED_SDIO
-    sdioDrv_register_pm(wlanDrvIf_pm_resume, wlanDrvIf_pm_suspend);
-#endif
-#endif
-#endif /* Dm: */
     return 0;
 }
 
@@ -692,20 +671,11 @@ int wlanDrvIf_Stop (struct net_device *dev)
     TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
 
     ti_dprintf (TIWLAN_LOG_OTHER, "wlanDrvIf_Stop()\n");
-#if 0
-    /* Disable network interface queue */
-    netif_stop_queue (dev);
-#endif /* Dm: */
     /* 
      *  Insert Stop command in DrvMain action queue, request driver scheduling 
      *      and wait for Stop process completion.
      */
     drvMain_InsertAction (drv->tCommon.hDrvMain, ACTION_TYPE_STOP);
-
-    /* disable clock; we are going down */
-#ifndef CONFIG_MMC_EMBEDDED_SDIO
-//Dm:    sdiodrv_shutdown();
-#endif
     return 0;
 }
 
@@ -717,18 +687,6 @@ int wlanDrvIf_Release (struct net_device *dev)
 
     /* Disable network interface queue */
     netif_stop_queue (dev);
-#if 0
-    /*
-     *  Insert Stop command in DrvMain action queue, request driver scheduling 
-     *      and wait for Stop process completion.
-     */
-    drvMain_InsertAction (drv->tCommon.hDrvMain, ACTION_TYPE_STOP);
-
-    /* disable clock; we are going down */
-#ifndef CONFIG_MMC_EMBEDDED_SDIO
-//    sdiodrv_shutdown();
-#endif
-#endif /* Dm: */
     return 0;
 }
 

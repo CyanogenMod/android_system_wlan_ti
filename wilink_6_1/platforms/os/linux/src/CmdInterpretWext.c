@@ -56,6 +56,7 @@
 #include "EvHandler.h"
 #include "admCtrl.h"
 
+
 static TI_INT32 cmdInterpret_Event(IPC_EV_DATA* pData);
 static int cmdInterpret_setSecurityParams (TI_HANDLE hCmdInterpret);
 static int cmdInterpret_initEvents(TI_HANDLE hCmdInterpret);
@@ -66,7 +67,19 @@ static int cmdInterpret_unregisterEvents(TI_HANDLE hCmdInterpret, TI_HANDLE hEvH
 static const char *ieee80211_modes[] = {
     "?", "IEEE 802.11 B", "IEEE 802.11 A", "IEEE 802.11 BG", "IEEE 802.11 ABG"
 };
+#ifdef XCC_MODULE_INCLUDED
+typedef struct
+{
 
+   TI_UINT8        *assocRespBuffer;
+    TI_UINT32       assocRespLen;
+} cckm_assocInformation_t;
+
+#define ASSOC_RESP_FIXED_DATA_LEN 6
+#define MAX_BEACON_BODY_LENGTH    350
+#define BEACON_HEADER_FIX_SIZE    12
+#define CCKM_START_EVENT_SIZE     23 /* cckm-start string + timestamp + bssid + null */
+#endif
 
 /* Initialize the CmdInterpreter module */
 TI_HANDLE cmdInterpret_Create (TI_HANDLE hOs)
@@ -500,10 +513,16 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
         {
             if (wrqu->data.flags & IW_SCAN_THIS_ESSID) 
             {
-                struct iw_scan_req *pScanReq = wrqu->data.pointer;
+                struct iw_scan_req scanReq;
 
-                Param.content.tScanDesiredSSID.len = pScanReq->essid_len;
-                os_memoryCopy(pCmdInterpret->hOs, Param.content.tScanDesiredSSID.str, pScanReq->essid, pScanReq->essid_len);
+                if(copy_from_user(&scanReq, wrqu->data.pointer, sizeof(scanReq)))
+                {
+                    printk("CRITICAL: Could not copy data from user space!!!");
+                    return -EFAULT;
+                }
+
+                Param.content.tScanDesiredSSID.len = scanReq.essid_len;
+                os_memoryCopy(pCmdInterpret->hOs, Param.content.tScanDesiredSSID.str, scanReq.essid, scanReq.essid_len);
             }
             else
             {
@@ -529,6 +548,9 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
             OS_802_11_BSSID_EX *my_current;
             int offset;
             OS_802_11_VARIABLE_IEs* pRsnIes;
+			unsigned char ies[256];
+			int ies_offset;
+            int i;
 
 #if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
             struct iw_request_info info;
@@ -563,6 +585,7 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
                     my_current = (OS_802_11_BSSID_EX *) (((char *) my_current) + my_current->Length);
             }
             /* Now send a wireless event per BSSID with "tokens" describing it */
+
             for (; i<my_list->NumberOfItems; i++)
             {
 
@@ -586,7 +609,7 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
                 /* Add SSID */
                 iwe.cmd = SIOCGIWESSID;
                 iwe.u.data.flags = 1;
-                iwe.u.data.length = min((u8)my_current->Ssid.SsidLength, (u8)32);
+                iwe.u.data.length = min((TI_UINT8)my_current->Ssid.SsidLength, (TI_UINT8)32);
 #if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
                 event = iwe_stream_add_point(&info,event, end_buf, &iwe, my_current->Ssid.Ssid);
 #else
@@ -666,15 +689,11 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
                     {
                         iwe.u.bitrate.value = ((my_current->SupportedRates[j] & 0x7f) * 500000);
 #if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-                        current_val = iwe_stream_add_value(&info,event, current_val,
-                                                           end_buf, &iwe,
-                                                           IW_EV_PARAM_LEN);
+                        current_val = iwe_stream_add_value(&info,event, current_val,end_buf, &iwe,IW_EV_PARAM_LEN);
 #else
-			current_val = iwe_stream_add_value(event, current_val, end_buf, &iwe,
-								   IW_EV_PARAM_LEN);
+						current_val = iwe_stream_add_value(event, current_val, end_buf, &iwe,IW_EV_PARAM_LEN);
 #endif
                     }
-
                 }
 
                 event = current_val;
@@ -691,28 +710,31 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
 #endif
                 /* add RSN IE */
                 os_memorySet (pCmdInterpret->hOs, &iwe, 0, sizeof(iwe));
+				os_memorySet (pCmdInterpret->hOs, ies, 0, 256);
                 iwe.cmd = IWEVGENIE;
                 offset = sizeof(OS_802_11_FIXED_IEs);
+				ies_offset = 0;
+
                 while(offset < my_current->IELength) 
                 {
                     pRsnIes = (OS_802_11_VARIABLE_IEs*)&(my_current->IEs[offset]);
                     if((pRsnIes->ElementID == RSN_IE_ID) || (pRsnIes->ElementID == WPA_IE_ID)) 
                     {
-                        iwe.u.data.flags = 1;
-                        iwe.u.data.length = pRsnIes->Length + 2;
-#if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-                        event = iwe_stream_add_point(&info, event, end_buf, &iwe, (char *)&(my_current->IEs[offset]));
-#else
-                        event = iwe_stream_add_point(event, end_buf, &iwe, (char *)&(my_current->IEs[offset]));
-#endif
-                        break;
+						os_memoryCopy (pCmdInterpret->hOs, ies + ies_offset, (char *)&(my_current->IEs[offset]), pRsnIes->Length + 2);
+                        ies_offset += pRsnIes->Length + 2;
                     }
-                    else 
-                    {
-                        offset += pRsnIes->Length + 2;
-                        continue;
-                    }
+                    offset += pRsnIes->Length + 2;
                 }
+                if (ies_offset)
+				{
+                    iwe.u.data.flags = 1;
+                    iwe.u.data.length = ies_offset;
+#if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
+                     event = iwe_stream_add_point(&info, event, end_buf, &iwe, (char *)ies);
+#else
+                     event = iwe_stream_add_point(event, end_buf, &iwe, (char *)ies);
+#endif
+				}
 
                 my_current = (OS_802_11_BSSID_EX *) (((char *) my_current) + my_current->Length);
             }
@@ -744,7 +766,8 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
             else
                 cmdInterpret_setSecurityParams (hCmdInterpret);
 
-            os_memoryZero (pCmdInterpret->hOs, &Param.content.siteMgrDesiredSSID.str, sizeof (TSsid));
+            os_memoryZero (pCmdInterpret->hOs, &Param.content.siteMgrDesiredSSID.str, MAX_SSID_LEN);
+
             Param.content.siteMgrCurrentSSID.len = 0;
 
             if (wrqu->essid.flags == 0)
@@ -1085,7 +1108,7 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
     case SIOCSIWENCODEEXT:
         {
             struct iw_encode_ext *ext = (struct iw_encode_ext *)cmdObj->buffer2;
-            u8 *addr;
+            TI_UINT8 *addr;
             TI_UINT8 temp[32];
 
             addr = ext->addr.sa_data;
@@ -1102,7 +1125,8 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
             {
                 os_printf ("0x%02x:",ext->key[i]);
             }
-            os_printf ("\n"); */
+            os_printf ("\n"); 
+            */
 
             MAC_COPY (Param.content.rsnOsKey.BSSID, addr);
 
@@ -1206,8 +1230,11 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
                 Param.content.interogateCmdCBParams.hCb  =  (TI_HANDLE)pCmdInterpret;
                 Param.content.interogateCmdCBParams.fCb  =  (void*)cmdInterpret_ServiceCompleteCB;
                 Param.content.interogateCmdCBParams.pCb  =  my_command->out_buffer;
-				/* the next copy is need for PLT commands */
-				os_memoryCopy(pCmdInterpret->hOs,  my_command->out_buffer, my_command->in_buffer, min(my_command->in_buffer_len,my_command->out_buffer_len));
+                if (my_command->out_buffer)
+                {
+                    /* the next copy is need for PLT commands */
+                    os_memoryCopy(pCmdInterpret->hOs,  my_command->out_buffer, my_command->in_buffer, min(my_command->in_buffer_len,my_command->out_buffer_len));
+                }
             }
             else if ((my_command->in_buffer) && (my_command->in_buffer_len))
             {
@@ -1382,7 +1409,13 @@ static TI_INT32 cmdInterpret_Event(IPC_EV_DATA* pData)
     union iwreq_data wrqu;
     char *memptr;
     int TotalLength,res;
-
+#ifdef XCC_MODULE_INCLUDED
+    cckm_assocInformation_t cckm_assoc;
+    unsigned char beaconIE[MAX_BEACON_BODY_LENGTH];
+    unsigned char Cckmstart[CCKM_START_EVENT_SIZE * 2];
+    int i,len,n;
+    OS_802_11_BSSID_EX *my_current;
+#endif
     /* indicate to the OS */
     os_IndicateEvent (pCmdInterpret->hOs, pData);
 
@@ -1443,7 +1476,53 @@ static TI_INT32 cmdInterpret_Event(IPC_EV_DATA* pData)
                 }
             }
 
-            /* Send associated event (containing BSSID of AP) */
+#ifdef XCC_MODULE_INCLUDED
+            /*
+               the driver must provide BEACON IE for calculate MIC in case of fast roaming
+               the data is an ASCII NUL terminated string
+            */
+
+
+            my_current = os_memoryAlloc (pCmdInterpret->hOs,MAX_BEACON_BODY_LENGTH);
+            Param.paramType   = SITE_MGR_GET_SELECTED_BSSID_INFO_EX;
+            Param.content.pSiteMgrSelectedSiteInfo = my_current;
+            Param.paramLength = MAX_BEACON_BODY_LENGTH;
+            cmdDispatch_GetParam(pCmdInterpret->hCmdDispatch, &Param);
+
+            len = Param.content.pSiteMgrSelectedSiteInfo->IELength - BEACON_HEADER_FIX_SIZE;
+
+            n = sprintf(beaconIE, "BEACONIE=");
+            for (i = 0; i < len; i++)
+            {
+              n += sprintf(beaconIE + n, "%02x", Param.content.pSiteMgrSelectedSiteInfo->IEs[BEACON_HEADER_FIX_SIZE+i] & 0xff);
+            }
+
+            os_memorySet (pCmdInterpret->hOs,&wrqu, 0, sizeof(wrqu));
+            wrqu.data.length = n;
+            wireless_send_event(NETDEV(pCmdInterpret->hOs), IWEVCUSTOM, &wrqu, beaconIE);
+            os_memoryFree(pCmdInterpret->hOs,my_current,MAX_BEACON_BODY_LENGTH);
+
+
+            /*
+              The driver should be sending the Association Resp IEs
+              This informs the supplicant of the IEs used in the association exchanged which are required to proceed with CCKM.
+            */
+
+
+            Param.paramType   = ASSOC_ASSOCIATION_RESP_PARAM;
+            Param.paramLength = sizeof(TAssocReqBuffer);
+            cmdDispatch_GetParam(pCmdInterpret->hCmdDispatch, &Param);
+
+            cckm_assoc.assocRespLen = Param.content.assocReqBuffer.bufferSize - ASSOC_RESP_FIXED_DATA_LEN ;
+            cckm_assoc.assocRespBuffer = os_memoryAlloc (pCmdInterpret->hOs, cckm_assoc.assocRespLen);
+
+            memcpy(cckm_assoc.assocRespBuffer,(Param.content.assocReqBuffer.buffer)+ASSOC_RESP_FIXED_DATA_LEN,cckm_assoc.assocRespLen);
+            wrqu.data.length = cckm_assoc.assocRespLen;
+            wireless_send_event(NETDEV(pCmdInterpret->hOs), IWEVASSOCRESPIE, &wrqu, (TI_UINT8*)cckm_assoc.assocRespBuffer);
+            os_memoryFree(pCmdInterpret->hOs,cckm_assoc.assocRespBuffer,cckm_assoc.assocRespLen);
+
+#endif
+           /* Send associated event (containing BSSID of AP) */
 
             os_memorySet (pCmdInterpret->hOs,&wrqu, 0, sizeof(wrqu));
             Param.paramType = SITE_MGR_CURRENT_BSSID_PARAM;
@@ -1462,14 +1541,33 @@ static TI_INT32 cmdInterpret_Event(IPC_EV_DATA* pData)
 
         os_memorySet (pCmdInterpret->hOs,&wrqu, 0, sizeof(wrqu));
         wrqu.data.length = sizeof(IPC_EV_DATA);
-        wireless_send_event(NETDEV(pCmdInterpret->hOs), IWEVCUSTOM, &wrqu, (u8 *)pData);
+        wireless_send_event(NETDEV(pCmdInterpret->hOs), IWEVCUSTOM, &wrqu, (TI_UINT8 *)pData);
 
         break;
 
     case IPC_EVENT_SCAN_COMPLETE:
+        {
+			TI_UINT8 *buf;
         wrqu.data.length = 0;
         wrqu.data.flags = 0;
-        wireless_send_event(NETDEV(pCmdInterpret->hOs), SIOCGIWSCAN, &wrqu, NULL);
+			buf = pData->uBuffer;
+
+			if (*(TI_UINT32*)buf == SCAN_STATUS_COMPLETE)
+				wireless_send_event(NETDEV(pCmdInterpret->hOs), SIOCGIWSCAN, &wrqu, NULL);
+			else
+			{
+                if (*(TI_UINT32*)buf == SCAN_STATUS_STOPPED)          // scan is stopped successfully
+					pData->EvParams.uEventType = IPC_EVENT_SCAN_STOPPED;
+                else if (*(TI_UINT32*)buf == SCAN_STATUS_FAILED)          // scan is stopped successfully
+					pData->EvParams.uEventType = IPC_EVENT_SCAN_FAILED;
+				else
+					break;
+
+				os_memorySet (pCmdInterpret->hOs,&wrqu, 0, sizeof(wrqu));
+				wrqu.data.length = sizeof(IPC_EV_DATA);
+				wireless_send_event(NETDEV(pCmdInterpret->hOs), IWEVCUSTOM, &wrqu, (u8 *)pData);
+			}
+		}
         break;
 
     case IPC_EVENT_MEDIA_SPECIFIC:
@@ -1525,7 +1623,7 @@ static TI_INT32 cmdInterpret_Event(IPC_EV_DATA* pData)
                     wrqu.data.length = sizeof(pcand);
 
                     wireless_send_event(NETDEV(pCmdInterpret->hOs), IWEVPMKIDCAND,
-                                        &wrqu, (u8 *)&pcand);
+                                        &wrqu, (TI_UINT8 *)&pcand);
                 }
 
             }
@@ -1533,6 +1631,21 @@ static TI_INT32 cmdInterpret_Event(IPC_EV_DATA* pData)
         }
 
         break;
+#ifdef XCC_MODULE_INCLUDED
+    case IPC_EVENT_CCKM_START:
+
+        n = sprintf(Cckmstart, "CCKM-Start=");
+        for (i = 0; i < 14; i++)
+        {
+          n += sprintf(Cckmstart + n, "%02x", pData->uBuffer[i] & 0xff);
+        }
+
+        os_memorySet (pCmdInterpret->hOs,&wrqu, 0, sizeof(wrqu));
+        wrqu.data.length = n;
+        wireless_send_event(NETDEV(pCmdInterpret->hOs), IWEVCUSTOM, &wrqu, Cckmstart);
+
+        break;
+#endif
 
     default:
         /* Other event? probably private and does not need interface-specific conversion */
@@ -1540,7 +1653,7 @@ static TI_INT32 cmdInterpret_Event(IPC_EV_DATA* pData)
         {
             os_memorySet (pCmdInterpret->hOs,&wrqu, 0, sizeof(wrqu));
             wrqu.data.length = sizeof(IPC_EV_DATA);
-            wireless_send_event(NETDEV(pCmdInterpret->hOs), IWEVCUSTOM, &wrqu, (u8 *)pData);
+            wireless_send_event(NETDEV(pCmdInterpret->hOs), IWEVCUSTOM, &wrqu, (TI_UINT8 *)pData);
         }
         
         break;

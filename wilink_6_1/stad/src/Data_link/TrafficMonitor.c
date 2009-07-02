@@ -95,6 +95,10 @@ TI_HANDLE TrafficMonitor_create(TI_HANDLE hOs)
 
     os_memoryZero(hOs,TrafficMonitor,sizeof(TrafficMonitor_t));
 
+#ifdef TRAFF_TEST
+	TestEventTimer = NULL;
+#endif
+
     TrafficMonitor->hOs = hOs;
     
     /*Creates the list that will hold all the registered alert requests*/
@@ -270,7 +274,10 @@ TI_STATUS TrafficMonitor_Destroy(TI_HANDLE hTrafficMonitor)
         }
         
 #ifdef TRAFF_TEST
-        tmr_DestroyTimer (TestEventTimer);
+		if (TestEventTimer)
+		{
+			tmr_DestroyTimer (TestEventTimer);
+		}
 #endif    
     
         os_memoryFree(TrafficMonitor->hOs, TrafficMonitor, sizeof(TrafficMonitor_t)); 
@@ -941,12 +948,14 @@ RETURN:     Total BW
 ************************************************************************/
 int TrafficMonitor_GetFrameBandwidth(TI_HANDLE hTrafficMonitor)
 {
-	TrafficMonitor_t *pTrafficMonitor =(TrafficMonitor_t*)hTrafficMonitor;
-	TI_UINT32 uCurentTS = os_timeStampMs(pTrafficMonitor->hOs);  
+	TrafficMonitor_t 	*pTrafficMonitor =(TrafficMonitor_t*)hTrafficMonitor;
+	TI_UINT32 			uCurentTS;
    
-   if(pTrafficMonitor == NULL)
+	if(pTrafficMonitor == NULL)
         return TI_NOK;
-   
+
+	uCurentTS = os_timeStampMs(pTrafficMonitor->hOs);
+
 	/* Calculate BW for Rx & Tx */
 	return ( TrafficMonitor_calcBW(&pTrafficMonitor->DirectRxFrameBW, uCurentTS) +
 			 TrafficMonitor_calcBW(&pTrafficMonitor->DirectTxFrameBW, uCurentTS) );
@@ -1045,14 +1054,16 @@ void TrafficMonitor_Event(TI_HANDLE hTrafficMonitor,int Count,TI_UINT16 Mask,TI_
     TrafficAlertElement_t *AlertElement;
     TI_UINT32 activeTrafDownEventsNum = 0;
     TI_UINT32 trafficDownMinTimeout = 0xFFFFFFFF;
-    TI_UINT32 uCurentTS = os_timeStampMs(TrafficMonitor->hOs);
+    TI_UINT32 uCurentTS;
 
     if(TrafficMonitor == NULL)
         return;
-    
+
     if(!TrafficMonitor->Active)   
         return;
-    
+
+	uCurentTS = os_timeStampMs(TrafficMonitor->hOs);
+
     /* for BW calculation */
     if(MonitorModuleType == RX_TRAFF_MODULE)
     {

@@ -170,8 +170,8 @@ TI_STATUS ctrlData_SetDefaults (TI_HANDLE hCtrlData, ctrlDataInitParams_t *ctrlD
 
     pCtrlData->ctrlDataCurrentBssType = BSS_INFRASTRUCTURE;
 
-    /* Set short/long retry for all ACs */
-    for (ac=0; ac < MAX_NUM_OF_AC; ac++) 
+    /* Set short/long retry for all ACs plus one policy for management packets */
+    for (ac=0; ac < MAX_NUM_OF_AC + 1; ac++)
     {
         pCtrlData->ctrlDataTxRatePolicy.rateClass[ac].longRetryLimit  = ctrlDataInitParams->ctrlDataTxRatePolicy.longRetryLimit;
         pCtrlData->ctrlDataTxRatePolicy.rateClass[ac].shortRetryLimit = ctrlDataInitParams->ctrlDataTxRatePolicy.shortRetryLimit;
@@ -222,7 +222,6 @@ TI_STATUS ctrlData_unLoad(TI_HANDLE hCtrlData)
     /* check parameters validity */
     if( pCtrlData == NULL )
     {
-        TRACE0(pCtrlData->hReport, REPORT_SEVERITY_ERROR, " ctrlData_unLoad() : parametrs value error \n");
         return TI_NOK;
     }
 
@@ -357,6 +356,9 @@ static void ctrlData_setTxRatePolicies(ctrlData_t *pCtrlData)
 	TI_UINT32 		uPolicyRateMask;    /* policy rates */
 	TI_UINT32 		uSupportedRateMask; /* AP supported rates */
     TI_UINT32       fwPolicyID = 0;
+    TI_UINT32       uEnabledHwRatesMask;
+    TI_UINT32       uShiftedBit;
+    TI_UINT32       i;
     TTwdParamInfo   param;
 
     for (ac = 0; ac < MAX_NUM_OF_AC; ac++)
@@ -375,10 +377,10 @@ static void ctrlData_setTxRatePolicies(ctrlData_t *pCtrlData)
         }
 
         /* 2. Build a bitMap for the supported rates */
-        pCtrlData->ctrlDataTxRatePolicy.rateClass[fwPolicyID].txEnabledRates = 
-            ctrlData_buildSupportedHwRates (uSupportedRateMask, uPolicyRateMask);   
+        uEnabledHwRatesMask = ctrlData_buildSupportedHwRates (uSupportedRateMask, uPolicyRateMask);   
+        pCtrlData->ctrlDataTxRatePolicy.rateClass[fwPolicyID].txEnabledRates = uEnabledHwRatesMask;
 
-        TRACE2(pCtrlData->hReport, REPORT_SEVERITY_INFORMATION, " AC %d, rate-policy 0x%x", ac, pCtrlData->ctrlDataTxRatePolicy.rateClass[fwPolicyID].txEnabledRates);
+        TRACE2(pCtrlData->hReport, REPORT_SEVERITY_INFORMATION, "ctrlData_setTxRatePolicies: AC %d, rate-policy 0x%x", ac, uEnabledHwRatesMask);
 
         /* Note that Long/Short retries are pre-set during configuration stage */
 
@@ -387,8 +389,22 @@ static void ctrlData_setTxRatePolicies(ctrlData_t *pCtrlData)
 
     } /* for (ac = 0; ac < MAX_NUM_OF_AC; ac++) */
 
+    /* Add a specific policy for management packets, which uses only the lowest supported rate */
+    pCtrlData->uMgmtPolicyId = fwPolicyID;
+    uShiftedBit = 1;
+    for (i = 0; i < 32; i++)
+    {
+        if ((uShiftedBit & uEnabledHwRatesMask) != 0)
+        {
+            break;
+        }
+        uShiftedBit = uShiftedBit << 1;
+    }
+    pCtrlData->ctrlDataTxRatePolicy.rateClass[fwPolicyID].txEnabledRates = uShiftedBit;
+    fwPolicyID++;
+
     /* Download policies to the FW. Num of policies is 8 - one for each AC for every class */
-    TRACE1(pCtrlData->hReport, REPORT_SEVERITY_INFORMATION, ": num of Rate policies: %d\n", fwPolicyID);
+    TRACE1(pCtrlData->hReport, REPORT_SEVERITY_INFORMATION, "ctrlData_setTxRatePolicies: num of Rate policies: %d\n", fwPolicyID);
 
     pCtrlData->ctrlDataTxRatePolicy.numOfRateClasses = fwPolicyID;
     param.paramType = TWD_TX_RATE_CLASS_PARAM_ID;
@@ -697,15 +713,13 @@ TI_STATUS ctrlData_stop(TI_HANDLE hCtrlData)
 void ctrlData_updateTxRateAttributes(TI_HANDLE hCtrlData)	
 {
 	ctrlData_t *pCtrlData = (ctrlData_t *)hCtrlData;
-	TI_UINT8  ratePolicyId;
-	TI_UINT8  ac;
+	TI_UINT8    ac;
 
 	/* For each AC, get current Tx-rate policy for Data and for Mgmt packets and update the TxCtrl module. */
 	for (ac = 0; ac < MAX_NUM_OF_AC; ac++) 
 	{
-        ratePolicyId = pCtrlData->tsrsParameters[ac].fwPolicyID;
-		txCtrlParams_updateMgmtRateAttributes(pCtrlData->hTxCtrl, ratePolicyId, ac);
-		txCtrlParams_updateDataRateAttributes(pCtrlData->hTxCtrl, ratePolicyId, ac);
+		txCtrlParams_updateMgmtRateAttributes(pCtrlData->hTxCtrl, pCtrlData->uMgmtPolicyId, ac);
+		txCtrlParams_updateDataRateAttributes(pCtrlData->hTxCtrl, pCtrlData->tsrsParameters[ac].fwPolicyID, ac);
 	}
 }
 
@@ -948,7 +962,7 @@ void ctrlData_printTxParameters(TI_HANDLE hCtrlData)
 void ctrlData_printCtrlBlock(TI_HANDLE hCtrlData)
 {
     ctrlData_t *pCtrlData = (ctrlData_t *)hCtrlData;
-    TI_UINT32  ac;
+    TI_UINT32  i;
 
     WLAN_OS_REPORT(("    CtrlData BLock    \n"));
     WLAN_OS_REPORT(("----------------------\n"));
@@ -981,14 +995,14 @@ void ctrlData_printCtrlBlock(TI_HANDLE hCtrlData)
     WLAN_OS_REPORT(("Traffic Intensity low threshold: %d packets/sec \n", pCtrlData->ctrlDataTrafficIntensityThresholds.uLowThreshold));
     WLAN_OS_REPORT(("Traffic Intensity test interval: %d ms\n", pCtrlData->ctrlDataTrafficIntensityThresholds.TestInterval));
 
-    for (ac=0; ac < MAX_NUM_OF_AC; ac++) 
+    for (i=0; i < pCtrlData->ctrlDataTxRatePolicy.numOfRateClasses; i++)
     {
         WLAN_OS_REPORT(("Rate Enable/Disable Mask = 0x%x\n",
-						pCtrlData->ctrlDataTxRatePolicy.rateClass[ac].txEnabledRates));   
+						pCtrlData->ctrlDataTxRatePolicy.rateClass[i].txEnabledRates));
 
         WLAN_OS_REPORT(("Long retry = %d, Short retry = %d\n",
-						pCtrlData->ctrlDataTxRatePolicy.rateClass[ac].longRetryLimit,
-						pCtrlData->ctrlDataTxRatePolicy.rateClass[ac].shortRetryLimit));
+						pCtrlData->ctrlDataTxRatePolicy.rateClass[i].longRetryLimit,
+						pCtrlData->ctrlDataTxRatePolicy.rateClass[i].shortRetryLimit));
     }
 }
 

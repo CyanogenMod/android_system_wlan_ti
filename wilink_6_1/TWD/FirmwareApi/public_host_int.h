@@ -111,6 +111,8 @@
 #define RX_DESC_GET_MEM_BLK(desc)            ( (desc & 0x000000FF) >>  0 )  /* The first mem-block of the Rx packet */
 #define RX_DESC_GET_LENGTH(desc)             ( (desc & 0x000FFF00) >>  8 )  /* The length of the packet in words */
 #define RX_DESC_GET_UNALIGNED(desc)          ( (desc & 0x00100000) >> 20 )  /* If set, the payload is not 4 bytes aligned */
+#define RX_DESC_GET_PACKET_CLASS_TAG(desc)   ( (desc & 0xFF000000) >> 24 )  /* Get the RX packet class tag */
+
 
 /* Set field in FwStatus_t->rxPktsDesc[i] */
 #define RX_DESC_SET_MEM_BLK(desc, value)     ( desc = (desc & ~0x000000FF) | (value <<  0 ) )

@@ -104,6 +104,7 @@ typedef struct
     TI_UINT32                      assocRespLen;
     TI_UINT8                       assocReqBuffer[MAX_ASSOC_MSG_LENGTH];
     TI_UINT32                      assocReqLen;
+  	TI_BOOL					       reAssocResp;
 
 	TI_BOOL						reAssoc;
 	TI_BOOL 						disAssoc; /* When set dissasociation frame will be sent. */

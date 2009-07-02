@@ -251,7 +251,7 @@ TI_STATUS txnQ_Open (TI_HANDLE       hTxnQ,
     TI_UINT32     uNodeHeaderOffset;
     TI_UINT32     i;
 
-    if (uFuncId > MAX_FUNCTIONS  ||  uNumPrios > MAX_PRIORITY) 
+    if (uFuncId >= MAX_FUNCTIONS  ||  uNumPrios > MAX_PRIORITY) 
     {
         TRACE2(pTxnQ->hReport, REPORT_SEVERITY_ERROR, ": Invalid Params!  uFuncId = %d, uNumPrios = %d\n", uFuncId, uNumPrios);
         return TI_NOK;
@@ -529,6 +529,7 @@ static void txnQ_TxnDoneCb (TI_HANDLE hTxnQ, void *hTxn)
 static ETxnStatus txnQ_RunScheduler (TTxnQObj *pTxnQ, TTxnStruct *pInputTxn)
 {
     TI_BOOL bFirstIteration;  
+	ETxnStatus eStatus = TXN_STATUS_NONE;
 
     TRACE0(pTxnQ->hReport, REPORT_SEVERITY_INFORMATION, "txnQ_RunScheduler()\n");
 
@@ -555,8 +556,6 @@ static ETxnStatus txnQ_RunScheduler (TTxnQObj *pTxnQ, TTxnStruct *pInputTxn)
      */
     while (1)
     {
-        ETxnStatus eStatus = TXN_STATUS_PENDING;
-
         /* If first scheduler iteration, save its return code to return the original Txn result */
         if (bFirstIteration) 
         {

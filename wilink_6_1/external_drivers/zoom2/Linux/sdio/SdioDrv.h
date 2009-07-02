@@ -95,7 +95,8 @@
 int sdioDrv_ConnectBus     (void *       fCbFunc,
                             void *       hCbArg,
                             unsigned int uBlkSizeShift,
-                            unsigned int uSdioThreadPriority);
+                            unsigned int uSdioThreadPriority,
+                            unsigned char **pTxDmaSrcAddr);
 
 int sdioDrv_DisconnectBus  (void);
 

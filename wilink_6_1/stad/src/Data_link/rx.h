@@ -93,6 +93,7 @@ typedef struct
     TI_HANDLE           hTimer;
     TI_HANDLE           RxEventDistributor;
 	TI_HANDLE           hThroughputTimer;
+	TI_HANDLE			hPowerMgr;
     TI_BOOL             rxThroughputTimerEnable;
 	TI_BOOL             rxDataExcludeUnencrypted;
     TI_BOOL             rxDataExludeBroadcastUnencrypted;
@@ -113,7 +114,13 @@ typedef struct
 	rxData_pBufferDispatchert rxData_dispatchBuffer[MAX_NUM_OF_RX_PORT_STATUS][MAX_NUM_OF_RX_DATA_TYPES];
 
 	TI_INT32				prevSeqNum;
-}rxData_t;
 
+ 	TI_UINT32           uLastDataPktRate;  /* save Rx packet rate for statistics */
+
+	TI_BOOL			    reAuthInProgress;
+	TI_HANDLE			reAuthActiveTimer;
+	TI_UINT32			reAuthActiveTimeout;
+
+}rxData_t;
 
 #endif

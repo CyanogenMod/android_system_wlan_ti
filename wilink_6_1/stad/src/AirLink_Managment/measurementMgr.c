@@ -870,8 +870,10 @@ void measurementMgr_mlmeResultCB(TI_HANDLE hMeasurementMgr, TMacAddr * bssid, ml
 
     if (pMeasurementMgr == NULL || pRxAttr == NULL)
     {
-        TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_ERROR, ": MLME callback called with NULL object\n");
-
+		if(pMeasurementMgr != NULL)
+		{
+			TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_ERROR, ": MLME callback called with NULL object\n");
+		}
         return;
     }
 

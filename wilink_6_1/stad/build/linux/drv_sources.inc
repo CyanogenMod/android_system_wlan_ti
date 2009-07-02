@@ -214,8 +214,11 @@ CORE_SRCS = \
     $(COMSRC)/Connection_Managment/keyParserExternal.c \
     $(COMSRC)/Connection_Managment/keyParserWep.c \
     $(COMSRC)/Connection_Managment/mainKeysSm.c \
+    $(COMSRC)/Connection_Managment/externalSec.c \
     $(COMSRC)/Application/scanMngr.c \
-    $(COMSRC)/Application/roamingMngr.c
+    $(COMSRC)/Application/roamingMngr.c \
+    $(COMSRC)/Application/roamingMngr_manualSM.c \
+    $(COMSRC)/Application/roamingMngr_autoSM.c
 
 ifeq ($(DEBUG),y)
     CORE_SRCS += \

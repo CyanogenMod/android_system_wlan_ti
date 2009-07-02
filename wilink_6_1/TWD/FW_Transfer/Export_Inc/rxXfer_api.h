@@ -59,13 +59,15 @@ void				rxXfer_Init( TI_HANDLE hRxXfer,
                                    TI_HANDLE hTwIf,
                                    TI_HANDLE hRxQueue);
 
+void                rxXfer_SetDefaults (TI_HANDLE hRxXfer, TTwdInitParams *pInitParams);
+
 TI_STATUS           rxXfer_RxEvent (TI_HANDLE hRxXfer, FwStatus_t* pFwStatus);
 
 void				rxXfer_Register_CB(TI_HANDLE hRxXfer,TI_UINT32 CallBackID,void *CBFunc,TI_HANDLE CBObj);
 
 void                rxXfer_SetRxDirectAccessParams (TI_HANDLE hRxXfer, TDmaParams *pDmaParams);
                     
-/*void				rxXfer_SetRxCBufferAddr(TI_HANDLE hRxXfer, TDmaParams *pDmaParams);*/
+void                rxXfer_RegisterErrCb (TI_HANDLE hRxXfer, void *fErrCb, TI_HANDLE hErrCb);
 
 #ifdef TI_DBG
 

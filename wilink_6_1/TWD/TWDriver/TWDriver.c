@@ -59,9 +59,9 @@
 #include "CmdBld.h"
 #include "RxQueue_api.h"
 
-
 /* remove the chipID check when WL6-PG1.0 becomes obsolete (temporary global variable!!) */
 extern TI_BOOL bChipIs1273Pg10;
+void TWD_CheckSRConfigParams(TTwd  *pTWD, ACXSmartReflexConfigParams_t *tSmartReflexParams);
 
 
 #define TWD_CB_MODULE_OWNER_MASK    0xff00
@@ -535,13 +535,13 @@ TI_STATUS TWD_InitFw (TI_HANDLE hTWD, TFileInfo *pFileInfo)
     TTwd *pTWD = (TTwd *)hTWD;
     TI_STATUS status;
 
-    TRACE0(pTWD->hReport, REPORT_SEVERITY_INIT , "TWD_InitFw: called\n");
-
     /* check Parameters */
     if (( pTWD == NULL ) || ( pFileInfo == NULL ))
     {
         return (TI_NOK);
     }
+
+	TRACE0(pTWD->hReport, REPORT_SEVERITY_INIT , "TWD_InitFw: called\n");
 
     hwInit_SetFwImage (pTWD->hHwInit, pFileInfo);
     
@@ -611,6 +611,9 @@ TI_STATUS TWD_SetDefaults (TI_HANDLE hTWD, TTwdInitParams *pInitParams)
     TKeepAliveList      *pKlvParams = &DB_KLV(pTWD->hCmdBld);
     IniFileRadioParam   *pRadioParams = &DB_RADIO(pTWD->hCmdBld);
     IniFileGeneralParam *pGenParams = &DB_GEN(pTWD->hCmdBld);
+    TSmartReflexParams  *pSmartReflex = &DB_SR(pTWD->hCmdBld);
+	TRateMngParams      *pRateMngParams = &DB_RM(pTWD->hCmdBld);
+
     TI_UINT32            k, uIndex;
     int iParam;
    
@@ -734,6 +737,9 @@ TI_STATUS TWD_SetDefaults (TI_HANDLE hTWD, TTwdInitParams *pInitParams)
         pKlvParams->keepAliveParams[ uIndex ].enaDisFlag = TI_FALSE;
     }
 
+    /* Configure the RxXfer module */
+    rxXfer_SetDefaults (pTWD->hRxXfer, pInitParams);
+
     /* Configure the Tx-HW-Queue module */
     txHwQueue_Config (pTWD->hTxHwQueue, pInitParams);
     
@@ -777,6 +783,38 @@ TI_STATUS TWD_SetDefaults (TI_HANDLE hTWD, TTwdInitParams *pInitParams)
     os_memoryCopy(pTWD->hOs, (void*)pRadioParams, (void*)&pInitParams->tIniFileRadioParams, sizeof(IniFileRadioParam));
     os_memoryCopy(pTWD->hOs, (void*)pGenParams, (void*)&pInitParams->tPlatformGenParams, sizeof(IniFileGeneralParam));
     
+    os_memoryCopy (pTWD->hOs,
+                   (void*)&(pWlanParams->tFmCoexParams),
+                   (void*)&(pInitParams->tGeneral.tFmCoexParams),
+                   sizeof(TFmCoexParams));
+
+    pSmartReflex->tSmartReflexState = pInitParams ->tSmartReflexState;
+    os_memoryCopy(pTWD->hOs, (void*)&pSmartReflex->tSmartReflexParams, (void*)&pInitParams->tSmartReflexParams, sizeof(ACXSmartReflexConfigParams_t));
+    os_memoryCopy(pTWD->hOs, (void*)&pSmartReflex->tSmartReflexDebugParams, (void*)&pInitParams->tSmartReflexDebugParams, sizeof(ACXSmartReflexDebugParams_t));
+
+
+	/* Rate management params */
+	pRateMngParams->rateMngParams.InverseCuriosityFactor = pInitParams->tRateMngParams.InverseCuriosityFactor;
+	pRateMngParams->rateMngParams.MaxPer = pInitParams->tRateMngParams.MaxPer;
+	pRateMngParams->rateMngParams.PerAdd = pInitParams->tRateMngParams.PerAdd;
+	pRateMngParams->rateMngParams.PerAddShift = pInitParams->tRateMngParams.PerAddShift;
+	pRateMngParams->rateMngParams.PerAlphaShift = pInitParams->tRateMngParams.PerAlphaShift;
+	pRateMngParams->rateMngParams.PerBeta1Shift = pInitParams->tRateMngParams.PerBeta1Shift;
+	pRateMngParams->rateMngParams.PerBeta2Shift = pInitParams->tRateMngParams.PerBeta2Shift;
+	pRateMngParams->rateMngParams.PerTh1 = pInitParams->tRateMngParams.PerTh1;
+	pRateMngParams->rateMngParams.PerTh2 = pInitParams->tRateMngParams.PerTh2;
+	pRateMngParams->rateMngParams.RateCheckDown = pInitParams->tRateMngParams.RateCheckDown;
+	pRateMngParams->rateMngParams.RateCheckUp = pInitParams->tRateMngParams.RateCheckUp;
+	pRateMngParams->rateMngParams.RateRetryScore = pInitParams->tRateMngParams.RateRetryScore;
+	pRateMngParams->rateMngParams.TxFailHighTh = pInitParams->tRateMngParams.TxFailHighTh;
+	pRateMngParams->rateMngParams.TxFailLowTh = pInitParams->tRateMngParams.TxFailLowTh;
+
+	/* RATE_MNG_MAX_RETRY_POLICY_PARAMS_LEN */
+	for (uIndex = 0; uIndex < 13; uIndex++)
+	{
+        pRateMngParams->rateMngParams.RateRetryPolicy[uIndex] = pInitParams->tRateMngParams.RateRetryPolicy[uIndex];
+	}
+
     return TI_OK;
 }
 
@@ -900,6 +938,9 @@ static void TWD_RegisterOwnCb (TI_HANDLE hTWD, TI_UINT32 uCallBackID, void *fCb,
 
         /* Forward the Health-Moitor callback to the TwIf for bus errors */
         twIf_RegisterErrCb (pTWD->hTwIf, fCb, hCb);
+
+        /* Forward the Health-Moitor callback to the RxXfer for Rx packet errors */
+        rxXfer_RegisterErrCb (pTWD->hRxXfer, fCb, hCb);
         break;
 
     case TWD_INT_COMMAND_COMPLETE:
@@ -1351,14 +1392,13 @@ TI_STATUS TWD_StopPeriodicScan  (TI_HANDLE              hTWD,
 
 TI_STATUS TWD_readMem (TI_HANDLE hTWD, TFwDebugParams* pMemDebug, void* fCb, TI_HANDLE hCb)
 {
-	TTwd * hReport = ((TTwd *)hTWD)->hReport;
-	TRACE0(hReport, REPORT_SEVERITY_INFORMATION , "TWD_readMem: called\n");
-
-    if ((hTWD == NULL) || 
-		(pMemDebug == NULL) )
+    if (hTWD == NULL || pMemDebug == NULL)
 	{
 		return (TI_NOK);
 	}
+
+	TRACE0(((TTwd *)hTWD)->hReport, REPORT_SEVERITY_INFORMATION , "TWD_readMem: called\n");
+
 	if (fwDbg_ReadAddr(((TTwd *)hTWD)->hFwDbg,pMemDebug->addr,pMemDebug->length,pMemDebug->UBuf.buf8,(TFwDubCallback)fCb,hCb) == TI_NOK)
 	{
         TRACE0(((TTwd *)hTWD)->hReport, REPORT_SEVERITY_CONSOLE ,"TWD_readMem Error: fwDbg_handleCommand failed\n");
@@ -1366,18 +1406,17 @@ TI_STATUS TWD_readMem (TI_HANDLE hTWD, TFwDebugParams* pMemDebug, void* fCb, TI_
 		return TI_NOK;
 	}
 
-	return(TI_OK);
+	return (TI_OK);
 }
 
 TI_STATUS TWD_writeMem (TI_HANDLE hTWD, TFwDebugParams* pMemDebug, void* fCb, TI_HANDLE hCb)
 {
-    TRACE0(((TTwd *)hTWD)->hReport, REPORT_SEVERITY_INFORMATION , "TWD_writeMem: called\n");
-
-    if ((hTWD == NULL) || 
-		(pMemDebug == NULL) )
+    if (hTWD == NULL || pMemDebug == NULL)
 	{
 		return (TI_NOK);
 	}
+
+	TRACE0(((TTwd *)hTWD)->hReport, REPORT_SEVERITY_INFORMATION , "TWD_writeMem: called\n");
 
 	if (fwDbg_WriteAddr(((TTwd *)hTWD)->hFwDbg,pMemDebug->addr,pMemDebug->length,pMemDebug->UBuf.buf8,(TFwDubCallback)fCb,hCb) == TI_NOK)
 	{
@@ -1391,26 +1430,24 @@ TI_STATUS TWD_writeMem (TI_HANDLE hTWD, TFwDebugParams* pMemDebug, void* fCb, TI
 
 TI_BOOL TWD_isValidMemoryAddr (TI_HANDLE hTWD, TFwDebugParams* pMemDebug)
 {
-   TRACE0(((TTwd *)hTWD)->hReport, REPORT_SEVERITY_INFORMATION , "TWD_isValidMemoryAddr: called\n");
-
-    if ((hTWD == NULL) || 
-		(pMemDebug == NULL) )
+	if (hTWD == NULL || pMemDebug == NULL)
 	{
 		return TI_FALSE;
 	}
+
+	TRACE0(((TTwd *)hTWD)->hReport, REPORT_SEVERITY_INFORMATION , "TWD_isValidMemoryAddr: called\n");
 
 	return fwDbg_isValidMemoryAddr(((TTwd *)hTWD)->hFwDbg,pMemDebug->addr,pMemDebug->length);
 }
 
 TI_BOOL TWD_isValidRegAddr (TI_HANDLE hTWD, TFwDebugParams* pMemDebug)
 {
-   TRACE0(((TTwd *)hTWD)->hReport, REPORT_SEVERITY_INFORMATION , "TWD_isValidRegAddr: called\n");
-
-    if ((hTWD == NULL) || 
-		(pMemDebug == NULL) )
+    if (hTWD == NULL || pMemDebug == NULL )
 	{
 		return TI_FALSE;
 	}
+
+	TRACE0(((TTwd *)hTWD)->hReport, REPORT_SEVERITY_INFORMATION , "TWD_isValidRegAddr: called\n");
 
 	return fwDbg_isValidRegAddr(((TTwd *)hTWD)->hFwDbg,pMemDebug->addr,pMemDebug->length);
 }
@@ -1544,6 +1581,7 @@ static TI_STATUS TWD_WriteMibTxRatePolicy (TI_HANDLE hTWD, TMib* pMib)
     if (NULL == pMib)
     {
         TRACE0(pTWD->hReport, REPORT_SEVERITY_ERROR, "ERROR: TWD_WriteMibTxRatePolicy pMib=NULL !!!");
+		return TI_NOK;
     }
 #endif /* TI_DBG */
 

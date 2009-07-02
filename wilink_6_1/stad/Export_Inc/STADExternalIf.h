@@ -62,9 +62,10 @@
 /* defines */
 /***********/
 
-#define NUM_OF_CONFIG_PARAMS_IN_SG  		11
+#define NUM_OF_CONFIG_PARAMS_IN_SG  	    2
 #define NUM_OF_STATUS_PARAMS_IN_SG  		11
 #define NUM_OF_COEX_ACTIVITY_PARAMS_IN_SG 	6
+#define NUM_OF_RATE_MNGT_PARAMS_MAX			14
 #define SET_SSID_WITHOUT_SUPPL      		0x8000
 
 #define TX_RETRY_HISTOGRAM_SIZE 			16

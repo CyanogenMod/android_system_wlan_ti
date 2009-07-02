@@ -515,7 +515,8 @@ typedef enum CALIBRATION_COMMANDS_ENMT
     CM_RTRIM_calibration_e,
     CM_RX_LNAGAIN_calibration_e,
 
-	CM_SMART_REFLEX_calibration_e
+	CM_SMART_REFLEX_calibration_e,
+	CM_CHANNEL_RESPONSE_calibration_e
 
 }CALIBRATION_COMMANDS_ENM;
 
@@ -541,6 +542,7 @@ typedef enum CALIBRATIONS_ENMT
 	RX_ANALOG_DC_CORRECTION_CALIBRATION_TYPE_E,
 	CM_RX_IQ_MM_CORRECTION_CALIBRATION_TYPE_E,
     SMART_REFLEX_CALIBRATION_TYPE_E,
+    CHANNEL_RESPONSE_CALIBRATION_TYPE_E,
 	/* ... */
 /*----------------------------------------------------------*/
 	NUMBER_OF_CALIBRATIONS_E,
@@ -706,7 +708,7 @@ typedef enum
 /*0x21 */   TEST_CMD_TEST_TONE,
 /*	0x22	*/	TEST_CMD_POWER_MODE,
 /*	0x23	*/	TEST_CMD_SMART_REFLEX,
-
+/*	0x24	*/	TEST_CMD_CHANNEL_RESPONSE,
 
     MAX_TEST_CMD_ID = 0xFF	/* Dummy - must be last!!! (make sure that Enum variables are type of int) */
         
@@ -727,29 +729,29 @@ typedef enum
 	eCMD_GET_CLPC_VBAT_TEMPERATURE_INFO
 }TTestCmdDeubug_enum;
 
-// struct of calibration status, indication if RM performed calibration
+/* struct of calibration status, indication if RM performed calibration */
 typedef struct  
 {
-	uint8		operateCalibration;									// RM performed calibration
-	int8		calibrationsResult[NUMBER_OF_CALIBRATIONS_E];		// Calibrations status	
+	uint8		operateCalibration;									/* RM performed calibration */
+	int8		calibrationsResult[NUMBER_OF_CALIBRATIONS_E];		/* Calibrations status	*/
 }CalibrationInfo;
 
-// struct of CLPC output, temperature, battery voltage
+/* struct of CLPC output, temperature, battery voltage */
 typedef struct  
 {
-	int					ClpcOffset[NUMBER_OF_RATE_GROUPS_E];		 // CLPC
-	int8				CurrentTemperature;							 // current temperature in Celsius
-	uint16				CurrentVbat;								 // VBat	
+	int					ClpcOffset[NUMBER_OF_RATE_GROUPS_E];		 /* CLPC */
+	int8				CurrentTemperature;							 /* current temperature in Celsius */
+	uint16				CurrentVbat;								 /* VBat	*/
 	
 }CLPCTempratureVbatStruct;
 
 typedef struct  
 {
 	int16			oRadioStatus;
-	uint8			iCommand; // command to check
+	uint8			iCommand; /* command to check */
 	
-	CalibrationInfo				calibInfo;			// for eCMD_GET_CALIBRAIONS_INFO
-	CLPCTempratureVbatStruct	CLPCTempVbatInfo;	// for eCMD_GET_CLPC_VBAT_TEMPERATURE_INFO
+	CalibrationInfo				calibInfo;			/* for eCMD_GET_CALIBRAIONS_INFO */
+	CLPCTempratureVbatStruct	CLPCTempVbatInfo;	/* for eCMD_GET_CLPC_VBAT_TEMPERATURE_INFO */
 
 	uint8			padding[3];
 	
@@ -833,39 +835,39 @@ typedef enum EFUSE_PARAMETER_TYPE_ENMT
 	EFUSE_FIRST_PARAMETER_E,
 /*_______________________________________________*/
 
-	// RX PARAMETERS
+	/* RX PARAMETERS */
     EFUSE_FIRST_RX_PARAMETER_E = EFUSE_FIRST_PARAMETER_E,
-	RX_BIP_MAX_GAIN_ERROR_BAND_B_E = EFUSE_FIRST_RX_PARAMETER_E,		// MaxGainErrBandB 
+	RX_BIP_MAX_GAIN_ERROR_BAND_B_E = EFUSE_FIRST_RX_PARAMETER_E,		/* MaxGainErrBandB */
 																		
-	RX_BIP_MAX_GAIN_ERROR_J_LOW_MID_E,									// MaxGainErrJLowMid
-	RX_BIP_MAX_GAIN_ERROR_J_HIGH_E,										// MaxGainErrJHigh  
+	RX_BIP_MAX_GAIN_ERROR_J_LOW_MID_E,									/* MaxGainErrJLowMid */
+	RX_BIP_MAX_GAIN_ERROR_J_HIGH_E,										/* MaxGainErrJHigh  */
 																		
-	RX_BIP_MAX_GAIN_ERROR_5G_1ST_E,										// MaxGainErr5G1st  
-	RX_BIP_MAX_GAIN_ERROR_5G_2ND_E,										// MaxGainErr5G2nd  
-	RX_BIP_MAX_GAIN_ERROR_5G_3RD_E,										// MaxGainErr5G3rd  
-	RX_BIP_MAX_GAIN_ERROR_5G_4TH_E,										// MaxGainErr5G4th  
+	RX_BIP_MAX_GAIN_ERROR_5G_1ST_E,										/* MaxGainErr5G1st  */
+	RX_BIP_MAX_GAIN_ERROR_5G_2ND_E,										/* MaxGainErr5G2nd  */
+	RX_BIP_MAX_GAIN_ERROR_5G_3RD_E,										/* MaxGainErr5G3rd  */
+	RX_BIP_MAX_GAIN_ERROR_5G_4TH_E,										/* MaxGainErr5G4th  */
 																		
-	RX_BIP_LNA_STEP_CORR_BAND_B_4TO3_E,									// LnaStepCorrBandB (Step 4To3)
-	RX_BIP_LNA_STEP_CORR_BAND_B_3TO2_E,									// LnaStepCorrBandB (Step 3To2)
-	RX_BIP_LNA_STEP_CORR_BAND_B_2TO1_E,									// LnaStepCorrBandB (Step 2To1)
-	RX_BIP_LNA_STEP_CORR_BAND_B_1TO0_E,									// LnaStepCorrBandB (Step 1To0)
+	RX_BIP_LNA_STEP_CORR_BAND_B_4TO3_E,									/* LnaStepCorrBandB (Step 4To3) */
+	RX_BIP_LNA_STEP_CORR_BAND_B_3TO2_E,									/* LnaStepCorrBandB (Step 3To2) */
+	RX_BIP_LNA_STEP_CORR_BAND_B_2TO1_E,									/* LnaStepCorrBandB (Step 2To1) */
+	RX_BIP_LNA_STEP_CORR_BAND_B_1TO0_E,									/* LnaStepCorrBandB (Step 1To0) */
 																		
-	RX_BIP_LNA_STEP_CORR_BAND_A_4TO3_E,									// LnaStepCorrBandA (Step 4To3)
-	RX_BIP_LNA_STEP_CORR_BAND_A_3TO2_E,									// LnaStepCorrBandA (Step 3To2)
-	RX_BIP_LNA_STEP_CORR_BAND_A_2TO1_E,									// LnaStepCorrBandA (Step 2To1)
-	RX_BIP_LNA_STEP_CORR_BAND_A_1TO0_E,									// LnaStepCorrBandA (Step 1To0)
+	RX_BIP_LNA_STEP_CORR_BAND_A_4TO3_E,									/* LnaStepCorrBandA (Step 4To3) */
+	RX_BIP_LNA_STEP_CORR_BAND_A_3TO2_E,									/* LnaStepCorrBandA (Step 3To2) */
+	RX_BIP_LNA_STEP_CORR_BAND_A_2TO1_E,									/* LnaStepCorrBandA (Step 2To1) */
+	RX_BIP_LNA_STEP_CORR_BAND_A_1TO0_E,									/* LnaStepCorrBandA (Step 1To0) */
 																		
-	RX_BIP_TA_STEP_CORR_BAND_B_2TO1_E,									// TaStepCorrBandB (Step 2To1)
-	RX_BIP_TA_STEP_CORR_BAND_B_1TO0_E,									// TaStepCorrBandB (Step 1To0)
+	RX_BIP_TA_STEP_CORR_BAND_B_2TO1_E,									/* TaStepCorrBandB (Step 2To1) */
+	RX_BIP_TA_STEP_CORR_BAND_B_1TO0_E,									/* TaStepCorrBandB (Step 1To0) */
 																		
-	RX_BIP_TA_STEP_CORR_BAND_A_2TO1_E,									// TaStepCorrBandA (Step 2To1)
-	RX_BIP_TA_STEP_CORR_BAND_A_1TO0_E,									// TaStepCorrBandA (Step 1To0)
+	RX_BIP_TA_STEP_CORR_BAND_A_2TO1_E,									/* TaStepCorrBandA (Step 2To1) */
+	RX_BIP_TA_STEP_CORR_BAND_A_1TO0_E,									/* TaStepCorrBandA (Step 1To0) */
 																		
-	NUMBER_OF_RX_BIP_EFUSE_PARAMETERS_E,								// Number of RX parameters
+	NUMBER_OF_RX_BIP_EFUSE_PARAMETERS_E,								/* Number of RX parameters */
 
-	// TX PARAMETERS
-	TX_BIP_PD_BUFFER_GAIN_ERROR_E = NUMBER_OF_RX_BIP_EFUSE_PARAMETERS_E,// PD_Buffer_Gain_error
-	TX_BIP_PD_BUFFER_VBIAS_ERROR_E,										// PD_Buffer_Vbias_error
+	/* TX PARAMETERS */
+	TX_BIP_PD_BUFFER_GAIN_ERROR_E = NUMBER_OF_RX_BIP_EFUSE_PARAMETERS_E,/* PD_Buffer_Gain_error */
+	TX_BIP_PD_BUFFER_VBIAS_ERROR_E,										/* PD_Buffer_Vbias_error */
 
 /*_______________________________________________*/
 	EFUSE_NUMBER_OF_PARAMETERS_E,
@@ -878,7 +880,7 @@ typedef struct
 	int8	EfuseParameters[EFUSE_NUMBER_OF_PARAMETERS_E];
 
 	int16	oRadioStatus;
-    int8	padding[3];     // Align to 32bit
+    int8	padding[3];     /* Align to 32bit */
 
 } EfuseParameters_t;
 
@@ -1330,10 +1332,8 @@ typedef struct
 	int8		padding[2];
 }RadioRxPltCal;
 
-/*////////////////////////////////////////////////////////////////////////
-// Database:	IniFileGeneralParam
-// Command:		TEST_CMD_INI_FILE_GENERAL_PARAM
-///////////////////////////////////////////////////////////////////////*/
+/*  Database:	IniFileGeneralParam
+	Command:		TEST_CMD_INI_FILE_GENERAL_PARAM */
 
 
 /*typedef struct
@@ -1419,10 +1419,8 @@ typedef enum
 }NBI_ENM;
 
 
-/*///////////////////////////////////////////////////////////////////////
-// Database:	IniFileRadioParam
-// Command:		TEST_CMD_INI_FILE_RADIO_PARAM
-///////////////////////////////////////////////////////////////////////*/
+/*	Database:	IniFileRadioParam
+	Command:		TEST_CMD_INI_FILE_RADIO_PARAM */
 
 #define RSSI_AND_PROCESS_COMPENSATION_TABLE_SIZE   (15)
 
@@ -1475,7 +1473,7 @@ typedef struct
 
 }IniFileRadioParam;  
 
-/*/////////////////////////////////////////////////////////////////////*/
+/*\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 
 /* Describes a reference design supported by the HDK Module */
 typedef struct HDKReferenceDesign_t
@@ -1512,7 +1510,7 @@ typedef struct
 
 typedef struct
 {
-    int16       RSSIVal;      // free running RSSI value, 1dB resolution
+    int16       RSSIVal;      /* free running RSSI value, 1dB resolution */
     int16		oRadioStatus;   
 }TTestCmdFreeRSSI;
 

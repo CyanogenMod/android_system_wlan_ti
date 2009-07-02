@@ -653,19 +653,19 @@ RETURN:     void
 static void release_module(conn_t *pConn)
 {
 	if (pConn->ibss_pFsm)
-	{
+    {
 		fsm_Unload (pConn->hOs, pConn->ibss_pFsm);
-	}
+    }
 
-	if (pConn->infra_pFsm)
-	{
+    if (pConn->infra_pFsm)
+    {
 		fsm_Unload (pConn->hOs, pConn->infra_pFsm);
-	}
+    }
 
 	if (pConn->hConnTimer)
-	{
+    {
 		tmr_DestroyTimer (pConn->hConnTimer);
-	}
+    }
 
 	os_memoryFree(pConn->hOs, pConn, sizeof(conn_t));
 }
@@ -676,14 +676,17 @@ static void conn_DisconnectComplete (conn_t *pConn, TI_UINT8  *data, TI_UINT8   
 	{
 	case CONNECTION_IBSS:
 		connIbss_DisconnectComplete(pConn, data, dataLength);
+		break;
 
 	case CONNECTION_SELF:
 		connIbss_DisconnectComplete(pConn, data, dataLength);
+		break;
 
 	case CONNECTION_INFRA:
 		connInfra_DisconnectComplete(pConn, data, dataLength);
+		break;
 
-	default:
+    default:
 		TRACE1(pConn->hReport, REPORT_SEVERITY_ERROR, "conn_DisconnectComplete, invalid type %d\n\n", pConn->currentConnType);
 		
 	}

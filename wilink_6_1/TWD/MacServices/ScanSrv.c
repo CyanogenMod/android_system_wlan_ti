@@ -49,7 +49,7 @@
 #include "CmdBld.h"
 
 /**
- * \author Yuval Adler\n
+ * \\n
  * \date 16-Oct-2004\n
  * \brief Creates the scan SRV object
  *
@@ -67,6 +67,8 @@ TI_HANDLE MacServices_scanSRV_create( TI_HANDLE hOS )
         return NULL;
     }
 
+    os_memoryZero( pScanSRV->hOS, pScanSRV, sizeof(scanSRV_t));
+
     /* allocate the state machine */
     if ( TI_OK != fsm_Create( hOS, &(pScanSRV->SM), SCAN_SRV_NUM_OF_STATES, SCAN_SRV_NUM_OF_EVENTS ))
     {
@@ -82,7 +84,7 @@ TI_HANDLE MacServices_scanSRV_create( TI_HANDLE hOS )
 }
 
 /**
- * \author Yuval Adler\n
+ * \\n
  * \date 29-Dec-2004\n
  * \brief Finalizes the scan SRV module (releasing memory and timer)
  *
@@ -94,7 +96,10 @@ void MacServices_scanSRV_destroy( TI_HANDLE hScanSRV )
     scanSRV_t *pScanSRV = (scanSRV_t*)hScanSRV;
 
     /* free timer */
-    tmr_DestroyTimer (pScanSRV->hScanSrvTimer);
+	if (pScanSRV->hScanSrvTimer)
+	{
+		tmr_DestroyTimer (pScanSRV->hScanSrvTimer);
+	}
     
     /* free memory */
     fsm_Unload( pScanSRV->hOS, pScanSRV->SM );
@@ -102,7 +107,7 @@ void MacServices_scanSRV_destroy( TI_HANDLE hScanSRV )
 }
 
 /**
- * \author Yuval Adler\n
+ * \\n
  * \date 29-Dec-2004\n
  * \brief Initializes the scan SRV module, registers SCAN_COMPLETE to HAL.
  *
@@ -180,7 +185,7 @@ void scanSRV_restart (TI_HANDLE hScanSRV)
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 26-July-2006\n
  * \brief Configures the scan SRV module with initialization values
  *
@@ -202,7 +207,7 @@ void MacServices_scanSrv_config( TI_HANDLE hMacServices, TScanSrvInitParams* pIn
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 29-Dec-2004\n
  * \brief Registers a complete callback for scan complete notifications.
  *
@@ -238,7 +243,7 @@ void scanSRV_registerFailureEventCB( TI_HANDLE hScanSRV,
 }
 
 /**
- * \author Yuval Adler\n
+ * \\n
  * \date 27-Sep-2005\n
  * \brief This function is the CB which is called as response to 'StartScan' or 'StopScan' \n.
  *        here we check if there is a GWSI command response , and call it if necessary .\n
@@ -281,7 +286,7 @@ void MacServices_scanSRVCommandMailBoxCB(TI_HANDLE hScanSrv,TI_UINT16 MboxStatus
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 29-Dec-2004\n
  * \brief Performs a scan
  *
@@ -381,7 +386,7 @@ TI_STATUS MacServices_scanSRV_scan( TI_HANDLE hMacServices, TScanParams *scanPar
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 29-Dec-2004\n
  * \brief Sends a Stop Scan command to FW, no matter if we are in scan progress or not
  *
@@ -425,7 +430,7 @@ TI_STATUS MacServices_scanSRV_stopScan( TI_HANDLE hMacServices, EScanResultTag e
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 17-Jan-2005\n
  * \brief Notifies the scan SRV of a FW reset (that had originally been reported by a different module).\n
  *
@@ -447,7 +452,7 @@ TI_STATUS MacServices_scanSRV_stopOnFWReset( TI_HANDLE hMacServices )
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 29-Dec-2004\n
  * \brief callback function used by the power server to notify driver mode result
  *          this CB is used in requesting PS and exiting PS.
@@ -495,7 +500,7 @@ void MacServices_scanSRV_powerSaveCB( TI_HANDLE hScanSRV, TI_UINT8 PSMode,TI_UIN
 
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 29-Dec-2004\n
  * \brief Callback function used by the HAL ctrl to notify scan complete
  *
@@ -552,7 +557,7 @@ void MacServices_scanSRV_scanCompleteCB( TI_HANDLE hScanSRV, char* str, TI_UINT3
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 29-Dec-2004\n
  * \brief called when a scan timer expires. Completes the scan and starts a recovery process.
  *
@@ -572,7 +577,7 @@ void MacServices_scanSRV_scanTimerExpired (TI_HANDLE hScanSRV, TI_BOOL bTwdInitO
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 29-Dec-2004\n
  * \brief Calculates the maximal time required for a scan operation
  *
@@ -658,7 +663,7 @@ TI_UINT32 MacServices_scanSRVcalculateScanTimeout( TI_HANDLE hScanSRV, TScanPara
 }
 
 /**
- * \author Ronen Kalish\n
+ * \\n
  * \date 16-Jan-2005\n
  * \brief Convert time units (1024 usecs) to millisecs
  *
@@ -673,7 +678,7 @@ TI_UINT32 MacServices_scanSRVConvertTUToMsec( TI_UINT32 tu )
 
 
 /**
- * \author Arik Klein\n
+ * \\n
  * \brief Save DTIM and Beacon periods for scan timeout calculations
  *
  * Function Scope \e Public.\n
@@ -695,7 +700,7 @@ void MacServices_scanSrv_UpdateDtimTbtt (TI_HANDLE hMacServices,
 
 #ifdef TI_DBG
 /**
- * \author Shirit Brook\n
+ * \\n
  * \date God knows when...\n
  * \brief Prints Scan Server SM status.\n
  *

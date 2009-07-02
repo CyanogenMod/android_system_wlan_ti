@@ -111,7 +111,7 @@ void SoftGemini_SetPSmode(TI_HANDLE hSoftGemini)
 		if (pSoftGemini->bDriverEnabled) 
 		{
 			/* Check if coexAutoPsMode is enabled to enter/exit P.S */
-			if ( pSoftGemini->SoftGeminiParam.coexAutoPsMode )
+			if ( pSoftGemini->SoftGeminiParam.coexParams[SOFT_GEMINI_AUTO_PS_MODE])
 			{
 				SoftGemini_SetPS(pSoftGemini);
 			}
@@ -150,7 +150,7 @@ void SoftGemini_unSetPSmode(TI_HANDLE hSoftGemini)
 		if (pSoftGemini->bDriverEnabled) 
 		{
 			/* Check if coexAutoPsMode is enabled to enter/exit P.S */
-			if ( pSoftGemini->SoftGeminiParam.coexAutoPsMode )
+			if ( pSoftGemini->SoftGeminiParam.coexParams[SOFT_GEMINI_AUTO_PS_MODE])
 			{
 				SoftGemini_unSetPS(pSoftGemini);
 			}
@@ -229,25 +229,21 @@ void SoftGemini_init (TStadHandlesList *pStadHandles)
 TI_STATUS SoftGemini_SetDefaults (TI_HANDLE hSoftGemini, SoftGeminiInitParams_t *pSoftGeminiInitParams)
 {
 	SoftGemini_t *pSoftGemini = (SoftGemini_t *)hSoftGemini;
+	TI_UINT8 i =0;
 	TI_STATUS status;
 	/*************************************/
 	/* Getting SoftGemini init Params */
 	/***********************************/
 
+	pSoftGemini->SoftGeminiEnable = pSoftGeminiInitParams->SoftGeminiEnable;
 
-	pSoftGemini->SoftGeminiEnable 										= pSoftGeminiInitParams->SoftGeminiEnable;
-	pSoftGemini->SoftGeminiParam.coexAntennaConfiguration 				= pSoftGeminiInitParams->coexAntennaConfiguration;
-	pSoftGemini->SoftGeminiParam.coexAutoPsMode 						= pSoftGeminiInitParams->coexAutoPsMode;
-	pSoftGemini->SoftGeminiParam.coexAutoScanCompensationMaxTime		= pSoftGeminiInitParams->coexAutoScanCompensationMaxTime;
-	pSoftGemini->SoftGeminiParam.coexAutoScanEnlargedNumOfProbeReqPercent= pSoftGeminiInitParams->coexAutoScanEnlargedNumOfProbeReqPercent;
-	pSoftGemini->SoftGeminiParam.coexAutoScanEnlargedScanWindowPercent 	= pSoftGeminiInitParams->coexAutoScanEnlargedScanWindowPercent;
-	pSoftGemini->SoftGeminiParam.coexBtLoadRatio 						= pSoftGeminiInitParams->coexBtLoadRatio;
-	pSoftGemini->SoftGeminiParam.coexBtNfsSampleInterval 				= pSoftGeminiInitParams->coexBtNfsSampleInterval;
-	pSoftGemini->SoftGeminiParam.coexBtPerThreshold 					= pSoftGeminiInitParams->coexBtPerThreshold;
-	pSoftGemini->SoftGeminiParam.coexMaxConsecutiveBeaconMissPrecent 	= pSoftGeminiInitParams->coexMaxConsecutiveBeaconMissPrecent;
-	pSoftGemini->SoftGeminiParam.coexAPRateAdapationThr 				= pSoftGeminiInitParams->coexAPRateAdapationThr;
-	pSoftGemini->SoftGeminiParam.coexAPRateAdapationSnr 				= pSoftGeminiInitParams->coexAPRateAdapationSnr;
-   
+	for (i =0; i< SOFT_GEMINI_PARAMS_MAX ; i++)
+	{
+		pSoftGemini->SoftGeminiParam.coexParams[i] = pSoftGeminiInitParams->coexParams[i];
+	}
+
+	pSoftGemini->SoftGeminiParam.paramIdx = 0xFF; /* signals to FW to config all the paramters */
+
 
     /* Send the configuration to the FW */
 	status = SoftGemini_setParamsToFW(hSoftGemini, &pSoftGemini->SoftGeminiParam);
@@ -354,15 +350,17 @@ TRACE1(pSoftGemini->hReport, REPORT_SEVERITY_INFORMATION, "  SoftGemini_setParam
 
 		/* copy new params to SoftGemini module */
 		SoftGemini_setConfigParam(hSoftGemini,pParam->content.SoftGeminiParamArray);
-	
+
 		/* set new params to FW */
 		return_value = SoftGemini_setParamsToFW(hSoftGemini, &(pSoftGemini->SoftGeminiParam));
 
 		if (pSoftGemini->bProtectiveMode == TI_TRUE)
 		{
 			/* set new configurations of scan to scancncn */
-			scanCncn_SGconfigureScanParams(pSoftGemini->hScanCncn,TI_TRUE,pSoftGemini->SoftGeminiParam.coexAutoScanEnlargedNumOfProbeReqPercent,
-				pSoftGemini->SoftGeminiParam.coexAutoScanCompensationMaxTime, pSoftGemini->SoftGeminiParam.coexAutoScanEnlargedScanWindowPercent);
+			scanCncn_SGconfigureScanParams(pSoftGemini->hScanCncn,TI_TRUE,
+										   (TI_UINT8)pSoftGemini->SoftGeminiParam.coexParams[SOFT_GEMINI_AUTO_SCAN_PROBE_REQ],
+										   pSoftGemini->SoftGeminiParam.coexParams[SOFT_GEMINI_AUTO_SCAN_COMPENSATION_MAX_TIME],
+										   pSoftGemini->SoftGeminiParam.coexParams[SOFT_GEMINI_AUTO_SCAN_WINDOW]);
 		}
 		break;
 		
@@ -392,8 +390,13 @@ RETURN:     TI_OK on success, TI_NOK otherwise
 TI_STATUS SoftGemini_getParam(TI_HANDLE		hSoftGemini,
 											paramInfo_t	*pParam)
 { 
-	SoftGemini_printParams(hSoftGemini);
-	
+		switch (pParam->paramType)
+		{
+			case SOFT_GEMINI_GET_CONFIG:
+				SoftGemini_printParams(hSoftGemini);
+				break;
+		}
+
 	return TI_OK;
 }
  
@@ -498,19 +501,10 @@ TRACE0(pSoftGemini->hReport, REPORT_SEVERITY_ERROR, " can't configure enable par
 static void SoftGemini_setConfigParam(TI_HANDLE hSoftGemini, TI_UINT32 *param)
 {
 	SoftGemini_t *pSoftGemini = (SoftGemini_t *)hSoftGemini;
-	TI_UINT32 i = 0;
 
-	pSoftGemini->SoftGeminiParam.coexBtPerThreshold = (TI_UINT32)param[i++];
-	pSoftGemini->SoftGeminiParam.coexAutoScanCompensationMaxTime = (TI_UINT32)param[i++];
-	pSoftGemini->SoftGeminiParam.coexBtNfsSampleInterval =  (TI_UINT32)param[i++];
-	pSoftGemini->SoftGeminiParam.coexBtLoadRatio = (TI_UINT32)param[i++];
-	pSoftGemini->SoftGeminiParam.coexAutoPsMode = (TI_UINT32)param[i++];
-	pSoftGemini->SoftGeminiParam.coexAutoScanEnlargedNumOfProbeReqPercent = (TI_UINT32)param[i++];
-	pSoftGemini->SoftGeminiParam.coexAutoScanEnlargedScanWindowPercent = (TI_UINT32)param[i++];
-	pSoftGemini->SoftGeminiParam.coexAntennaConfiguration = (TI_UINT32)param[i++];
-	pSoftGemini->SoftGeminiParam.coexMaxConsecutiveBeaconMissPrecent = (TI_UINT32)param[i++];
-	pSoftGemini->SoftGeminiParam.coexAPRateAdapationThr = (TI_UINT32)param[i++];
-	pSoftGemini->SoftGeminiParam.coexAPRateAdapationSnr = (TI_UINT32)param[i++];
+	/* param[0] - SG parameter index, param[1] - SG parameter value */
+	pSoftGemini->SoftGeminiParam.coexParams[(TI_UINT8)param[0]] = (TI_UINT32)param[1];
+	pSoftGemini->SoftGeminiParam.paramIdx = (TI_UINT8)param[0];
 }
 
 /***************************************************************************
@@ -527,21 +521,35 @@ void SoftGemini_printParams(TI_HANDLE hSoftGemini)
 	SoftGemini_t *pSoftGemini = (SoftGemini_t *)hSoftGemini;
 	TSoftGeminiParams *SoftGeminiParam = &pSoftGemini->SoftGeminiParam;
 
-	WLAN_OS_REPORT(("coexBtPerThreshold = %d\n", SoftGeminiParam->coexBtPerThreshold)); 
-	WLAN_OS_REPORT(("coexAutoScanCompensationMaxTime = %d\n", SoftGeminiParam->coexAutoScanCompensationMaxTime)); 
-	WLAN_OS_REPORT(("coexBtNfsSampleInterval = %d\n", SoftGeminiParam->coexBtNfsSampleInterval)); 
-	WLAN_OS_REPORT(("coexBtLoadRatio = %d\n", SoftGeminiParam->coexBtLoadRatio)); 
-	WLAN_OS_REPORT(("coexAutoPsMode = %d\n", SoftGeminiParam->coexAutoPsMode)); 
-	WLAN_OS_REPORT(("coexAutoScanEnlargedNumOfProbeReqPercent = %d\n", SoftGeminiParam->coexAutoScanEnlargedNumOfProbeReqPercent)); 
-	WLAN_OS_REPORT(("coexAutoScanEnlargedScanWindowPercent = %d\n", SoftGeminiParam->coexAutoScanEnlargedScanWindowPercent));
-	WLAN_OS_REPORT(("coexAntennaConfiguration = %d\n", SoftGeminiParam->coexAntennaConfiguration));
-	WLAN_OS_REPORT(("coexMaxConsecutiveBeaconMissPrecent = %d\n", SoftGeminiParam->coexMaxConsecutiveBeaconMissPrecent));
-	WLAN_OS_REPORT(("coexAPRateAdapationThr = %d\n", SoftGeminiParam->coexAPRateAdapationThr));
-	WLAN_OS_REPORT(("coexAPRateAdapationSnr = %d\n", SoftGeminiParam->coexAPRateAdapationSnr));
+	WLAN_OS_REPORT(("[0]:  coexBtPerThreshold = %d\n", SoftGeminiParam->coexParams[SOFT_GEMINI_BT_PER_THRESHOLD]));
+	WLAN_OS_REPORT(("[1]:  coexAutoScanCompensationMaxTime = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_AUTO_SCAN_COMPENSATION_MAX_TIME]));
+	WLAN_OS_REPORT(("[2]:  coexBtNfsSampleInterval = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_BT_NFS_SAMPLE_INTERVAL]));
+	WLAN_OS_REPORT(("[3]:  coexBtLoadRatio = %d (%)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_BT_LOAD_RATIO]));
+	WLAN_OS_REPORT(("[4]:  coexAutoPsMode = %s \n", (SoftGeminiParam->coexParams[SOFT_GEMINI_AUTO_PS_MODE]?"Enabled":"Disabled")));
+	WLAN_OS_REPORT(("[5]:  coexAutoScanEnlargedNumOfProbeReqPercent = %d (%)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_AUTO_SCAN_PROBE_REQ]));
+	WLAN_OS_REPORT(("[6]:  coexAutoScanEnlargedScanWindowPercent = %d (%)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_AUTO_SCAN_WINDOW]));
+	WLAN_OS_REPORT(("[7]:  coexAntennaConfiguration = %s (0 = Single, 1 = Dual) \n", (SoftGeminiParam->coexParams[SOFT_GEMINI_ANTENNA_CONFIGURATION]?"Dual":"Single")));
+	WLAN_OS_REPORT(("[8]:  coexMaxConsecutiveBeaconMissPrecent = %d (%)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_BEACON_MISS_PERCENT]));
+	WLAN_OS_REPORT(("[9]:  coexAPRateAdapationThr = %d\n", SoftGeminiParam->coexParams[SOFT_GEMINI_RATE_ADAPT_THRESH]));
+	WLAN_OS_REPORT(("[10]: coexAPRateAdapationSnr = %d\n", SoftGeminiParam->coexParams[SOFT_GEMINI_RATE_ADAPT_SNR]));
+	WLAN_OS_REPORT(("[11]: coexWlanPsBtAclMinBR = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR]));
+	WLAN_OS_REPORT(("[12]: coexWlanPsBtAclMaxBR = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR]));
+	WLAN_OS_REPORT(("[13]: coexbtAclWlanPsMaxBR = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR]));
+	WLAN_OS_REPORT(("[14]: coexWlanPsBtAclMinEDR = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR]));
+	WLAN_OS_REPORT(("[15]: coexWlanPsBtAclMaxEDR = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR]));
+	WLAN_OS_REPORT(("[16]: coexbtAclWlanPsMaxEDR = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR]));
+	WLAN_OS_REPORT(("[17]: coexRxt = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_RXT]));
+	WLAN_OS_REPORT(("[18]: coexTxt = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_TXT]));
+	WLAN_OS_REPORT(("[19]: coexAdaptiveRxtTxt = %s \n", (SoftGeminiParam->coexParams[SOFT_GEMINI_ADAPTIVE_RXT_TXT]?"Enabled":"Disabled")));
+	WLAN_OS_REPORT(("[20]: coexPsPollTimeout = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_PS_POLL_TIMEOUT]));
+	WLAN_OS_REPORT(("[21]: coexUpsdTimeout = %d (msec) \n", SoftGeminiParam->coexParams[SOFT_GEMINI_UPSD_TIMEOUT]));
+	WLAN_OS_REPORT(("[22]: coexBtAclWlanActiveBtMax = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MAX]));
+	WLAN_OS_REPORT(("[23]: coexBtAclWlanActiveWlanMax = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_BT_ACL_WLAN_ACTIVE_MAX]));
 	WLAN_OS_REPORT(("Enable mode : %s\n", SoftGemini_ConvertModeToString(pSoftGemini->SoftGeminiEnable))); 
 	WLAN_OS_REPORT(("Driver Enabled : %s\n",(pSoftGemini->bDriverEnabled ? "YES" : "NO"))); 
 	WLAN_OS_REPORT(("Protective mode : %s\n", (pSoftGemini->bProtectiveMode ? "ON" : "OFF"))); 
     WLAN_OS_REPORT(("PsPoll failure active : %s\n", (pSoftGemini->bPsPollFailureActive ? "YES" : "NO"))); 
+
 
 #endif
 }
@@ -558,12 +566,12 @@ void SoftGemini_printParams(TI_HANDLE hSoftGemini)
 * 
 * RETURNS:		
 ***************************************************************************/
-static TI_STATUS SoftGemini_setParamsToFW(TI_HANDLE hSoftGemini, TSoftGeminiParams *SoftGeminiParam)
+static TI_STATUS SoftGemini_setParamsToFW(TI_HANDLE hSoftGemini, TSoftGeminiParams *softGeminiParams)
 {
 	SoftGemini_t *pSoftGemini = (SoftGemini_t *)hSoftGemini;
 	TTwdParamInfo param;
-	
-	os_memoryCopy(pSoftGemini->hOs,&param.content.SoftGeminiParam, SoftGeminiParam, sizeof(TSoftGeminiParams));
+
+	os_memoryCopy(pSoftGemini->hOs,&param.content.SoftGeminiParam, softGeminiParams, sizeof(TSoftGeminiParams));
 	param.paramType = TWD_SG_CONFIG_PARAM_ID;
 	return TWD_SetParam (pSoftGemini->hTWD, &param);
 }
@@ -587,7 +595,7 @@ TRACE0(pSoftGemini->hReport, REPORT_SEVERITY_INFORMATION, "\n");
 	pSoftGemini->bDriverEnabled = TI_TRUE;
 
 	/* Check if coexAutoPsMode - Co-ex is enabled to enter/exit P.S */
-	if ( pSoftGemini->SoftGeminiParam.coexAutoPsMode )
+	if ( pSoftGemini->SoftGeminiParam.coexParams[SOFT_GEMINI_AUTO_PS_MODE])
 	{
 		SoftGemini_SetPS(pSoftGemini);
 	}
@@ -618,7 +626,7 @@ TRACE0(pSoftGemini->hReport, REPORT_SEVERITY_INFORMATION, "\n");
 
 
 	/* Check if coexAutoPsMode - Co-ex is enabled to enter/exit P.S */
-	if ( pSoftGemini->SoftGeminiParam.coexAutoPsMode )
+	if ( pSoftGemini->SoftGeminiParam.coexParams[SOFT_GEMINI_AUTO_PS_MODE])
 	{
 		SoftGemini_unSetPS(pSoftGemini);
 	}
@@ -724,8 +732,10 @@ void SoftGemini_EnableProtectiveMode(TI_HANDLE hSoftGemini)
 	 currBSS_SGconfigureBSSLoss(pSoftGemini->hCurrBss,pSoftGemini->BSSLossCompensationPercent,TI_TRUE); */
 
 	/* set new configurations of scan to scancncn */
-    scanCncn_SGconfigureScanParams(pSoftGemini->hScanCncn,TI_TRUE,pSoftGemini->SoftGeminiParam.coexAutoScanEnlargedNumOfProbeReqPercent,
-		pSoftGemini->SoftGeminiParam.coexAutoScanCompensationMaxTime, pSoftGemini->SoftGeminiParam.coexAutoScanEnlargedScanWindowPercent);
+    scanCncn_SGconfigureScanParams(pSoftGemini->hScanCncn,TI_TRUE,
+								   (TI_UINT8)pSoftGemini->SoftGeminiParam.coexParams[SOFT_GEMINI_AUTO_SCAN_PROBE_REQ],
+								   pSoftGemini->SoftGeminiParam.coexParams[SOFT_GEMINI_AUTO_SCAN_COMPENSATION_MAX_TIME],
+								   pSoftGemini->SoftGeminiParam.coexParams[SOFT_GEMINI_AUTO_SCAN_WINDOW]);
 
     /* Call the power manager to enter short doze */
 TRACE0(pSoftGemini->hReport, REPORT_SEVERITY_INFORMATION, " SoftGemini_EnableProtectiveMode set SD");
@@ -910,6 +920,7 @@ TI_STATUS SoftGemini_handleRecovery(TI_HANDLE hSoftGemini)
     TRACE1(pSoftGemini->hReport, REPORT_SEVERITY_INFORMATION, "Set SG to-%d\n", pSoftGemini->SoftGeminiEnable);
 
 	/* Config the params to FW */
+
 	SoftGemini_setParamsToFW(hSoftGemini, &pSoftGemini->SoftGeminiParam);
 	/*SoftGemini_printParams(hSoftGemini);*/
 	return TI_OK;
@@ -927,7 +938,7 @@ void SoftGemini_startPsPollFailure(TI_HANDLE hSoftGemini)
 
     TRACE0(pSoftGemini->hReport, REPORT_SEVERITY_INFORMATION, "\n");
 
-    if ( (!pSoftGemini->bPsPollFailureActive) && (pSoftGemini->SoftGeminiParam.coexAutoPsMode == TI_TRUE) )
+    if ( (!pSoftGemini->bPsPollFailureActive) && (pSoftGemini->SoftGeminiParam.coexParams[SOFT_GEMINI_AUTO_PS_MODE] == TI_TRUE) )
     {
         pSoftGemini->PsPollFailureLastEnableValue = pSoftGemini->SoftGeminiEnable;
 

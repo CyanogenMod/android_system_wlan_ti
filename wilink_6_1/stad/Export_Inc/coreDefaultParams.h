@@ -149,7 +149,7 @@
 /* 1 - Dtag, 2 - Port, 3 - IP & port */ 
 #define CLSFR_TYPE_MIN                          1 
 #define CLSFR_TYPE_DEF                      3
-#define CLSFR_TYPE_MAX                      1
+#define CLSFR_TYPE_MAX                      3
 
 /* general values of D-tags */
 #define CLASSIFIER_DTAG_MIN                 0 
@@ -512,6 +512,10 @@ IP&Port classification table  */
 #define ROAMING_MNGR_PERIODIC_SCAN_NUM_PROBE_REQ_MAX        10
 #define ROAMING_MNGR_PERIODIC_SCAN_NUM_PROBE_REQ_DEF        2
 
+#define ROAMING_MNGR_OPERATIONAL_MODE_MIN       0 /* 0 - manual , 1 - auto*/
+#define ROAMING_MNGR_OPERATIONAL_MODE_MAX       1
+#define ROAMING_MNGR_OPERATIONAL_MODE_DEF       1
+
 /*---------------------------
     Measurement parameters
 -----------------------------*/
@@ -596,6 +600,10 @@ IP&Port classification table  */
 
 #define RX_DATA_FILTERS_FILTER_PATTERN_DEF      ""
 #define RX_DATA_FILTERS_FILTER_PATTERN_LEN_DEF  0
+
+#define RX_DATA_RE_AUTH_ACTIVE_TIMEOUT_DEF				500
+#define RX_DATA_RE_AUTH_ACTIVE_TIMEOUT_MIN				500
+#define RX_DATA_RE_AUTH_ACTIVE_TIMEOUT_MAX				800
 
 #define TX_DATA_CREDIT_CALC_TIMOEUT_DEF         100
 #define TX_DATA_CREDIT_CALC_TIMOEUT_MIN         20
@@ -744,6 +752,10 @@ IP&Port classification table  */
 #define  RSN_PMKIDCANDLIST_DELAY_MAX            9000
 #define  RSN_PMKIDCANDLIST_DELAY_DEF            4000
 
+#define RSN_EXTERNAL_MODE_ENABLE_MIN            0
+#define RSN_EXTERNAL_MODE_ENABLE_MAX            1
+#define RSN_EXTERNAL_MODE_ENABLE_DEF            0
+
 
 #define ETHER_MAX_PAYLOAD_SIZE            1500
 
@@ -877,6 +889,15 @@ IP&Port classification table  */
 #define SOFT_GEMINI_ENABLED_MAX                 SG_OPPORTUNISTIC
 #define SOFT_GEMINI_ENABLED_DEF                 SG_PROTECTIVE
 
+#define SOFT_GEMINI_PARAMS_INDEX_MIN			0
+#define SOFT_GEMINI_PARAMS_INDEX_MAX			(SOFT_GEMINI_PARAMS_MAX-1)
+#define SOFT_GEMINI_PARAMS_INDEX_DEF			0
+
+#define SOFT_GEMINI_PARAMS_VALUE_MIN			0
+#define SOFT_GEMINI_PARAMS_VALUE_MAX			10000000
+#define SOFT_GEMINI_PARAMS_VALUE_DEF			0
+
+
 #define SOFT_GEMINI_PARAMS_PER_THRESHOLD_MIN			0
 #define SOFT_GEMINI_PARAMS_PER_THRESHOLD_MAX			10000000
 #define SOFT_GEMINI_PARAMS_PER_THRESHOLD_DEF			7500
@@ -920,6 +941,60 @@ IP&Port classification table  */
 #define SOFT_GEMINI_RATE_ADAPT_SNR_MIN       0 
 #define SOFT_GEMINI_RATE_ADAPT_SNR_MAX       255
 #define SOFT_GEMINI_RATE_ADAPT_SNR_DEF       0
+
+#define SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR_MIN 		 0
+#define SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR_MAX 		 1000000
+#define SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR_DEF 		 10000
+
+#define SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR_MIN 		 0
+#define SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR_MAX 		 1000000
+#define SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR_DEF 		 40000
+
+#define SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR_MIN 		 0
+#define SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR_MAX 		 1000000
+#define SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR_DEF 		 8000
+
+
+#define SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR_MIN 		 0
+#define SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR_MAX 		 1000000
+#define SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR_DEF 		 8000
+
+#define SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR_MIN 		 0
+#define SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR_MAX 		 1000000
+#define SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR_DEF 		 25000
+
+#define SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR_MIN 		 0
+#define SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR_MAX 		 1000000
+#define SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR_DEF 		 20000
+
+
+#define SOFT_GEMINI_RXT_MIN 		 		0
+#define SOFT_GEMINI_RXT_MAX 		 		65535
+#define SOFT_GEMINI_RXT_DEF 		 		1200
+
+#define SOFT_GEMINI_TXT_MIN 		 		0
+#define SOFT_GEMINI_TXT_MAX 		 		65535
+#define SOFT_GEMINI_TXT_DEF 		 		1000
+
+#define SOFT_GEMINI_ADAPTIVE_RXT_TXT_MIN   	0
+#define SOFT_GEMINI_ADAPTIVE_RXT_TXT_MAX 	1
+#define SOFT_GEMINI_ADAPTIVE_RXT_TXT_DEF 	0 /* 0 = Disabled, 1= Enabled */
+
+#define SOFT_GEMINI_PS_POLL_TIMEOUT_MIN   	0
+#define SOFT_GEMINI_PS_POLL_TIMEOUT_MAX 	1000000
+#define SOFT_GEMINI_PS_POLL_TIMEOUT_DEF 	10
+
+#define SOFT_GEMINI_UPSD_TIMEOUT_MIN   		0
+#define SOFT_GEMINI_UPSD_TIMEOUT_MAX 		1000000
+#define SOFT_GEMINI_UPSD_TIMEOUT_DEF 		10
+
+#define SOFT_GEMINI_WLAN_ACTIVE_BT_MAX_MIN  0
+#define SOFT_GEMINI_WLAN_ACTIVE_BT_MAX_MAX 	1000000
+#define SOFT_GEMINI_WLAN_ACTIVE_BT_MAX_DEF 	10000
+
+#define SOFT_GEMINI_WLAN_ACTIVE_WLAN_MAX_MIN   	0
+#define SOFT_GEMINI_WLAN_ACTIVE_WLAN_MAX_MAX 	1000000
+#define SOFT_GEMINI_WLAN_ACTIVE_WLAN_MAX_DEF 	15000
 
 #define WIFI_WMM_PS_MIN                         0  
 #define WIFI_WMM_PS_MAX                         1
@@ -976,6 +1051,116 @@ IP&Port classification table  */
 #define COEX_ACTIVITY_PARAMS_MAX_SERVICE_MIN           (0)
 #define COEX_ACTIVITY_PARAMS_MAX_SERVICE_MAX           (65535)
 #define COEX_ACTIVITY_PARAMS_MAX_SERVICE_DEF           (0)
+
+/* FM Coexistence */
+#define FM_COEX_ENABLE_DEF                             TI_TRUE 
+#define FM_COEX_ENABLE_MIN                             TI_FALSE  
+#define FM_COEX_ENABLE_MAX                             TI_TRUE 
+
+#define FM_COEX_SWALLOW_PERIOD_DEF                     0xFF
+#define FM_COEX_SWALLOW_PERIOD_MIN                     0
+#define FM_COEX_SWALLOW_PERIOD_MAX                     0xFF
+
+#define FM_COEX_N_DIVIDER_FREF_SET1_DEF                0xFF
+#define FM_COEX_N_DIVIDER_FREF_SET1_MIN                0
+#define FM_COEX_N_DIVIDER_FREF_SET1_MAX                0xFF
+
+#define FM_COEX_N_DIVIDER_FREF_SET2_DEF                0xFF                  
+#define FM_COEX_N_DIVIDER_FREF_SET2_MIN                0   
+#define FM_COEX_N_DIVIDER_FREF_SET2_MAX                0xFF
+
+#define FM_COEX_M_DIVIDER_FREF_SET1_DEF                0xFFFF   
+#define FM_COEX_M_DIVIDER_FREF_SET1_MIN                0   
+#define FM_COEX_M_DIVIDER_FREF_SET1_MAX                0xFFFF
+
+#define FM_COEX_M_DIVIDER_FREF_SET2_DEF                0xFFFF 
+#define FM_COEX_M_DIVIDER_FREF_SET2_MIN                0    
+#define FM_COEX_M_DIVIDER_FREF_SET2_MAX                0xFFFF
+
+#define FM_COEX_PLL_STABILIZATION_TIME_DEF             0xFFFFFFFF 
+#define FM_COEX_PLL_STABILIZATION_TIME_MIN             0
+#define FM_COEX_PLL_STABILIZATION_TIME_MAX             0xFFFFFFFF
+
+#define FM_COEX_LDO_STABILIZATION_TIME_DEF             0xFFFF
+#define FM_COEX_LDO_STABILIZATION_TIME_MIN             0
+#define FM_COEX_LDO_STABILIZATION_TIME_MAX             0xFFFF
+
+#define FM_COEX_DISTURBED_BAND_MARGIN_DEF              0xFF
+#define FM_COEX_DISTURBED_BAND_MARGIN_MIN              0
+#define FM_COEX_DISTURBED_BAND_MARGIN_MAX              0xFF
+
+#define FM_COEX_SWALLOW_CLK_DIF_DEF                    0xFF
+#define FM_COEX_SWALLOW_CLK_DIF_MIN                    0
+#define FM_COEX_SWALLOW_CLK_DIF_MAX                    0xFF
+
+
+/* Rate Management */
+
+#define RATE_MNG_RATE_RETRY_SCORE_DEF    32000
+#define RATE_MNG_RATE_RETRY_SCORE_MIN    0
+#define RATE_MNG_RATE_RETRY_SCORE_MAX    65536
+
+#define RATE_MNG_PER_ADD_DEF             8192
+#define RATE_MNG_PER_ADD_MIN             0
+#define RATE_MNG_PER_ADD_MAX             65536
+
+#define RATE_MNG_PER_TH1_DEF             2048                       
+#define RATE_MNG_PER_TH1_MIN             0
+#define RATE_MNG_PER_TH1_MAX             65536 
+
+#define RATE_MNG_PER_TH2_DEF             4096
+#define RATE_MNG_PER_TH2_MIN             0
+#define RATE_MNG_PER_TH2_MAX             65536
+
+#define RATE_MNG_MAX_PER_DEF             8100
+#define RATE_MNG_MAX_PER_MIN             0
+#define RATE_MNG_MAX_PER_MAX             65536
+
+#define RATE_MNG_INVERSE_CURISITY_FACTOR_DEF 5
+#define RATE_MNG_INVERSE_CURISITY_FACTOR_MIN 0
+#define RATE_MNG_INVERSE_CURISITY_FACTOR_MAX 256
+
+#define RATE_MNG_TX_FAIL_LOW_TH_DEF       4
+#define RATE_MNG_TX_FAIL_LOW_TH_MIN       0
+#define RATE_MNG_TX_FAIL_LOW_TH_MAX       256
+
+#define RATE_MNG_TX_FAIL_HIGH_TH_DEF      10
+#define RATE_MNG_TX_FAIL_HIGH_TH_MIN      0
+#define RATE_MNG_TX_FAIL_HIGH_TH_MAX      256
+
+#define RATE_MNG_PER_ALPHA_SHIFT_DEF       4
+#define RATE_MNG_PER_ALPHA_SHIFT_MIN       0
+#define RATE_MNG_PER_ALPHA_SHIFT_MAX       256
+
+#define RATE_MNG_PER_ADD_SHIFT_DEF         13
+#define RATE_MNG_PER_ADD_SHIFT_MIM         0
+#define RATE_MNG_PER_ADD_SHIFT_MAX         256
+
+#define RATE_MNG_PER_BETA1_SHIFT_DEF       10
+#define RATE_MNG_PER_BETA1_SHIFT_MIN       0
+#define RATE_MNG_PER_BETA1_SHIFT_MAX       256
+
+#define RATE_MNG_PER_BETA2_SHIFT_DEF	   8
+#define RATE_MNG_PER_BETA2_SHIFT_MIN       0
+#define RATE_MNG_PER_BETA2_SHIFT_MAX       256
+
+#define RATE_MNG_MAX_PER_DEF               8100
+#define RATE_MNG_MAX_PER_MIN               0
+#define RATE_MNG_MAX_PER_MAX               65536
+
+#define RATE_MNG_RATE_CHECK_UP_DEF         2
+#define RATE_MNG_RATE_CHECK_UP_MIN         0
+#define RATE_MNG_RATE_CHECK_UP_MAX         256
+
+#define RATE_MNG_RATE_CHECK_DOWN_DEF       12
+#define RATE_MNG_RATE_CHECK_DOWN_MIN       0
+#define RATE_MNG_RATE_CHECK_DOWN_MAX       256
+
+#define RATE_MNG_RATE_RETRY_POLICY_DEF_TABLE  "1,1,1,3,3,3,6,6,6,6,9,9,9"
+#define RATE_MNG_MAX_RETRY_POLICY_PARAMS_LEN  13
+#define RATE_MNG_MAX_STR_LEN  255
+
+
 
 /* Configurable Scan Rate */
 #define SCAN_RATE_MODE_B_MIN                    DRV_RATE_1M
@@ -1044,7 +1229,7 @@ IP&Port classification table  */
 
 #define RADIO_FREF_CLOCK_MIN                        		0	/* 19.2, 26, 38.4, 52 MHz */
 #define RADIO_FREF_CLOCK_DEF                        		2
-#define RADIO_FREF_CLOCK_MAX                        		3	 
+#define RADIO_FREF_CLOCK_MAX                        		4   
 
 
 /* 
@@ -1108,6 +1293,7 @@ typedef enum
 {
     POWER_MANAGER_USER_PRIORITY,           /**< indicates the default user priority. */
     POWER_MANAGER_SG_PRIORITY,             /**< Indicate the Soft Gemini priority */
+    POWER_MANAGER_REAUTH_PRIORITY,         /**< Indicate 802.1x reauthentication priority */
     POWER_MANAGER_PS_POLL_FAILURE_PRIORITY,/**< After receiving the PsPoll failure event */
     POWER_MANAGER_MAX_PRIORITY                                                      
 }PowerMgr_Priority_e;
@@ -1191,6 +1377,11 @@ enum PowerMgr_registryDefinitions
     POWER_MGMNT_NUM_NULL_PACKET_RETRY_DEF_VALUE = 5,
     POWER_MGMNT_NUM_NULL_PACKET_RETRY_MIN_VALUE = 1,
     POWER_MGMNT_NUM_NULL_PACKET_RETRY_MAX_VALUE = 255,
+
+	POWER_MGMNT_RE_AUTH_ACTIVE_PRIO_DEF_VALUE = 0,
+    POWER_MGMNT_RE_AUTH_ACTIVE_PRIO_MIN_VALUE = 0,
+    POWER_MGMNT_RE_AUTH_ACTIVE_PRIO_MAX_VALUE = 1,
+
     /*BET*/
     POWER_MGMNT_BET_ENABLE_MIN = 0,
     POWER_MGMNT_BET_ENABLE_MAX = 1,
@@ -1208,7 +1399,7 @@ enum PowerMgr_registryDefinitions
 /*--------------- Maximal time between full beacon reception ------------------*/
     POWER_MGMNT_MAX_FULL_BEACON_MIN = 0,
     POWER_MGMNT_MAX_FULL_BEACON_MAX = 10000,
-    POWER_MGMNT_MAX_FULL_BEACON_DEF = 1000,
+    POWER_MGMNT_MAX_FULL_BEACON_DEF = 5000,
 
     HOST_CLK_SETTLE_TIME_USEC_MIN = 0,
     HOST_CLK_SETTLE_TIME_USEC_MAX = 30000,

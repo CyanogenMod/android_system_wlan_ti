@@ -369,14 +369,11 @@ TI_STATUS mlme_getParam(TI_HANDLE           hMlmeSm,
 */
 TI_STATUS mlme_start(TI_HANDLE hMlme)
 {
-    TI_STATUS       status;
-    mlme_t      *pHandle;
-
-    pHandle = (mlme_t*)hMlme;
+    TI_STATUS	status;
+    mlme_t		*pHandle = (mlme_t*)hMlme;
 
     if (pHandle == NULL)
     {
-        TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "mlme_start: pHandle == NULL\n");
         return TI_NOK;
     }
 

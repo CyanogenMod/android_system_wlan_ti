@@ -46,11 +46,16 @@
 #include "ScanCncn.h"
 #include "DrvMainModules.h"
 
+
 /*
  ***********************************************************************
  *  Constant definitions.
  ***********************************************************************
  */
+
+#define SCANNING_OPERATIONAL_MODE_MANUAL   0
+#define SCANNING_OPERATIONAL_MODE_AUTO 	   1
+
 
 /*
  ***********************************************************************
@@ -87,6 +92,14 @@
 
 } scan_mngrResultStatus_e;
 
+typedef enum {
+    CONNECTION_STATUS_CONNECTED =0,
+    CONNECTION_STATUS_NOT_CONNECTED
+} scanMngr_connStatus_e;
+
+
+
+
 /*
  ***********************************************************************
  *  Typedefs.
@@ -98,6 +111,18 @@
  *  Structure definitions.
  ***********************************************************************
  */
+
+typedef struct  {
+	TI_UINT8               	numOfChannels;                                  /**< Number of channels to scan */
+    TScanChannelEntry      	channelEntry[ MAX_NUMBER_OF_CHANNELS_PER_SCAN ]; /**< Channel data array, actual size according to the above field. */
+} channelList_t;
+
+typedef struct _BssListEx_t
+{
+    bssList_t   *pListOfAPs;
+    TI_BOOL      scanIsRunning;
+} BssListEx_t;
+
 
 /*
  ***********************************************************************
@@ -282,6 +307,31 @@ TI_STATUS scanMngr_getParam( TI_HANDLE hScanMngr, paramInfo_t *pParam );
  */
 TI_STATUS scanMngr_setParam( TI_HANDLE hScanMngr, paramInfo_t *pParam );
 
+
+
+
+
+/********** New APIs added for EMP manual scan support ******/
+
+void scanMngr_startManual(TI_HANDLE hScanMngr);
+
+void scanMngr_stopManual(TI_HANDLE hScanMngr);
+
+TI_STATUS scanMngr_setManualScanChannelList (TI_HANDLE  hScanMngr, channelList_t* pChannelList);
+
+EScanCncnResultStatus scanMngr_Start1ShotScan (TI_HANDLE hScanMngr, EScanCncnClient eClient);
+
+TI_STATUS scanMngr_immediateScanComplete(TI_HANDLE hScanMngr, scan_mngrResultStatus_e scanCmpltStatus);
+
+TI_STATUS scanMngr_reportImmediateScanResults(TI_HANDLE hScanMngr, scan_mngrResultStatus_e scanCmpltStatus);
+
+TI_STATUS scanMngr_startContinuousScanByApp (TI_HANDLE hScanMngr, channelList_t* pChannelList);
+
+TI_STATUS scanMngr_stopContinuousScanByApp (TI_HANDLE hScanMngr);
+
+/********** New APIs added for EMP manual scan support ******/
+
+
 #ifdef TI_DBG
 /** 
  * \brief  Print scan policy
@@ -338,6 +388,9 @@ void scanMngrDebugPrintNeighborAPList( TI_HANDLE hScanMngr );
  * \sa
  */
 void scanMngrDebugPrintObject( TI_HANDLE hScanMngr );
+
+
+void scanMngr_SetDefaults (TI_HANDLE hScanMngr, TRoamScanMngrInitParams *pInitParams);
 
 #endif /* TI_DBG */
 

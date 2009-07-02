@@ -53,18 +53,110 @@
 #include "scanMngrApi.h"
 #include "bssTypes.h"
 #include "DrvMainModules.h"
-
+#include "apConnApi.h"
 /*-----------*/
 /* Constants */
 /*-----------*/
+
+#define MAX_ROAMING_TRIGGERS  ROAMING_TRIGGER_LAST
+
 
 /*--------------*/
 /* Enumerations */
 /*--------------*/
 
+/* Roaming Trigger groups, according to Roaming Triggers */
+typedef enum
+{
+    ROAMING_TRIGGER_BG_SCAN_GROUP 		= ROAMING_TRIGGER_NORMAL_QUALITY_FOR_BG_SCAN,
+    ROAMING_TRIGGER_LOW_QUALITY_GROUP 	= ROAMING_TRIGGER_MAX_TX_RETRIES,
+    ROAMING_TRIGGER_FAST_CONNECT_GROUP 	= ROAMING_TRIGGER_SWITCH_CHANNEL,
+    ROAMING_TRIGGER_FULL_CONNECT_GROUP 	= ROAMING_TRIGGER_SECURITY_ATTACK
+} roamingMngr_connectTypeGroup_e;
+
+
 /*----------*/
 /* Typedefs */
 /*----------*/
+
+/* scan types */
+typedef enum
+{
+/*	0	*/	ROAMING_NO_SCAN,
+/*	1	*/	ROAMING_PARTIAL_SCAN,
+/*	2	*/	ROAMING_PARTIAL_SCAN_RETRY,
+/*	3	*/	ROAMING_FULL_SCAN,
+/*	4	*/	ROAMING_FULL_SCAN_RETRY
+
+} scan4RoamingType_e;
+
+typedef struct
+{
+    TI_UINT8   preAuthBSSList[MAX_SIZE_OF_BSS_TRACK_LIST];
+    TI_UINT8   numOfPreAuthBSS;
+    TI_UINT8   neighborBSSList[MAX_SIZE_OF_BSS_TRACK_LIST];
+    TI_UINT8   numOfNeighborBSS;
+    TI_UINT8   regularBSSList[MAX_SIZE_OF_BSS_TRACK_LIST];
+    TI_UINT8   numOfRegularBSS;
+} listOfCandidateAps_t;
+
+
+struct _roamingMngr_t
+{
+    /*** Roaming manager parameters that can be configured externally ***/
+    roamingMngrConfig_t         	roamingMngrConfig;
+    roamingMngrThresholdsConfig_t   roamingMngrThresholdsConfig;
+    TI_UINT32                      	lowPassFilterRoamingAttemptInMsec;
+
+    /*** Internal roaming parameters ***/
+    apConn_roamingTrigger_e     	roamingTrigger;				/* the roaming trigger type */
+    TI_UINT32*                      pCurrentState;				/* pointer to Roaming Generic SM current state */
+    TI_BOOL                        	maskRoamingEvents;			/* Indicate if a trigger is already in process, and therefore the
+																	other triggers will be ignored */
+    TI_UINT32                      	lowQualityTriggerTimestamp;	/* TS to filter Too many low Quality roaming triggers */
+    scan4RoamingType_e          	scanType; 					/* the scan type performed for Roaming */
+    bssList_t                   	*pListOfAPs;				/* list of BSS received from Scan Manager */
+    TI_BOOL                        	neighborApsExist;			/* Indicating if Neighbor APs exist */
+    listOfCandidateAps_t        	listOfCandidateAps;			/* a list of the candiadte APs indexes in pListOfAPs according to
+																	neighbor APs, pre-auth APs and other APs */
+    TI_UINT8                       	candidateApIndex;			/* The current candidate AP's index to Roam to */
+    TI_BOOL                        	handoverWasPerformed;		/* Indicates whether at least one handover was performed */
+    apConn_staCapabilities_t    	staCapabilities;
+    	/* The station capabilities for the current Connection */
+    TI_HANDLE          	            hRoamingSm;				    /* Roaming manager SM handle */
+    TI_INT8**                       RoamStateDescription;       /* Roaming states index-name keyValue */
+    TI_INT8**                       RoamEventDescription;       /* Roaming Events index-name keyValue */
+
+
+    /* Roaming manager handles to other objects */
+    TI_HANDLE                   	hReport;
+    TI_HANDLE                   	hOs;
+    TI_HANDLE                   	hScanMngr;
+    TI_HANDLE                   	hAPConnection;
+    TI_HANDLE                   	hTWD;
+    TI_HANDLE                   	hEvHandler;
+    TI_HANDLE                   	hCurrBss;
+
+#ifdef TI_DBG
+    /* Debug trace for Roaming statistics */
+    TI_UINT32                      roamingTriggerEvents[MAX_ROAMING_TRIGGERS];
+    TI_UINT32                      roamingHandoverEvents[MAX_ROAMING_TRIGGERS];
+    TI_UINT32                      roamingSuccesfulHandoverNum;
+    TI_UINT32                      roamingFailedHandoverNum;
+    TI_UINT32                      roamingTriggerTimestamp;
+    TI_UINT32                      roamingHandoverStartedTimestamp;
+    TI_UINT32                      roamingHandoverCompletedTimestamp;
+    TI_UINT32                      roamingAverageSuccHandoverDuration;
+    TI_UINT32                      roamingAverageRoamingDuration;
+#endif
+
+    TI_UINT8	                   RoamingOperationalMode; /* 0 - manual, 1 - auto*/
+    TargetAp_t                     targetAP;               /* holds the AP to connect with in manual mode */
+}; /* _roamingMngr_t */
+
+
+
+typedef struct _roamingMngr_t   roamingMngr_t;
 
 /*------------*/
 /* Structures */
@@ -124,6 +216,7 @@ void roamingMngr_init (TStadHandlesList *pStadHandles);
  * 
  * \sa	roamingMngr_create
  */ 
+
 TI_STATUS roamingMngr_unload(TI_HANDLE hRoamingMngr);
 /**
  * \brief Get Roaming Manager parameters from the roamingMngr SM
@@ -201,6 +294,23 @@ TI_STATUS roamingMngr_immediateScanComplete(TI_HANDLE hRoamingMngr, scan_mngrRes
  * \sa
  */ 
 TI_STATUS roamingMngr_updateNewBssList(TI_HANDLE hRoamingMngr, bssList_t *newBss_entry);
+
+
+
+/* All functions below added by Lior*/
+
+TI_STATUS roamingMngr_setDefaults (TI_HANDLE hRoamingMngr, TRoamScanMngrInitParams *pInitParam);
+TI_STATUS roamingMngr_setBssLossThreshold (TI_HANDLE hRoamingMngr, TI_UINT32 uNumOfBeacons, TI_UINT16 uClientID);
+TI_STATUS roamingMngr_connect(TI_HANDLE hRoamingMngr, TargetAp_t* pTargetAp);
+TI_STATUS roamingMngr_startImmediateScan(TI_HANDLE hRoamingMngr, channelList_t *pChannelList);
+TI_STATUS roamingMngr_stopImmediateScan(TI_HANDLE hRoamingMngr);
+TI_STATUS roamingMngr_immediateScanByAppComplete(TI_HANDLE hRoamingMngr, scan_mngrResultStatus_e scanCmpltStatus);
+
+TI_STATUS roamingMngr_smEvent(TI_UINT8 event, void* data);
+void roamingMngr_smStopWhileScanning(void *pData);
+void roamingMngr_smStop(void *pData);
+void roamingMngr_smUnexpected(void *pData);
+void roamingMngr_smNop(void *pData);
 
 
 #endif /*  _ROAMING_MNGR_API_H_*/

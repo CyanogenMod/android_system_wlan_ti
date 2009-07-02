@@ -51,8 +51,6 @@
 #include "qosMngr_API.h"
 
 
-extern const TI_UINT8 SNAP_OUI_RFC1042[];
-
 
 /***********************************************************************
  *                        txCtrlServ_buildNullFrame
@@ -224,7 +222,9 @@ TI_STATUS txCtrlServ_buildWlanHeader(TI_HANDLE hTxCtrl, TI_UINT8* pFrame, TI_UIN
    	pWlanSnapHeader->Control = LLC_CONTROL_UNNUMBERED_INFORMATION;
 
     /* add RFC1042. */
-    os_memoryCopy (pTxCtrl->hOs, &pWlanSnapHeader->OUI, (void *)SNAP_OUI_RFC1042, sizeof(pWlanSnapHeader->OUI) );
+	pWlanSnapHeader->OUI[0] = SNAP_OUI_RFC1042_BYTE0;
+	pWlanSnapHeader->OUI[1] = SNAP_OUI_RFC1042_BYTE1;
+	pWlanSnapHeader->OUI[2] = SNAP_OUI_RFC1042_BYTE2;
 
     /* set ETH type to IP */
     pWlanSnapHeader->Type = HTOWLANS(ETHERTYPE_IP);

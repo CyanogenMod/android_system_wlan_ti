@@ -62,7 +62,7 @@
 #include "admCtrl.h"
 #include "EvHandler.h"
 #include "TI_IPC_Api.h"
-
+#include "connApi.h"
 
 static TI_STATUS mainKeys_smEvent(struct _mainKeys_t *pMainKeys, TI_UINT8 event, void* pData);
 
@@ -325,7 +325,10 @@ TI_STATUS mainKeys_unload(mainKeys_t *pMainKeys)
         TRACE0(pMainKeys->hReport, REPORT_SEVERITY_ERROR, "MAIN_KEYS_SM: Error releasing FSM memory \n");
 	}
 
-    tmr_DestroyTimer (pMainKeys->hSessionTimer);
+	if (pMainKeys->hSessionTimer)
+	{
+		tmr_DestroyTimer (pMainKeys->hSessionTimer);
+	}
     pMainKeys->hSessionTimer = NULL;
 	
     status = keyParser_unload(pMainKeys->pKeyParser);
@@ -969,3 +972,9 @@ TI_STATUS mainKeySmNop(struct _mainKeys_t *pMainKeys)
 	return(TI_OK);
 }
 
+void mainKeys_reAuth(TI_HANDLE pHandle)
+{
+	mainKeys_t 	*pMainKeys = (mainKeys_t *)pHandle;
+
+	rsn_reAuth(pMainKeys->hRsn);
+}

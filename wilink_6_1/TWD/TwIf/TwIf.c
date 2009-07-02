@@ -54,7 +54,6 @@
 #include "TwIf.h"
 #include "TWDriver.h"
  
-#define USE_SDIO_24M_WORKAROUND /* 4 transaction of one register instead of 1 transaction of 4 registers */
 
 /************************************************************************
  * Defines
@@ -154,10 +153,14 @@ typedef struct _TTwIfObj
     TElpTxn         tElpTxnAwake;    /* Transaction structure for writing awake to ELP register  */
 
     /* HW Addresses partitioning */
-    TI_UINT32       uMemAddr;        /* The HW memory region start address. */
-    TI_UINT32       uMemSize;        /* The HW memory region end address. */
-    TI_UINT32       uRegAddr;        /* The HW registers region start address. */
-    TI_UINT32       uRegSize;        /* The HW registers region end address. */
+    TI_UINT32       uMemAddr1;        /* The HW memory region start address. */
+    TI_UINT32       uMemSize1;        /* The HW memory region end address. */
+    TI_UINT32       uMemAddr2;        /* The HW registers region start address. */
+    TI_UINT32       uMemSize2;        /* The HW registers region end address. */
+    TI_UINT32       uMemAddr3;        /* The INT Status registers region start address. */
+    TI_UINT32       uMemSize3;        /* The INT Status registers region end address. */
+    TI_UINT32       uMemAddr4;        /* The FW Status mem registers region start address. */
+    
 
 #ifdef TI_DBG
     /* Debug counters */
@@ -168,7 +171,6 @@ typedef struct _TTwIfObj
     TI_UINT32       uDbgCountTxnComplete;/* Count transactions that returned COMPLETE */
     TI_UINT32       uDbgCountTxnDoneCb;  /* Count calls to twIf_TxnDoneCb */
 #endif
-
    
     TI_BOOL         bTxnDoneInRecovery;      
 } TTwIfObj;
@@ -422,13 +424,8 @@ static void twIf_WriteElpReg (TTwIfObj *pTwIf, TI_UINT32 uValue)
  * \sa     
  */ 
 
-#ifdef USE_SDIO_24M_WORKAROUND /* 4 transaction of one register instead of 1 transaction of 4 registers */
-
 void twIf_SetPartition (TI_HANDLE hTwIf,
-                        TI_UINT32 uMemAddr,
-                        TI_UINT32 uMemSize,
-                        TI_UINT32 uRegAddr,
-                        TI_UINT32 uRegSize)
+                        TPartition *pPartition)
 {
     TTwIfObj          *pTwIf = (TTwIfObj*) hTwIf;
     TPartitionRegTxn  *pPartitionRegTxn;/* The partition transaction structure for one register */
@@ -437,26 +434,33 @@ void twIf_SetPartition (TI_HANDLE hTwIf,
     int i;
 
     /* Save partition information for translation and validation. */
-    pTwIf->uMemAddr = uMemAddr;  
-    pTwIf->uMemSize = uMemSize;
-    pTwIf->uRegAddr = uRegAddr;
-    pTwIf->uRegSize = uRegSize;
+    pTwIf->uMemAddr1 = pPartition[0].uMemAdrr;
+    pTwIf->uMemSize1 = pPartition[0].uMemSize;
+    pTwIf->uMemAddr2 = pPartition[1].uMemAdrr;
+    pTwIf->uMemSize2 = pPartition[1].uMemSize;
+    pTwIf->uMemAddr3 = pPartition[2].uMemAdrr;
+    pTwIf->uMemSize3 = pPartition[2].uMemSize;
+    pTwIf->uMemAddr4 = pPartition[3].uMemAdrr;
 
     /* Allocate memory for the current 4 partition transactions */
-    pPartitionRegTxn = (TPartitionRegTxn *) os_memoryAlloc (pTwIf->hOs, 4*sizeof(TPartitionRegTxn));
+    pPartitionRegTxn = (TPartitionRegTxn *) os_memoryAlloc (pTwIf->hOs, 7*sizeof(TPartitionRegTxn));
     pTxnHdr       = &(pPartitionRegTxn->tHdr);
 
     /* Zero the allocated memory to be certain that unused fields will be initialized */
-    os_memoryZero(pTwIf->hOs, pPartitionRegTxn, 4*sizeof(TPartitionRegTxn));
+    os_memoryZero(pTwIf->hOs, pPartitionRegTxn, 7*sizeof(TPartitionRegTxn));
 
     /* Prepare partition transaction data */
-    pPartitionRegTxn[0].tData  = ENDIAN_HANDLE_LONG(uMemAddr); 
-    pPartitionRegTxn[1].tData  = ENDIAN_HANDLE_LONG(uMemSize);  
-    pPartitionRegTxn[2].tData  = ENDIAN_HANDLE_LONG(uRegAddr); 
-    pPartitionRegTxn[3].tData  = ENDIAN_HANDLE_LONG(uRegSize);  
+    pPartitionRegTxn[0].tData  = ENDIAN_HANDLE_LONG(pTwIf->uMemAddr1);
+    pPartitionRegTxn[1].tData  = ENDIAN_HANDLE_LONG(pTwIf->uMemSize1);
+    pPartitionRegTxn[2].tData  = ENDIAN_HANDLE_LONG(pTwIf->uMemAddr2);
+    pPartitionRegTxn[3].tData  = ENDIAN_HANDLE_LONG(pTwIf->uMemSize2);
+    pPartitionRegTxn[4].tData  = ENDIAN_HANDLE_LONG(pTwIf->uMemAddr3);
+    pPartitionRegTxn[5].tData  = ENDIAN_HANDLE_LONG(pTwIf->uMemSize3);
+    pPartitionRegTxn[6].tData  = ENDIAN_HANDLE_LONG(pTwIf->uMemAddr4);
+
 
     /* Prepare partition Txn header */
-    for (i=0; i<4; i++)
+    for (i=0; i<7; i++)
     {
         pTxnHdr = &(pPartitionRegTxn[i].tHdr);
         TXN_PARAM_SET(pTxnHdr, TXN_LOW_PRIORITY, TXN_FUNC_ID_WLAN, TXN_DIRECTION_WRITE, TXN_INC_ADDR)
@@ -482,86 +486,40 @@ void twIf_SetPartition (TI_HANDLE hTwIf,
 
     /* Registers size */
     pTxnHdr = &(pPartitionRegTxn[3].tHdr);
-    BUILD_TTxnStruct(pTxnHdr, PARTITION_REGISTERS_ADDR+8,  &(pPartitionRegTxn[3].tData), REGISTER_SIZE, twIf_PartitionTxnDoneCb, pTwIf)
+    BUILD_TTxnStruct(pTxnHdr, PARTITION_REGISTERS_ADDR+8,  &(pPartitionRegTxn[3].tData), REGISTER_SIZE, 0, 0)
     eStatus = twIf_SendTransaction (pTwIf, pTxnHdr);
+
+ /* Registers address */
+    pTxnHdr = &(pPartitionRegTxn[4].tHdr);
+    BUILD_TTxnStruct(pTxnHdr, PARTITION_REGISTERS_ADDR+20,  &(pPartitionRegTxn[4].tData), REGISTER_SIZE, 0, 0)
+    twIf_SendTransaction (pTwIf, pTxnHdr);
+
+ /* Registers size */
+    pTxnHdr = &(pPartitionRegTxn[5].tHdr);
+    BUILD_TTxnStruct(pTxnHdr, PARTITION_REGISTERS_ADDR+16,  &(pPartitionRegTxn[5].tData), REGISTER_SIZE, 0, 0)
+    eStatus = twIf_SendTransaction (pTwIf, pTxnHdr);
+
+ /* Registers address */
+    pTxnHdr = &(pPartitionRegTxn[6].tHdr);
+    BUILD_TTxnStruct(pTxnHdr, PARTITION_REGISTERS_ADDR+24,  &(pPartitionRegTxn[6].tData), REGISTER_SIZE, twIf_PartitionTxnDoneCb, pTwIf)
+    twIf_SendTransaction (pTwIf, pTxnHdr);
 
     /* If the transaction is done, free the allocated memory (otherwise freed in the partition CB) */
     if (eStatus != TXN_STATUS_PENDING) 
     {
-        os_memoryFree (pTwIf->hOs, pPartitionRegTxn, sizeof(TPartitionRegTxn));     
+        os_memoryFree (pTwIf->hOs, pPartitionRegTxn,7*sizeof(TPartitionRegTxn));
     }
 }
 
-#else
-
-void twIf_SetPartition (TI_HANDLE hTwIf,
-                        TI_UINT32 uMemAddr,
-                        TI_UINT32 uMemSize,
-                        TI_UINT32 uRegAddr,
-                        TI_UINT32 uRegSize)
-{
-    TTwIfObj          *pTwIf = (TTwIfObj*) hTwIf;
-    TPartitionTxn     *pPartitionTxn;   /* The whole partition transaction structure (including the data) */
-    TTxnStruct        *pTxnHdr;         /* The partition transaction header (as used in the TxnQ API) */
-    TPartitionTxnData *pTxnData;        /* The partition transaction specific data */
-    ETxnStatus         eStatus;
-
-    /* Save partition information for translation and validation. */
-    pTwIf->uMemAddr = uMemAddr;  
-    pTwIf->uMemSize = uMemSize;
-    pTwIf->uRegAddr = uRegAddr;
-    pTwIf->uRegSize = uRegSize;
-
-    /* Allocate memory for the current partition transaction */
-    pPartitionTxn = (TPartitionTxn *) os_memoryAlloc (pTwIf->hOs, sizeof(TPartitionTxn));
-    pTxnHdr       = &(pPartitionTxn->tHdr);
-    pTxnData      = &(pPartitionTxn->tData);
-
-    /* Zero the allocated memory to be certain that unused fields will be initialized */
-    os_memoryZero(pTwIf->hOs, pPartitionTxn, sizeof(TPartitionTxn));
-
-	/* Prepare partition transaction data */
-    pTxnData->uMemSize = ENDIAN_HANDLE_LONG(uMemSize);  
-    pTxnData->uMemAddr = ENDIAN_HANDLE_LONG(uMemAddr); 
-    pTxnData->uRegSize = ENDIAN_HANDLE_LONG(uRegSize);  
-    pTxnData->uRegAddr = ENDIAN_HANDLE_LONG(uRegAddr); 
-
-    /* Prepare partition Txn header */
-    TXN_PARAM_SET(pTxnHdr, TXN_LOW_PRIORITY, TXN_FUNC_ID_WLAN, TXN_DIRECTION_WRITE, TXN_INC_ADDR)
-    TXN_PARAM_SET_MORE(pTxnHdr, 1);         
-    TXN_PARAM_SET_SINGLE_STEP(pTxnHdr, 0);
-    BUILD_TTxnStruct(pTxnHdr, 
-                     PARTITION_REGISTERS_ADDR, 
-                     pTxnData, 
-                     sizeof(TPartitionTxnData), 
-                     twIf_PartitionTxnDoneCb, 
-                     pTwIf)
-
-    /* Send the new address partition transaction to the device */
-    /* Note that no address translation is needed for these registers! */
-    eStatus = twIf_SendTransaction (pTwIf, pTxnHdr);
-
-    /* If the transaction is done, free the allocated memory (otherwise freed in the partition CB) */
-    if (eStatus != TXN_STATUS_PENDING) 
-    {
-        os_memoryFree (pTwIf->hOs, pPartitionTxn, sizeof(TPartitionTxn));     
-    }
-
-}
-#endif /* USE_SDIO_24M_WORKAROUND */
 
 static void twIf_PartitionTxnDoneCb (TI_HANDLE hTwIf, void *hTxn)
 {
     TTwIfObj *pTwIf = (TTwIfObj*) hTwIf;
 
     /* Free the partition transaction buffer after completed (see transaction above) */
-#ifdef USE_SDIO_24M_WORKAROUND /* 4 transaction of one register instead of 1 transaction of 4 registers */
     os_memoryFree (pTwIf->hOs, 
-                   (char *)hTxn - (3 * sizeof(TPartitionRegTxn)),  /* Move back to the first Txn start */
-                   4 * sizeof(TPartitionRegTxn)); 
-#else
-    os_memoryFree (pTwIf->hOs, hTxn, sizeof(TPartitionTxn));     
-#endif    
+                   (char *)hTxn - (6 * sizeof(TPartitionRegTxn)),  /* Move back to the first Txn start */
+                   7 * sizeof(TPartitionRegTxn)); 
 }
 
 
@@ -669,15 +627,27 @@ ETxnStatus twIf_Transact (TI_HANDLE hTwIf, TTxnStruct *pTxn)
     TTwIfObj  *pTwIf   = (TTwIfObj*)hTwIf;
 
     /* Translate HW address for registers region */
-    if ((pTxn->uHwAddr >= pTwIf->uRegAddr) && (pTxn->uHwAddr <= pTwIf->uRegAddr + pTwIf->uRegSize))
+    if ((pTxn->uHwAddr >= pTwIf->uMemAddr2) && (pTxn->uHwAddr <= pTwIf->uMemAddr2 + pTwIf->uMemSize2))
     {
-        pTxn->uHwAddr = pTxn->uHwAddr - pTwIf->uRegAddr + pTwIf->uMemSize;
+        pTxn->uHwAddr = pTxn->uHwAddr - pTwIf->uMemAddr2 + pTwIf->uMemSize1;
     }
     /* Translate HW address for memory region */
     else 
     {
-        pTxn->uHwAddr = pTxn->uHwAddr - pTwIf->uMemAddr;
+        pTxn->uHwAddr = pTxn->uHwAddr - pTwIf->uMemAddr1;
     }
+
+    /* Regular transaction are not the last and are not single step (only ELP write is) */
+    TXN_PARAM_SET_MORE(pTxn, 1);
+    TXN_PARAM_SET_SINGLE_STEP(pTxn, 0);
+
+    /* Send the transaction to the TxnQ and update the SM if needed. */
+    return twIf_SendTransaction (pTwIf, pTxn);
+}
+
+ETxnStatus twIf_TransactReadFWStatus (TI_HANDLE hTwIf, TTxnStruct *pTxn)
+{
+    TTwIfObj  *pTwIf   = (TTwIfObj*)hTwIf;
 
     /* Regular transaction are not the last and are not single step (only ELP write is) */
     TXN_PARAM_SET_MORE(pTxn, 1);         
@@ -704,7 +674,6 @@ ETxnStatus twIf_Transact (TI_HANDLE hTwIf, TTxnStruct *pTxn)
 static ETxnStatus twIf_SendTransaction (TTwIfObj *pTwIf, TTxnStruct *pTxn)
 {
     ETxnStatus eStatus;
-
 	TI_UINT32  data=0;
 
 #ifdef TI_DBG
@@ -714,16 +683,7 @@ static ETxnStatus twIf_SendTransaction (TTwIfObj *pTwIf, TTxnStruct *pTxn)
 TRACE2(pTwIf->hReport, REPORT_SEVERITY_ERROR, "twIf_SendTransaction: Unaligned HwAddr! HwAddr=0x%x, Params=0x%x\n", pTxn->uHwAddr, pTxn->uTxnParams);
 		return TXN_STATUS_ERROR;
 	}	
-    /* Verify that the host addresses lengths are 4-bytes aligned */
-	if ((pTxn->aLen[0] & 0x3) || (pTxn->aLen[1] & 0x3))
-	{
-TRACE6(pTwIf->hReport, REPORT_SEVERITY_ERROR, "twIf_SendTransaction: Unaligned Length! Len0=%d, Len1=%d, Len2=%d, Len3=%d, Params=0x%x, HwAddr=0x%x\n", pTxn->aLen[0], pTxn->aLen[1], pTxn->aLen[2], pTxn->aLen[3], pTxn->uTxnParams, pTxn->uHwAddr);
-		return TXN_STATUS_ERROR;
-	}	
-    /* 
-     * Note: We may add other checks here, like length 2 & 3 and host addresses alignment.
-     *       Note that the host address for read transaction may be unaligned (for Rx-Xfer QoS packets)
-     */
+
 #endif
 
     context_EnterCriticalSection (pTwIf->hContext);
@@ -1032,8 +992,8 @@ TI_BOOL	twIf_isValidMemoryAddr(TI_HANDLE hTwIf, TI_UINT32 Address, TI_UINT32 Len
 {
     TTwIfObj   *pTwIf = (TTwIfObj*)hTwIf;
 
-	if ((Address >= pTwIf->uMemAddr) && 
-			(Address + Length < pTwIf->uMemAddr + pTwIf->uMemSize ))
+	if ((Address >= pTwIf->uMemAddr1) &&
+			(Address + Length < pTwIf->uMemAddr1 + pTwIf->uMemSize1 ))
 	return TI_TRUE;
 
 	return TI_FALSE;
@@ -1043,8 +1003,8 @@ TI_BOOL	twIf_isValidRegAddr(TI_HANDLE hTwIf, TI_UINT32 Address, TI_UINT32 Length
 {
     TTwIfObj   *pTwIf = (TTwIfObj*)hTwIf;
 
-	if ((Address >= pTwIf->uRegAddr ) && 
-		( Address < pTwIf->uRegAddr + pTwIf->uRegSize ))
+	if ((Address >= pTwIf->uMemAddr2 ) &&
+		( Address < pTwIf->uMemAddr2 + pTwIf->uMemSize2 ))
 	return TI_TRUE;
 
 	return TI_FALSE;
@@ -1079,10 +1039,10 @@ void twIf_PrintModuleInfo (TI_HANDLE hTwIf)
 	WLAN_OS_REPORT(("hErrCb               = %d\n",   pTwIf->hErrCb                  ));
 	WLAN_OS_REPORT(("uAwakeReqCount       = %d\n",   pTwIf->uAwakeReqCount          ));
 	WLAN_OS_REPORT(("uPendingTxnCount     = %d\n",   pTwIf->uPendingTxnCount        ));
-	WLAN_OS_REPORT(("uMemAddr             = 0x%x\n", pTwIf->uMemAddr                ));
-	WLAN_OS_REPORT(("uMemSize             = 0x%x\n", pTwIf->uMemSize                ));
-	WLAN_OS_REPORT(("uRegAddr             = 0x%x\n", pTwIf->uRegAddr                ));
-	WLAN_OS_REPORT(("uRegSize             = 0x%x\n", pTwIf->uRegSize                ));
+	WLAN_OS_REPORT(("uMemAddr             = 0x%x\n", pTwIf->uMemAddr1               ));
+	WLAN_OS_REPORT(("uMemSize             = 0x%x\n", pTwIf->uMemSize1               ));
+	WLAN_OS_REPORT(("uRegAddr             = 0x%x\n", pTwIf->uMemAddr2               ));
+	WLAN_OS_REPORT(("uRegSize             = 0x%x\n", pTwIf->uMemSize2               ));
 	WLAN_OS_REPORT(("uDbgCountAwake       = %d\n",   pTwIf->uDbgCountAwake          ));
 	WLAN_OS_REPORT(("uDbgCountSleep       = %d\n",   pTwIf->uDbgCountSleep          ));
 	WLAN_OS_REPORT(("uDbgCountTxn         = %d\n",   pTwIf->uDbgCountTxn            ));

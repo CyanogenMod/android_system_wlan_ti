@@ -222,5 +222,6 @@ void PowerMgr_printObject(TI_HANDLE thePowerMgrHandle);
 
 TI_STATUS PowerMgr_notifyFWReset(TI_HANDLE hPowerMgr);
 
+TI_BOOL PowerMgr_getReAuthActivePriority(TI_HANDLE thePowerMgrHandle);
 
 #endif /*_POWER_MGR_API_H_*/

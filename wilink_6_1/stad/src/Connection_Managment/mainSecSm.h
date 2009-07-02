@@ -100,13 +100,13 @@ typedef struct
 
 struct _mainSec_t
 {
-	TI_UINT8                               currentState;
-    TI_UINT32				                startCount;
+	TI_UINT8                            currentState;
+    TI_UINT32				            startCount;
 	fsm_stateMachine_t	                *pMainSecSm;
 	TI_BOOL				                PrivacyOptionImplemented;
     mainSecData_t						data;
-	TI_UINT8								sessionKey[SESSION_KEY_LEN];
-	TI_UINT8								sessionKeyLen;
+	TI_UINT8							sessionKey[SESSION_KEY_LEN];
+	TI_UINT8							sessionKeyLen;
 
     struct _rsn_t                      	*pParent;
 	TI_HANDLE			                hReport;
@@ -114,7 +114,7 @@ struct _mainSec_t
 	
     struct _mainKeys_t                  *pMainKeys; 
     struct _keyParser_t                 *pKeyParser;
-
+    struct externalSec_t                *pExternalSec;
     mainSecSmStart_t                    start;
     mainSecSmStop_t                     stop;
     mainSecSmReportAuthStatus_t         reportAuthStatus;

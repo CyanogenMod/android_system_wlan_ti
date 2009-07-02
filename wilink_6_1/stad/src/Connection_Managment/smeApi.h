@@ -49,6 +49,7 @@
 #include "tidef.h"
 #include "paramOut.h"
 #include "mlmeApi.h"
+#include "ScanCncn.h"
 
 /* Typedefs */
 typedef enum
@@ -57,33 +58,11 @@ typedef enum
 	MATCH		= 1
 } match_e;
 
-
 /* Prototypes */
 
-TI_STATUS conn_reportMlmeStatus(TI_HANDLE			hConn, 
-							mgmtStatus_e		status,
-							TI_UINT16				uStatusCode);
-
-TI_STATUS conn_reportRsnStatus(TI_HANDLE			hConn, 
-							mgmtStatus_e		status);
-
-TI_STATUS siteMgr_updateSite(TI_HANDLE			hSiteMgr, 
-						  TMacAddr		*bssid, 
-						  mlmeFrameInfo_t	*pFrameInfo,
-						  TI_UINT8				rxChannel,
-                          ERadioBand       band,
-						  TI_BOOL				measuring);
-
-TI_STATUS siteMgr_IbssMerge(TI_HANDLE       hSiteMgr,
-                          TMacAddr      	our_bssid,
-						  TMacAddr      	new_bssid,
-                          mlmeFrameInfo_t   *pFrameInfo,
-                          TI_UINT8          rxChannel,
-                          ERadioBand        band);
-
-TI_STATUS siteMgr_saveProbeRespBuffer(TI_HANDLE hSiteMgr, TMacAddr	*bssid, TI_UINT8 *pProbeRespBuffer, TI_UINT32 length);
-
-TI_STATUS siteMgr_saveBeaconBuffer(TI_HANDLE hSiteMgr, TMacAddr *bssid, TI_UINT8 *pBeaconBuffer, TI_UINT32 length);
-
-
+TI_STATUS   sme_SetParam (TI_HANDLE hSme, paramInfo_t *pParam);
+TI_STATUS   sme_GetParam (TI_HANDLE hSme, paramInfo_t *pParam);
+void        SME_ConnectRequired (TI_HANDLE hSme);
+void        SME_Disconnect (TI_HANDLE hSme);
+void        sme_AppScanResult (TI_HANDLE hSme, EScanCncnResultStatus eStatus,TScanFrameInfo* pFrameInfo);
 #endif /* __SME_API_H__ */

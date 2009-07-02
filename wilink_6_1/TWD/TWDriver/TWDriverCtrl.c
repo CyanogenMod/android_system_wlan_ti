@@ -208,6 +208,9 @@ TI_STATUS TWD_SetParam (TI_HANDLE hTWD, TTwdParamInfo *pParamInfo)
         case TWD_SG_CONFIG_PARAM_ID:
             return cmdBld_CfgSg (pTWD->hCmdBld, &pParamInfo->content.SoftGeminiParam, NULL, NULL);
 
+        case TWD_FM_COEX_PARAM_ID:
+            return cmdBld_CfgFmCoex (pTWD->hCmdBld, &pParamInfo->content.tFmCoexParams, NULL, NULL);
+
         /*
          *  TX Parameters 
          */ 
@@ -432,6 +435,15 @@ TI_STATUS TWD_CfgBeaconFilterOpt (TI_HANDLE hTWD, TI_UINT8 uBeaconFilteringStatu
     TRACE0(pTWD->hReport, REPORT_SEVERITY_INFORMATION , "TWD_CfgBeaconFilterOpt: called\n");
 
     return cmdBld_CfgBeaconFilterOpt (pTWD->hCmdBld, uBeaconFilteringStatus, uNumOfBeaconsToBuffer, NULL, NULL);
+}
+
+TI_STATUS TWD_SetRateMngDebug(TI_HANDLE hTWD, RateMangeParams_t *pRateMngParams)
+{
+  TTwd   *pTWD = (TTwd *)hTWD;
+
+   TRACE0(pTWD->hReport, REPORT_SEVERITY_INFORMATION , "TWD_SetRateMngDebug: called\n");
+
+   return cmdBld_CfgRateMngDbg (pTWD->hCmdBld, pRateMngParams, NULL, NULL);
 }
 
 TI_STATUS TWD_CfgBeaconFilterTable (TI_HANDLE hTWD, TI_UINT8 uNumOfIe, TI_UINT8 *pIeTable, TI_UINT8 uIeTableSize)

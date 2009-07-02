@@ -183,7 +183,7 @@ TI_STATUS admCtrlWpa2_getInfoElement(admCtrl_t *pAdmCtrl, TI_UINT8 *pIe, TI_UINT
 
 TI_STATUS admCtrlWpa2_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *pAssocIe, TI_UINT8 *pAssocIeLen);
 
-TI_STATUS admCtrlWpa2_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, ScanBssType_e bssType, TI_UINT32 *pEvaluation);
+TI_STATUS admCtrlWpa2_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSiteParams *pRsnSiteParams, TI_UINT32 *pEvaluation);
 
 void admCtrlWpa2_preAuthTimerExpire(TI_HANDLE hadmCtrl, TI_BOOL bTwdInitOccured);
 

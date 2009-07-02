@@ -73,7 +73,7 @@ TI_STATUS admCtrlNone_getInfoElement(admCtrl_t *pAdmCtrl, TI_UINT8 *pIe, TI_UINT
 
 TI_STATUS admCtrlNone_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *pAssocIe, TI_UINT8 *pAssocIeLen);
 
-TI_STATUS admCtrlNone_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, ScanBssType_e bssType, TI_UINT32 *pEvaluation);
+TI_STATUS admCtrlNone_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSiteParams *pRsnSiteParams, TI_UINT32 *pEvaluation);
 
 #endif /*  _ADM_CTRL_NONE_H_*/
 

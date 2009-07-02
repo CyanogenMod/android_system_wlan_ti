@@ -179,7 +179,10 @@ TI_STATUS admCtrl_unload (admCtrl_t *pAdmCtrl)
     }
     
     /* Destroy the wpa2 pre-authentication timer and free the module's memory */
-    tmr_DestroyTimer (pAdmCtrl->hPreAuthTimerWpa2);
+	if (pAdmCtrl->hPreAuthTimerWpa2)
+	{
+		tmr_DestroyTimer (pAdmCtrl->hPreAuthTimerWpa2);
+	}
     os_memoryFree (pAdmCtrl->hOs, pAdmCtrl, sizeof(admCtrl_t));
 
     return TI_OK;

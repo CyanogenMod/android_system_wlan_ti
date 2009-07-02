@@ -547,16 +547,11 @@ TI_STATUS cmdBld_StartPeriodicScan (TI_HANDLE hCmdBld, TPeriodicScanParams *pPer
         tFWPeriodicScanParams.ssidLength = 0;
         break;
 
-    case 1: /* Only one SSID defined - copy it to the scan command (no need to send SSID list as well) */
-        tFWPeriodicScanParams.ssidFilterType = (ScanSsidFilterType_e)SCAN_SSID_FILTER_TYPE_SPECIFIC;
-        tFWPeriodicScanParams.ssidLength = (TI_UINT8)pPeriodicScanParams->tDesiredSsid[ 0 ].tSsid.len;
-        os_memoryCopy (pCmdBld->hOs, (void*)&(tFWPeriodicScanParams.ssid[ 0 ]), 
-                       (void*)&(pPeriodicScanParams->tDesiredSsid[ 0 ].tSsid.str[ 0 ]),
-                       pPeriodicScanParams->tDesiredSsid[ 0 ].tSsid.len);
-        break;
-
     default: /* More than one SSID - copy SSIDs to SSID list command */
-        tFWPeriodicScanParams.ssidFilterType = (ScanSsidFilterType_e)SCAN_SSID_FILTER_TYPE_LIST;
+        if ((TI_UINT8)pPeriodicScanParams->uSsidListFilterEnabled == 1)
+	        tFWPeriodicScanParams.ssidFilterType = (ScanSsidFilterType_e)SCAN_SSID_FILTER_TYPE_LIST;
+		else
+	        tFWPeriodicScanParams.ssidFilterType = (ScanSsidFilterType_e)SCAN_SSID_FILTER_TYPE_LIST_FILTER_DISABLED;
         tFWPeriodicScanParams.ssidLength = 0;
         tFWSsidList.numOfSSIDEntries = (TI_UINT8)pPeriodicScanParams->uSsidNum;
         for (uIndex = 0; uIndex < pPeriodicScanParams->uSsidNum; uIndex++)

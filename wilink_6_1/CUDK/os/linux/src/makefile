@@ -1,7 +1,9 @@
 STATIC_LIB ?= y
 DEBUG ?= y
 BUILD_SUPPL ?= y
+SUPPL ?= ANDROID
 WPA_ENTERPRISE ?= y
+ETH_SUPPORT ?= n
 
 ifeq ($(DEBUG),y)
   DEBUGFLAGS = -O2 -g -DDEBUG -DTI_DBG -fno-builtin   
@@ -31,6 +33,10 @@ ifeq ($(STATIC_LIB),y)
         TARGET = $(OUTPUT_DIR)/$(LIB_NAME).a
 else
         TARGET = $(OUTPUT_DIR)/$(LIB_NAME).so
+endif
+
+ifeq ($(ETH_SUPPORT), y)
+	DK_DEFINES += -DETH_SUPPORT
 endif
 
 SRCS  := \

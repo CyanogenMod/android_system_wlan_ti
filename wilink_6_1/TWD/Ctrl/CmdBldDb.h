@@ -43,6 +43,7 @@
 
 
 #include "TWDriverInternal.h"
+#include "public_infoele.h"
 
 
 /* 
@@ -99,6 +100,7 @@ typedef struct
     TI_UINT8                   CurrPowerSaveState;
     ESoftGeminiEnableModes     SoftGeminiEnable;
     TSoftGeminiParams          SoftGeminiParams;
+    TFmCoexParams              tFmCoexParams;
     TI_UINT8                   maxSitesFragCollect;
     TI_UINT8                   hwAccessMethod;
     TI_UINT32                  nullTemplateSize;
@@ -233,7 +235,6 @@ typedef struct
 {
     TAcQosParams               ac[MAX_NUM_OF_AC];
     TI_BOOL                    isAcConfigured[MAX_NUM_OF_AC];
-
 	TI_BOOL					   isBurstModeEnabled;
 } TAcConfParams;
 
@@ -301,6 +302,19 @@ typedef struct
                                    
 } TRxDataFiltersTable;
 
+typedef struct
+{
+ ACXSmartReflexConfigParams_t     tSmartReflexParams;
+ ACXSmartReflexDebugParams_t      tSmartReflexDebugParams;
+ ACXSmartReflexState_t            tSmartReflexState;
+
+}TSmartReflexParams ;
+
+typedef struct
+{
+	RateMangeParams_t rateMngParams;
+
+} TRateMngParams;
 
 
 
@@ -323,9 +337,10 @@ typedef struct
     TKeepAliveList             klvList;             /* Keep-Alive paramters     */  
     TSecurReconf               keys;                /* Security keys            */
     TRxDataFiltersTable        rxDataFilters;       /* Rx data filters          */
-    IniFileGeneralParam        tPlatformGenParams;   /* platfrom gen params from public_radio.h  */   
-    IniFileRadioParam          tRadioIniParams;      /* Radio ini params from public_radio.h     */
-
+    IniFileGeneralParam        tPlatformGenParams;  /* platfrom gen params from public_radio.h  */
+    IniFileRadioParam          tRadioIniParams;     /* Radio ini params from public_radio.h     */
+    TSmartReflexParams         tSmartReflex;
+	TRateMngParams		       tRateMngParams;      /* rate management params */
 } TCmdBldDb;
 
 #endif

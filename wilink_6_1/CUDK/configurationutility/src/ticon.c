@@ -59,7 +59,8 @@
 #else
 #define SUPPL_IF_FILE "/var/run/" TIWLAN_DRV_NAME
 #endif
-
+extern int consoleRunScript( char *script_file, THandle hConsole);
+    
 /* local types */
 /***************/
 /* Module control block */
@@ -419,6 +420,7 @@ static S32 TiCon_Init_Console_Menu(TiCon_t* pTiCon)
             {(PS8)"Probe request number", CON_PARM_RANGE, 0, 5, 3 },
             {(PS8)"Number of scan cycles", CON_PARM_RANGE, 0, 100, 0 },
             {(PS8)"Number of SSIDs", CON_PARM_RANGE, 0, 8, 0 },
+            {(PS8)"SSID List Filter Enabled", CON_PARM_RANGE, 0, 1, 1 },
             {(PS8)"Number of channels", CON_PARM_RANGE, 0, 32, 14 },
             CON_LAST_PARM };
         Console_AddToken (pTiCon->hConsole, h1, (PS8)"Global", (PS8)"Configure global periodic scan parameters", CuCmd_ConfigPeriodicScanGlobal, aaa);
@@ -615,7 +617,7 @@ static S32 TiCon_Init_Console_Menu(TiCon_t* pTiCon)
 			{(PS8)"Hystersis [dB] ", CON_PARM_RANGE, 0, 255, 0  },
 			{(PS8)"Enable    [0 - Disable, 1 - Enable] ", CON_PARM_RANGE, 0, 1, 0  },
 			CON_LAST_PARM };
-			Console_AddToken(pTiCon->hConsole,h1, (PS8)"User defined trigger\n", (PS8)"User defined FW trigger", (FuncToken_t) CuCmd_RoamingUserDefinedTrigger, aaa );
+			Console_AddToken(pTiCon->hConsole,h1, (PS8)"User defined trigger\n", (PS8)"User defined FW trigger", (FuncToken_t) CuCmd_CurrBssUserDefinedTrigger, aaa );
 	}
 	
 	/************ ROAMING manager commands - end  ********************/
@@ -781,28 +783,10 @@ static S32 TiCon_Init_Console_Menu(TiCon_t* pTiCon)
 	}
 	{
 		ConParm_t aaa[]  = {
-			{(PS8)"coexBtPerThreshold", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
-			SOFT_GEMINI_PARAMS_PER_THRESHOLD_MIN, SOFT_GEMINI_PARAMS_PER_THRESHOLD_MAX, SOFT_GEMINI_PARAMS_PER_THRESHOLD_DEF  },
-			{(PS8)"coexAutoScanCompensationMaxTime", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
-			SOFT_GEMINI_AUTO_SCAN_COMPENSATION_MAX_TIME_MIN, SOFT_GEMINI_AUTO_SCAN_COMPENSATION_MAX_TIME_MAX, SOFT_GEMINI_AUTO_SCAN_COMPENSATION_MAX_TIME_DEF},
-			{(PS8)"coexBtNfsSampleInterval", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
-			SOFT_GEMINI_PARAMS_NFS_SAMPLE_INTERVAL_MIN, SOFT_GEMINI_PARAMS_NFS_SAMPLE_INTERVAL_MAX, SOFT_GEMINI_PARAMS_NFS_SAMPLE_INTERVAL_DEF},
-			{(PS8)"BtLoadRatio", CON_PARM_RANGE  | CON_PARM_OPTIONAL,
-			SOFT_GEMINI_PARAMS_LOAD_RATIO_MIN, SOFT_GEMINI_PARAMS_LOAD_RATIO_MAX, SOFT_GEMINI_PARAMS_LOAD_RATIO_DEF},
-			{(PS8)"AutoPsMode", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
-			SOFT_GEMINI_PARAMS_AUTO_PS_MODE_MIN, SOFT_GEMINI_PARAMS_AUTO_PS_MODE_MAX, SOFT_GEMINI_PARAMS_AUTO_PS_MODE_DEF  },
-			{(PS8)"AutoScanEnlargedNumOfProbeReqPercent", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
-			SOFT_GEMINI_PARAMS_AUTO_SCAN_PROBE_REQ_MIN, SOFT_GEMINI_PARAMS_AUTO_SCAN_PROBE_REQ_MAX, SOFT_GEMINI_PARAMS_AUTO_SCAN_PROBE_REQ_DEF},
-			{(PS8)"AutoScanEnlargedScanWindowPercent", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
-			SOFT_GEMINI_PARAMS_AUTO_SCAN_WINDOW_MIN, SOFT_GEMINI_PARAMS_AUTO_SCAN_WINDOW_MAX, 0  },
-			{(PS8)"coexAntennaConfiguration", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
-			SOFT_GEMINI_ANTENNA_CONFIGURATION_MIN, SOFT_GEMINI_ANTENNA_CONFIGURATION_MAX, SOFT_GEMINI_ANTENNA_CONFIGURATION_DEF},
-			{(PS8)"coexMaxConsecutiveBeaconMissPrecent", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
-			SOFT_GEMINI_BEACON_MISS_PERCENT_MIN, SOFT_GEMINI_BEACON_MISS_PERCENT_MAX, SOFT_GEMINI_BEACON_MISS_PERCENT_DEF},
-			{(PS8)"coexAPRateAdapationThr", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
-			SOFT_GEMINI_RATE_ADAPT_THRESH_MIN, SOFT_GEMINI_RATE_ADAPT_THRESH_MAX, SOFT_GEMINI_RATE_ADAPT_THRESH_DEF},
-			{(PS8)"coexAPRateAdapationSnr", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
-			SOFT_GEMINI_RATE_ADAPT_SNR_MIN, SOFT_GEMINI_RATE_ADAPT_SNR_MAX, SOFT_GEMINI_RATE_ADAPT_SNR_DEF},
+			{(PS8)"coexParamIdx", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
+			SOFT_GEMINI_PARAMS_INDEX_MIN, SOFT_GEMINI_PARAMS_INDEX_MAX, SOFT_GEMINI_PARAMS_INDEX_DEF  },
+			{(PS8)"coexParamValue", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
+			SOFT_GEMINI_PARAMS_VALUE_MIN, SOFT_GEMINI_PARAMS_VALUE_MAX, SOFT_GEMINI_PARAMS_VALUE_DEF},
 			CON_LAST_PARM };
 
 			Console_AddToken(pTiCon->hConsole, h, (PS8)"Config", (PS8)"Parameters configuration", (FuncToken_t) CuCmd_ConfigBtCoe, aaa );
@@ -828,6 +812,32 @@ static S32 TiCon_Init_Console_Menu(TiCon_t* pTiCon)
 			CON_LAST_PARM };
 
 			Console_AddToken(pTiCon->hConsole, h, (PS8)"coexActivity", (PS8)"Coex Activity Parameters configuration", (FuncToken_t) CuCmd_ConfigCoexActivity, aaa );
+	}
+	{
+		ConParm_t aaa[]  = {
+			{(PS8)"enable", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
+            FM_COEX_ENABLE_MIN, FM_COEX_ENABLE_MAX, FM_COEX_ENABLE_DEF  },
+			{(PS8)"swallowPeriod", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
+            FM_COEX_SWALLOW_PERIOD_MIN, FM_COEX_SWALLOW_PERIOD_MAX, FM_COEX_SWALLOW_PERIOD_DEF  },
+			{(PS8)"nDividerFrefSet1", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
+            FM_COEX_N_DIVIDER_FREF_SET1_MIN, FM_COEX_N_DIVIDER_FREF_SET1_MAX, FM_COEX_N_DIVIDER_FREF_SET1_DEF  },
+			{(PS8)"nDividerFrefSet2", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
+            FM_COEX_N_DIVIDER_FREF_SET2_MIN, FM_COEX_N_DIVIDER_FREF_SET2_MAX, FM_COEX_N_DIVIDER_FREF_SET2_DEF  },
+			{(PS8)"mDividerFrefSet1", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
+            FM_COEX_M_DIVIDER_FREF_SET1_MIN, FM_COEX_M_DIVIDER_FREF_SET1_MAX, FM_COEX_M_DIVIDER_FREF_SET1_DEF  },
+			{(PS8)"mDividerFrefSet2", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
+            FM_COEX_M_DIVIDER_FREF_SET2_MIN, FM_COEX_M_DIVIDER_FREF_SET2_MAX, FM_COEX_M_DIVIDER_FREF_SET2_DEF  },
+			{(PS8)"pllStabilizationTime", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
+            FM_COEX_PLL_STABILIZATION_TIME_MIN, FM_COEX_PLL_STABILIZATION_TIME_MAX, FM_COEX_PLL_STABILIZATION_TIME_DEF  },
+			{(PS8)"ldoStabilizationTime", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
+            FM_COEX_LDO_STABILIZATION_TIME_MIN, FM_COEX_LDO_STABILIZATION_TIME_MAX, FM_COEX_LDO_STABILIZATION_TIME_DEF  },
+			{(PS8)"disturbedBandMargin", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
+            FM_COEX_DISTURBED_BAND_MARGIN_MIN, FM_COEX_DISTURBED_BAND_MARGIN_MAX, FM_COEX_DISTURBED_BAND_MARGIN_DEF  },
+			{(PS8)"swallowClkDif", CON_PARM_RANGE | CON_PARM_OPTIONAL ,
+            FM_COEX_SWALLOW_CLK_DIF_MIN, FM_COEX_SWALLOW_CLK_DIF_MAX, FM_COEX_SWALLOW_CLK_DIF_DEF  },
+			CON_LAST_PARM };
+
+			Console_AddToken(pTiCon->hConsole, h, (PS8)"Fm_coexistence", (PS8)"FM Coexistence parameters configuration", (FuncToken_t) CuCmd_ConfigFmCoex, aaa );
 	}
 	
 #ifdef XCC_MODULE_INCLUDED
@@ -876,11 +886,41 @@ static S32 TiCon_Init_Console_Menu(TiCon_t* pTiCon)
 							{(PS8)"R/W Mem buf (up to 32 characters)", CON_PARM_STRING | CON_PARM_OPTIONAL, 0, FW_DEBUG_MAX_BUF * 2, 0 },
 							CON_LAST_PARM };
 		Console_AddToken(pTiCon->hConsole,h, (PS8)"Print", (PS8)"print driver debug info", (FuncToken_t) CuCmd_PrintDriverDebug, aaa );
-	}
-	{
-		ConParm_t aaa[]  = { { (PS8)"fwdebug", CON_PARM_OPTIONAL | CON_PARM_LINE, 0, 2050, 0 }, CON_LAST_PARM };
-		Console_AddToken(pTiCon->hConsole, h, (PS8)"Fw debug",  (PS8)"fw debug", (FuncToken_t) CuCmd_FwDebug, aaa );
-	}
+
+      CHK_NULL(h1 = (THandle) Console_AddDirExt(pTiCon->hConsole,  (THandle)h , (PS8)"Fw Debug", (PS8)"Debug features" ) );
+      {
+       {
+	      ConParm_t aaa[]  = { { (PS8)"debug", CON_PARM_OPTIONAL | CON_PARM_LINE, 0, 2050, 0 }, CON_LAST_PARM };
+	      Console_AddToken(pTiCon->hConsole, h1, (PS8)"debug",  (PS8)" debug", (FuncToken_t) CuCmd_FwDebug, aaa );
+	   }
+      {
+         ConParm_t aaa[]  = { {(PS8)"Index", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,0,255,0},
+                              {(PS8)"Value_1", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,-4096,4069,0},
+							  {(PS8)"Value_2", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,-4096,4069,0},
+							  {(PS8)"Value_3", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,-4096,4069,0},
+							  {(PS8)"Value_4", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,-4096,4069,0},
+							  {(PS8)"Value_5", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,-4096,4069,0},
+							  {(PS8)"Value_6", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,-4096,4069,0},
+							  {(PS8)"Value_7", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,-4096,4069,0},
+							  {(PS8)"Value_8", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,-4096,4069,0},
+							  {(PS8)"Value_9", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,-4096,4069,0},
+							  {(PS8)"Value_10", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,-4096,4069,0},
+							  {(PS8)"Value_11", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,-4096,4069,0},
+							  {(PS8)"Value_12", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,-4096,4069,0},
+							  {(PS8)"Value_13", CON_PARM_OPTIONAL|CON_PARM_RANGE | CON_PARM_SIGN,-4096,4069,0},
+							  CON_LAST_PARM };
+          Console_AddToken(pTiCon->hConsole, h1, (PS8)"Set rate managment",  (PS8)"rate managment", (FuncToken_t) CuCmd_SetRateMngDebug, aaa );
+
+      }
+      {
+         ConParm_t aaa[]  = { {(PS8)"Index", CON_PARM_OPTIONAL,0,4096,0},
+                              {(PS8)"Value", CON_PARM_OPTIONAL,0,4096,0}, CON_LAST_PARM };
+          Console_AddToken(pTiCon->hConsole, h1, (PS8)"Get rate managment",  (PS8)"rate managment", (FuncToken_t) CuCmd_GetRateMngDebug, aaa );
+
+      }
+
+     }
+    }
 
 #endif /*TI_DBG*/
 	
@@ -953,8 +993,9 @@ static S32 TiCon_Init_Console_Menu(TiCon_t* pTiCon)
 		{
 			/* TELEC */
 			{
-                ConParm_t aaa[]  = {/* future use. not use at the FW for now
-                                    {(PS8)"Band", CON_PARM_OPTIONAL, 0, 2, 0 },
+                ConParm_t aaa[]  = {{(PS8)"Power", CON_PARM_OPTIONAL, 0, 25000, 0 },
+                                   {(PS8)"Tone Type", CON_PARM_OPTIONAL, 1, 2, 2 },
+									/*	{(PS8)"Band", CON_PARM_OPTIONAL, 0, 2, 0 },
                                     {(PS8)"Channel", CON_PARM_OPTIONAL , 1, 161, 0 }, 
                                     {(PS8)"Power", CON_PARM_OPTIONAL, 0, 0, 0 },
                                     {(PS8)"Tone Type", CON_PARM_OPTIONAL, 0, 0, 0 },
@@ -965,10 +1006,10 @@ static S32 TiCon_Init_Console_Menu(TiCon_t* pTiCon)
                                     {(PS8)"Eleven N Span", CON_PARM_OPTIONAL, 0, 0, 0 },
                                     {(PS8)"Digital DC", CON_PARM_OPTIONAL, 0, 0, 0 },
                                     {(PS8)"Analog DC Fine", CON_PARM_OPTIONAL, 0, 0, 0 },
-                                    {(PS8)"Analog DC Coarse", CON_PARM_OPTIONAL, 0, 0, 0 },
-                                    */
+									{(PS8)"Analog DC Coarse", CON_PARM_OPTIONAL, 0, 0, 0 },*/
                                     CON_LAST_PARM };
 				Console_AddToken(pTiCon->hConsole,h2, (PS8)"Cw", (PS8)"Start CW test", (FuncToken_t) CuCmd_RadioDebug_StartTxCw, aaa );
+
 			}
 			/* FCC */
 			{
@@ -1054,9 +1095,11 @@ static VOID TiCon_SignalCtrlC(S32 signo)
 S32 user_main(S32 argc, PS8* argv)
 {
     S32 i;
+    char *script_file = NULL;
     S32 BypassSupplicant = FALSE;
     S8 SupplIfFile[50];
     S32 fill_name = TRUE;
+    int stop_UI = 0;
 
     SupplIfFile[0] = '\0';
     if( argc > 1 )
@@ -1082,6 +1125,10 @@ S32 user_main(S32 argc, PS8* argv)
             else if(!os_strncmp(argv[i], (PS8)"-i", 2))
             {
             	os_strcpy( SupplIfFile, &(argv[i])[2] );
+            }
+            else if(!os_strncmp(argv[i], "-s", 2 ) )
+            {
+                script_file = argv[++i];
             }
         }
     }
@@ -1113,7 +1160,16 @@ S32 user_main(S32 argc, PS8* argv)
     /* ----------------------------------------------------------- */
     TiCon_Init_Console_Menu(&g_TiCon);
 
-	Console_Start(g_TiCon.hConsole);
+	if( script_file )
+    {
+        stop_UI = consoleRunScript (script_file, g_TiCon.hConsole);
+    }
+
+    if( !stop_UI )
+	{
+        os_error_printf(CU_MSG_INFO2, (PS8)("user_main, start\n") );
+		Console_Start(g_TiCon.hConsole);
+	}
 
 	Console_Destroy(g_TiCon.hConsole);
 

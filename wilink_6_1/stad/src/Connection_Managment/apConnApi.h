@@ -168,6 +168,8 @@ typedef enum
  */ 
 typedef TI_STATUS (*apConn_roamMngrCallb_t) (TI_HANDLE hRoamingMngr, void *pData);
 
+typedef TI_STATUS (*apConn_roamMngrEventCallb_t) (TI_HANDLE hRoamingMngr, void *pData, TI_UINT16 reasonCode);
+
 /*------------*/
 /* Structures */
 /*------------*/
@@ -226,6 +228,24 @@ typedef struct _apConn_connRequest_t
     TI_CHAR                    		*dataBuf;       /** (Optional) attached buffer - can be used in case of vendor specific IEs in Association Request Packet */
 } apConn_connRequest_t;
 
+
+typedef enum
+{
+	ReAssoc = 0
+	/* The methods below are for 11r support only
+	FT_initial_ReAssoc,
+    FT_over_the_air,
+    FT_over_DS */
+} ETransitionMethod;
+
+
+typedef struct _TargetAP_t
+{
+    apConn_connRequest_t    connRequest;
+	ETransitionMethod 	    transitionMethod;
+	bssEntry_t		        newAP;
+} TargetAp_t;
+
 /*---------------------------*/
 /* External data definitions */
 /*---------------------------*/
@@ -280,9 +300,9 @@ TI_STATUS apConn_getRoamThresholds(TI_HANDLE hAPConnection, roamingMngrThreshold
  * \sa
  */
 TI_STATUS apConn_registerRoamMngrCallb(TI_HANDLE hAPConnection, 
-                                       apConn_roamMngrCallb_t roamEventCallb,
-                                       apConn_roamMngrCallb_t reportStatusCallb,
-                                       apConn_roamMngrCallb_t returnNeighborApsCallb);
+                                       apConn_roamMngrEventCallb_t  roamEventCallb,
+                                       apConn_roamMngrCallb_t       reportStatusCallb,
+                                       apConn_roamMngrCallb_t       returnNeighborApsCallb);
 /**
  * \brief	Un-Register Roaming Manager Callbacks
  * 

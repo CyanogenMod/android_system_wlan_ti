@@ -134,10 +134,10 @@ TI_UINT32 EvHandlerRegisterEvent(TI_HANDLE hEvHandler, TI_UINT8* pData, TI_UINT3
     if(ModuleIndex == MAX_REGISTERED_MODULES)
     {
         PRINTF(DBG_INIT_WARNING, (" EvHandlerRegisterEvent %d"
-                               "Registration queue full or event already registered! %x address \n",
-                               pEvParams->uEventType,
-                               (int)(pEvHandler->RegistrationArray[pEvParams->uEventType][ModuleIndex].uEventID)));
-        return (TI_UINT32)STATUS_INVALID_PARAMETER;
+								  "Registration queue full or event already registered!\n",
+								  pEvParams->uEventType));
+
+		return (TI_UINT32)STATUS_INVALID_PARAMETER;
     }
 
     os_memoryCopy(pEvHandler->hOs,(TI_UINT8*)&pEvHandler->RegistrationArray[pEvParams->uEventType][ModuleIndex],
@@ -195,10 +195,10 @@ TI_UINT32 EvHandlerUnRegisterEvent(TI_HANDLE hEvHandler, TI_HANDLE uEventID)
     if(ModuleIndex == MAX_REGISTERED_MODULES)
     {
         PRINTF(DBG_INIT_ERROR, (" EvHandlerUnRegisterEvent %d"
-                               "Registration queue doesn't hold this event! %x address \n",
-                               pEvParams->uEventType,
-                               (int)(pEvHandler->RegistrationArray[pEvParams->uEventType][ModuleIndex].uEventID)));
-        return (TI_UINT32)STATUS_INVALID_PARAMETER;
+                               "Registration queue doesn't hold this event!\n",
+                               pEvParams->uEventType ));
+
+		return (TI_UINT32)STATUS_INVALID_PARAMETER;
     }
 
     pEvHandler->RegistrationArray[pEvParams->uEventType][ModuleIndex].uEventID = NULL;

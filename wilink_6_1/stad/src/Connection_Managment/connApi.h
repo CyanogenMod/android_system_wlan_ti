@@ -111,6 +111,13 @@ void conn_timeout (TI_HANDLE hConn, TI_BOOL bTwdInitOccured);
 TI_STATUS conn_ibssStaJoined (TI_HANDLE hConn);
 TI_STATUS conn_ibssMerge (TI_HANDLE hConn);
 
+TI_STATUS conn_reportMlmeStatus(TI_HANDLE			hConn,
+							mgmtStatus_e		status,
+							TI_UINT16				uStatusCode);
+
+TI_STATUS conn_reportRsnStatus(TI_HANDLE			hConn,
+							mgmtStatus_e		status);
+
 #ifdef REPORT_LOG
 void conn_ibssPrintStatistics (TI_HANDLE hConn);
 #endif /*TI_DBG*/

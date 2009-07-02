@@ -152,22 +152,22 @@ TI_HANDLE auth_create(TI_HANDLE hOs)
 */
 TI_STATUS auth_unload(TI_HANDLE hAuth)
 {
-	TI_STATUS status;
-	auth_t *pHandle;
+    TI_STATUS 		status;
+	auth_t		*pHandle;
 
 	pHandle = (auth_t*)hAuth;
 
-	if (!pHandle)
-		return TI_NOK;
-
 	status = fsm_Unload(pHandle->hOs, pHandle->pAuthSm);
-	if (status != TI_OK)
+    if (status != TI_OK)
 	{
 		/* report failure but don't stop... */
-		TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "AUTH_SM: Error releasing FSM memory \n");
+TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "AUTH_SM: Error releasing FSM memory \n");
 	}
 	
-	tmr_DestroyTimer (pHandle->hAuthSmTimer);
+	if (pHandle->hAuthSmTimer)
+	{
+		tmr_DestroyTimer (pHandle->hAuthSmTimer);
+	}
 	
 	os_memoryFree(pHandle->hOs, pHandle, sizeof(auth_t));
 
@@ -195,12 +195,12 @@ TI_STATUS auth_unload(TI_HANDLE hAuth)
 void auth_init (TStadHandlesList *pStadHandles)
 {
 	auth_t *pHandle = (auth_t*)(pStadHandles->hAuth);
-
+	
 	pHandle->hMlme   = pStadHandles->hMlmeSm;
 	pHandle->hRsn    = pStadHandles->hRsn;
 	pHandle->hReport = pStadHandles->hReport;
 	pHandle->hOs     = pStadHandles->hOs;
-  	pHandle->hTimer  = pStadHandles->hTimer;
+    pHandle->hTimer  = pStadHandles->hTimer;
 }
 
 
@@ -249,13 +249,10 @@ TI_STATUS auth_SetDefaults (TI_HANDLE hAuth, authInitParams_t *pAuthInitParams)
 */
 TI_STATUS auth_start(TI_HANDLE hAuth)
 {
-	auth_t		*pHandle;
-
-	pHandle = (auth_t*)hAuth;
+	auth_t		*pHandle = (auth_t*)hAuth;
 
 	if (pHandle == NULL)
     {
-        TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "auth_start: pHandle == NULL\n");
 		return TI_NOK;
     }
 

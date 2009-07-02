@@ -113,7 +113,8 @@ static char* sRecoveryTriggersNames [MAX_FAILURE_EVENTS] =
     "POWER_SAVE_FAILURE",
     "MEASUREMENT_FAILURE",
     "BUS_FAILURE",
-    "HW_WD_EXPIRE"
+    "HW_WD_EXPIRE",
+    "RX_XFER_FAILURE"
 };
 #endif
 

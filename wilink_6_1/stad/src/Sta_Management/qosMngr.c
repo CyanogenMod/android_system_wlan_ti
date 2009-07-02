@@ -262,7 +262,6 @@ TI_STATUS qosMngr_SetDefaults (TI_HANDLE hQosMngr, QosMngrInitParams_t *pQosMngr
 
     /* No template has been set for UPSD */
     pQosMngr->QosNullDataTemplateUserPriority = 0xFF;
-
 	
 	TWD_CfgBurstMode(pQosMngr->hTWD, pQosMngr->bEnableBurstMode);
 
@@ -356,8 +355,11 @@ TI_STATUS qosMngr_SetDefaults (TI_HANDLE hQosMngr, QosMngrInitParams_t *pQosMngr
                       sizeof(TAcQosParams));
 
 		/* will be config only after select */
-		verifyAndConfigQosParams(hQosMngr,&(pQosMngr->acParams[acID].acQosParams));
-		
+		if(verifyAndConfigQosParams(hQosMngr,&(pQosMngr->acParams[acID].acQosParams)) != TI_OK)
+		{
+			TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "qosMngr_SetDefault: failed on verifyAndConfigQosParams\n");
+		}
+
         /*
 		 * setting ps mode per ac for protocol specific configuration.
 		 */
@@ -929,7 +931,6 @@ TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "qosMngr_getTspecParams: user p
 		if(acID > QOS_HIGHEST_AC_INDEX)
 		{
             TRACE1(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "qosMngr_setParams :Error  trying to set invalid acId: %d param\n",pParamInfo->content.qosApQosParams.uAC);
-
 			return (PARAM_VALUE_NOT_VALID);
 		}
 		if(pQosMngr->isConnected == TI_FALSE)
@@ -1307,8 +1308,7 @@ static TI_STATUS  verifyAndConfigQosParams(qosMngr_t *pQosMngr,TAcQosParams *pAc
 	if(pAcQosParams->ac >  MAX_NUM_OF_AC - 1 )
     {
         TRACE1(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "verifyAndConfigQosParams :Error  trying to set invalid ac : %d param",pAcQosParams->ac);
-
-       return (PARAM_VALUE_NOT_VALID);
+        return (PARAM_VALUE_NOT_VALID);
 	}
     /*  verification is unnecessary due to limited range of pAcQosParams->aifsn data type (TI_UINT8)
 	if(pAcQosParams->aifsn >  QOS_AIFS_MAX )
@@ -1321,22 +1321,19 @@ static TI_STATUS  verifyAndConfigQosParams(qosMngr_t *pQosMngr,TAcQosParams *pAc
 	if(pAcQosParams->cwMax >  QOS_CWMAX_MAX )
     {
         TRACE1(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "verifyAndConfigQosParams :Error  trying to set invalid cwMax : %d param",pAcQosParams->cwMax);
-
-       return (PARAM_VALUE_NOT_VALID);
+        return (PARAM_VALUE_NOT_VALID);
 	}
 
 	if(pAcQosParams->cwMin >  QOS_CWMIN_MAX )
     {
         TRACE1(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "verifyAndConfigQosParams :Error  trying to set invalid cwMax : %d param",pAcQosParams->cwMax);
-
-       return (PARAM_VALUE_NOT_VALID);
+        return (PARAM_VALUE_NOT_VALID);
 	}
 
 	if(pAcQosParams->txopLimit >  QOS_TX_OP_LIMIT_MAX )
     {
         TRACE1(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "verifyAndConfigQosParams :Error  trying to set invalid txopLimit : %d param",pAcQosParams->txopLimit);
-
-           return (PARAM_VALUE_NOT_VALID);
+        return (PARAM_VALUE_NOT_VALID);
 	}
 
 	acQosParams.ac = pAcQosParams->ac;
@@ -2889,23 +2886,23 @@ static TI_STATUS qosMngr_getCurrAcStatus(TI_HANDLE hQosMngr, OS_802_11_AC_UPSD_S
     qosMngr_t *pQosMngr = (qosMngr_t *)hQosMngr;
 
 	/* check AC validity */
-	if( pAcStatusParams->uAC > MAX_NUM_OF_AC )
+	if( pAcStatusParams->uAC > MAX_NUM_OF_AC - 1 )
 	{	
-TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "qosMngr_getCurrAcStatus: acID > 3 -> Ignore !!!");
+		TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "qosMngr_getCurrAcStatus: acID > 3 -> Ignore !!!");
 		return TI_NOK;
 	}
 
 	/* check if sta is connected to AP */
 	if(pQosMngr->isConnected == TI_FALSE)
 	{	
-TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "qosMngr_getCurrAcStatus: pQosMngr->connected == TI_FALSE -> Ignore !!!");
+		TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "qosMngr_getCurrAcStatus: pQosMngr->connected == TI_FALSE -> Ignore !!!");
 		return NOT_CONNECTED;
 	}
 	
 	 /* check if AP support QOS_WME */
 	if(pQosMngr->activeProtocol != QOS_WME)
 	{	
-TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "qosMngr_getCurrAcStatus: activeProtocol != QOS_WME -> Ignore !!!");
+		TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "qosMngr_getCurrAcStatus: activeProtocol != QOS_WME -> Ignore !!!");
 		return NO_QOS_AP;
 	}
 

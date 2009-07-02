@@ -47,6 +47,7 @@ TI_STATUS cmdBld_ItrIeMediumOccupancy          	(TI_HANDLE hCmdBld, TInterrogate
 TI_STATUS cmdBld_ItrIeTfsDtim                  	(TI_HANDLE hCmdBld, TInterrogateCmdCbParams interogateCmdCBParams);
 TI_STATUS cmdBld_ItrIeNoiseHistogramResults    	(TI_HANDLE hCmdBld, TInterrogateCmdCbParams noiseHistCBParams);
 TI_STATUS cmdBld_ItrIePowerConsumptionstat      (TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb, void* pCb);
+TI_STATUS cmdBld_ItrIeRateParams                (TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb, void* pCb);
 
 #endif
 

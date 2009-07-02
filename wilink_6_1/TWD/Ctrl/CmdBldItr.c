@@ -94,6 +94,14 @@ TI_STATUS cmdBld_ItrSg (TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb, void* pCb)
     return cmdBld_ItrIeSg (hCmdBld, fCb, hCb, pCb);
 }
 
+TI_STATUS cmdBld_ItrRateParams(TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb, void* pCb)
+{
+    TTwd *pTWD = (TTwd *)hCmdBld;
+
+    return cmdBld_ItrIeRateParams (pTWD->hCmdBld, fCb, hCb, pCb);
+
+}
+
 
 TI_STATUS cmdBld_ItrStatistics (TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb, void *pCb)
 {

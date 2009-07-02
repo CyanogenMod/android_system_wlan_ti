@@ -165,6 +165,7 @@ void os_printf(const char *format ,...)
         }
         
         from_new_line = ( msg[message_len] == '\n' );
+	va_end(ap);
 }
 
 /****************************************************************************************
@@ -879,9 +880,12 @@ void os_Trace (TI_HANDLE OsContext, TI_UINT32 uLevel, TI_UINT32 uFileId, TI_UINT
 			break;
 
         default:
+            va_end(list);
             return;
 		}     
 	}
+
+	va_end(list);
 
     /* Send the trace message to the logger */
 	SendLoggerData(OsContext, aMsg, (TI_UINT16)uMsgLen);

@@ -68,12 +68,8 @@ void        sme_Destroy (TI_HANDLE hSme);
 void        sme_Start (TI_HANDLE hSme);
 void        sme_Stop (TI_HANDLE hSme);
 void        sme_Restart (TI_HANDLE hSme);
-TI_STATUS   sme_SetParam (TI_HANDLE hSme, paramInfo_t *pParam);
-TI_STATUS   sme_GetParam (TI_HANDLE hSme, paramInfo_t *pParam);
 void        sme_ScanResultCB (TI_HANDLE hSme, EScanCncnResultStatus eStatus,
                               TScanFrameInfo* pFrameInfo, TI_UINT16 uSPSStatus);
-void        sme_AppScanResult (TI_HANDLE hSme, EScanCncnResultStatus eStatus,
-                               TScanFrameInfo* pFrameInfo);
 void        sme_MeansurementScanResult (TI_HANDLE hSme, EScanCncnResultStatus eStatus, TScanFrameInfo* pFrameInfo);
 void        sme_ReportConnStatus (TI_HANDLE hSme, mgmtStatus_e eStatusType, TI_UINT32 uStatusCode);
 void        sme_ReportApConnStatus (TI_HANDLE hSme, mgmtStatus_e eStatusType, TI_UINT32 uStatusCode);

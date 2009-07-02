@@ -991,7 +991,7 @@ static void printDesiredParams(siteMgr_t *pSiteMgr, TI_HANDLE hCmdDispatch)
 
 static void printPrimarySiteDesc(siteMgr_t *pSiteMgr, OS_802_11_BSSID *pPrimarySiteDesc)
 {
-	TI_UINT8 rateIndex;
+	TI_UINT8 rateIndex, maxNumOfRates;
 	char ssid[MAX_SSID_LEN + 1];
 
 	
@@ -1029,8 +1029,9 @@ static void printPrimarySiteDesc(siteMgr_t *pSiteMgr, OS_802_11_BSSID *pPrimaryS
 		WLAN_OS_REPORT(("BSS Type				INFRASTRUCTURE\n"));
 
 
+	maxNumOfRates = sizeof(pPrimarySiteDesc->SupportedRates) / sizeof(pPrimarySiteDesc->SupportedRates[0]);
 	/* SupportedRates */
-	for (rateIndex = 0; rateIndex < DOT11_MAX_SUPPORTED_RATES; rateIndex++)
+	for (rateIndex = 0; rateIndex < maxNumOfRates; rateIndex++)
 	{
 		if (pPrimarySiteDesc->SupportedRates[rateIndex] != 0)
 			WLAN_OS_REPORT(("Rate					0x%X\n", pPrimarySiteDesc->SupportedRates[rateIndex]));

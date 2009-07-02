@@ -45,7 +45,7 @@
 #include "DrvMain.h"
 #include "connApi.h"
 #include "siteMgrApi.h"
-#include "sme.h"
+#include "smeApi.h"
 #include "SoftGeminiApi.h"
 #include "roamingMngrApi.h"
 #include "qosMngr_API.h"
@@ -59,6 +59,7 @@
 #include "DrvMainModules.h"
 #include "CmdDispatcher.h"
 #include "healthMonitor.h"
+#include "currBssApi.h"
 #ifdef XCC_MODULE_INCLUDED
 #include "XCCMngr.h"
 #endif
@@ -101,6 +102,7 @@ typedef struct
     TI_HANDLE    hPowerMgr;
     TI_HANDLE    hHealthMonitor;
     TI_HANDLE    hTWD;
+    TI_HANDLE    hCurrBss;
 #ifdef XCC_MODULE_INCLUDED
     TI_HANDLE    hXCCMngr;
 #endif
@@ -198,6 +200,7 @@ void cmdDispatch_Init (TStadHandlesList *pStadHandles)
     pCmdDispatch->hPowerMgr         = pStadHandles->hPowerMgr;
     pCmdDispatch->hHealthMonitor    = pStadHandles->hHealthMonitor;
     pCmdDispatch->hTWD              = pStadHandles->hTWD;
+    pCmdDispatch->hCurrBss          = pStadHandles->hCurrBss;
 #ifdef XCC_MODULE_INCLUDED
     pCmdDispatch->hXCCMngr          = pStadHandles->hXCCMngr;
 #endif
@@ -347,6 +350,10 @@ static void cmdDispatch_ConfigParamsAccessTable (TCmdDispatchObj *pCmdDispatch)
     pCmdDispatch->paramAccessTable[GET_PARAM_MODULE_NUMBER(HEALTH_MONITOR_MODULE_PARAM) - 1].set = healthMonitor_SetParam;
     pCmdDispatch->paramAccessTable[GET_PARAM_MODULE_NUMBER(HEALTH_MONITOR_MODULE_PARAM) - 1].get = healthMonitor_GetParam;
     pCmdDispatch->paramAccessTable[GET_PARAM_MODULE_NUMBER(HEALTH_MONITOR_MODULE_PARAM) - 1].handle = pCmdDispatch->hHealthMonitor;
+
+    pCmdDispatch->paramAccessTable[GET_PARAM_MODULE_NUMBER(CURR_BSS_MODULE_PARAM) - 1].set = currBSS_setParam;
+    pCmdDispatch->paramAccessTable[GET_PARAM_MODULE_NUMBER(CURR_BSS_MODULE_PARAM) - 1].get = currBSS_getParam;
+    pCmdDispatch->paramAccessTable[GET_PARAM_MODULE_NUMBER(CURR_BSS_MODULE_PARAM) - 1].handle = pCmdDispatch->hCurrBss;
 }
 
 

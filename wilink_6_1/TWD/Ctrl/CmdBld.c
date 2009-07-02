@@ -42,6 +42,7 @@
 #include "osApi.h"
 #include "tidef.h"
 #include "report.h"
+#include "public_infoele.h"
 #include "CmdBld.h"
 #include "txResult_api.h"
 #include "CmdBldCmdIE.h"
@@ -219,7 +220,7 @@ TI_STATUS cmdBld_Restart (TI_HANDLE hCmdBld)
      * This call is to have the recovery process in AWAKE mode 
      * Prevent move to sleep mode between Hw_Init and Fw_Init
      */
-	cmdBld_CfgIeSleepAuth (hCmdBld, DB_WLAN(hCmdBld).minPowerLevel, NULL, NULL);
+    cmdBld_CfgIeSleepAuth (hCmdBld, DB_WLAN(hCmdBld).minPowerLevel, NULL, NULL);
 
     return TI_OK;
 }
@@ -366,6 +367,34 @@ static TI_STATUS __cmd_burst_mode_enable (TI_HANDLE hCmdBld)
 							  (void *)cmdBld_ConfigSeq, 
 							  hCmdBld);
 }
+
+
+static TI_STATUS __cmd_smart_reflex_debug (TI_HANDLE hCmdBld)
+{
+    return cmdBld_CfgIeSRDebug (hCmdBld,
+							   &(DB_SR(hCmdBld).tSmartReflexDebugParams),
+							   (void *)cmdBld_ConfigSeq,
+							   hCmdBld);
+}
+
+
+static TI_STATUS __cmd_smart_reflex_state (TI_HANDLE hCmdBld)
+{
+	return cmdBld_CfgIeSRState (hCmdBld,
+							   (uint8) DB_SR(hCmdBld).tSmartReflexState.enable,
+							   (void *)cmdBld_ConfigSeq,
+							   hCmdBld);
+}
+
+
+static TI_STATUS __cmd_smart_reflex_params (TI_HANDLE hCmdBld)
+{
+	return cmdBld_CfgIeSRParams (hCmdBld,
+							     &(DB_SR(hCmdBld).tSmartReflexParams),
+							    (void *)cmdBld_ConfigSeq,
+							     hCmdBld);
+}
+
 
 static TI_STATUS __cmd_disconn (TI_HANDLE hCmdBld)
 {
@@ -910,7 +939,7 @@ static TI_STATUS __cfg_bcn_brc_options (TI_HANDLE hCmdBld)
 
     /* Beacon broadcast options */
     powerMgmtConfig.BcnBrcOptions = DB_WLAN(hCmdBld).BcnBrcOptions;
-	powerMgmtConfig.ConsecutivePsPollDeliveryFailureThreshold = DB_WLAN(hCmdBld).ConsecutivePsPollDeliveryFailureThreshold;
+    powerMgmtConfig.ConsecutivePsPollDeliveryFailureThreshold = DB_WLAN(hCmdBld).ConsecutivePsPollDeliveryFailureThreshold;
 
     return cmdBld_CfgIeBcnBrcOptions (hCmdBld, 
                                       &powerMgmtConfig, 
@@ -1141,23 +1170,6 @@ static TI_STATUS __cfg_platform_params (TI_HANDLE hCmdBld)
 
 static TI_STATUS __cfg_tx_rate_policy (TI_HANDLE hCmdBld)
 {
-#ifdef BTH_COEXISTENCE /* it's solution for collision of BTH and WLAN (by Gemini protocol), we don't need it */
-    /* Soft Gemini Section */
-    /* ReConfig the BTH enable */
-    param.paramType = HAL_CTRL_SG_ENABLE_PARAM;
-    param.content.SoftGeminiEnable = DB_WLAN(hCmdBld).SoftGeminiEnable;
-    TWD_SetParam (pRecoveryCtrl->hTWD, &param);
-
-    /* ReConfig the BTH config */
-    param.paramType = HAL_CTRL_SG_CONFIG_PARAM;
-    os_memoryCopy (pRecoveryCtrl->hOs, 
-                   &param.content.SoftGeminiParam, 
-                   &DB_WLAN(pRecoveryCtrl->hCmdBld).SoftGeminiParams, 
-                   sizeof(TSoftGeminiParams));
-    TWD_SetParam (pRecoveryCtrl->hTWD, &param);
-#endif
-
-
     /*
      * JOIN (use the local parameters), otherwize the CORE will reconnect
      */
@@ -1393,10 +1405,10 @@ static TI_STATUS __cmd_keep_alive_params(TI_HANDLE hCmdBld)
 
 static TI_STATUS __cmd_power_auth (TI_HANDLE hCmdBld)
 {
-	return cmdBld_CfgIeSleepAuth (hCmdBld, 
-							  DB_WLAN(hCmdBld).minPowerLevel, 
-							  (void *)cmdBld_ConfigSeq, 
-							  hCmdBld);
+    return cmdBld_CfgIeSleepAuth (hCmdBld,
+                              DB_WLAN(hCmdBld).minPowerLevel,
+                              (void *)cmdBld_ConfigSeq,
+                              hCmdBld);
 }
 
 static TI_STATUS __cmd_start_join (TI_HANDLE hCmdBld)
@@ -1515,43 +1527,122 @@ static TI_STATUS __cfg_ht_information (TI_HANDLE hCmdBld)
 
 static TI_STATUS __cfg_ba_set_session (TI_HANDLE hCmdBld)
 {
+	TI_STATUS tRes = TI_NOK;
+
     if (DB_WLAN(hCmdBld).bJoin)
     {
         TI_UINT32 uTid;
+		TI_UINT32 uLastTid = MAX_NUM_OF_802_1d_TAGS; /* initial value is "not found" */
 
-        for (uTid = 0; uTid < MAX_NUM_OF_802_1d_TAGS; ++uTid)
+		/* Look through configured BA sessions in data base to find the last set TID */
+        for (uTid = 0; uTid < MAX_NUM_OF_802_1d_TAGS; uTid++)
         {
-            /* set BA initiator */
-            if (DB_BSS(hCmdBld).bBaInitiator[uTid])
+            /* Is BA initiator or responder configured? */
+            if (DB_BSS(hCmdBld).bBaInitiator[uTid] || DB_BSS(hCmdBld).bBaResponder[uTid])
             {
-                return cmdBld_CfgIeSetBaSession (hCmdBld, 
-                                                 ACX_BA_SESSION_INITIATOR_POLICY,
-                                                 uTid,               
-                                                 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uTid].uPolicy,             
-                                                 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uTid].aMacAddress,                
-                                                 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uTid].uWinSize,          
-                                                 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uTid].uInactivityTimeout,
-                                                 (void *)cmdBld_ConfigSeq, 
-                                                 hCmdBld);              
+				uLastTid = uTid;
             }
+		}
 
-            /* set BA Responder */
-            if (DB_BSS(hCmdBld).bBaResponder[uTid])
-            {
-                return cmdBld_CfgIeSetBaSession (hCmdBld, 
-                                                 ACX_BA_SESSION_RESPONDER_POLICY,
-                                                 uTid,               
-                                                 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uTid].uPolicy,             
-                                                 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uTid].aMacAddress,                
-                                                 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uTid].uWinSize,          
-                                                 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uTid].uInactivityTimeout,
-                                                 (void *)cmdBld_ConfigSeq, 
-                                                 hCmdBld);              
-            }
-        }
-    }
+		if (uLastTid != MAX_NUM_OF_802_1d_TAGS)
+		{
+			/* At least one TID is set */
+			for (uTid = 0; uTid < uLastTid; ++uTid)
+			{
+				if (DB_BSS(hCmdBld).bBaInitiator[uTid])
+				{
+					/* set BA Initiator */
+					tRes = cmdBld_CfgIeSetBaSession (hCmdBld,
+													 ACX_BA_SESSION_INITIATOR_POLICY,
+													 uTid,
+													 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uTid].uPolicy,
+													 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uTid].aMacAddress,
+													 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uTid].uWinSize,
+													 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uTid].uInactivityTimeout,
+													 NULL,
+													 NULL);
+					if (tRes != TI_OK)
+					{
+						return tRes;
+					}
+				}
 
-    return TI_NOK;
+				if (DB_BSS(hCmdBld).bBaResponder[uTid])
+				{
+					/* set BA Responder */
+					tRes = cmdBld_CfgIeSetBaSession (hCmdBld,
+													 ACX_BA_SESSION_RESPONDER_POLICY,
+													 uTid,
+													 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uTid].uPolicy,
+													 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uTid].aMacAddress,
+													 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uTid].uWinSize,
+													 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uTid].uInactivityTimeout,
+													 NULL,
+													 NULL);
+					if (tRes != TI_OK)
+					{
+						return tRes;
+					}
+				}
+			}
+
+			/* Push the last command of the last TID entry into queue with a call back function */
+			if (DB_BSS(hCmdBld).bBaInitiator[uLastTid] && !(DB_BSS(hCmdBld).bBaResponder[uLastTid]))
+			{
+
+				tRes = cmdBld_CfgIeSetBaSession (hCmdBld,
+												 ACX_BA_SESSION_INITIATOR_POLICY,
+												 uLastTid,
+												 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uLastTid].uPolicy,
+												 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uLastTid].aMacAddress,
+												 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uLastTid].uWinSize,
+												 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uLastTid].uInactivityTimeout,
+												 (void *)cmdBld_ConfigSeq,
+												 hCmdBld);
+			}
+			else if (!(DB_BSS(hCmdBld).bBaInitiator[uLastTid]) && DB_BSS(hCmdBld).bBaResponder[uLastTid])
+			{
+				tRes = cmdBld_CfgIeSetBaSession (hCmdBld,
+												 ACX_BA_SESSION_RESPONDER_POLICY,
+												 uLastTid,
+												 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uLastTid].uPolicy,
+												 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uLastTid].aMacAddress,
+												 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uLastTid].uWinSize,
+												 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uLastTid].uInactivityTimeout,
+												 (void *)cmdBld_ConfigSeq,
+												 hCmdBld);
+			}
+			else
+			{
+				/* Initiator & Responsder policy is to be set */
+				tRes = cmdBld_CfgIeSetBaSession (hCmdBld,
+												 ACX_BA_SESSION_INITIATOR_POLICY,
+												 uLastTid,
+												 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uLastTid].uPolicy,
+												 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uLastTid].aMacAddress,
+												 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uLastTid].uWinSize,
+												 DB_BSS(hCmdBld).tBaSessionInitiatorPolicy[uLastTid].uInactivityTimeout,
+												 NULL,
+												 NULL);
+				if (tRes != TI_OK)
+				{
+					return tRes;
+				}
+
+				tRes = cmdBld_CfgIeSetBaSession (hCmdBld,
+												 ACX_BA_SESSION_RESPONDER_POLICY,
+												 uLastTid,
+												 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uLastTid].uPolicy,
+												 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uLastTid].aMacAddress,
+												 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uLastTid].uWinSize,
+												 DB_BSS(hCmdBld).tBaSessionResponderPolicy[uLastTid].uInactivityTimeout,
+												 (void *)cmdBld_ConfigSeq,
+												 hCmdBld);
+			}
+		}
+	}
+
+	return tRes;
 }
 
 
@@ -1639,12 +1730,37 @@ static TI_STATUS __cfg_sg_enable (TI_HANDLE hCmdBld)
 static TI_STATUS __cfg_sg (TI_HANDLE hCmdBld)
 {    
     /* Set the Soft Gemini params */
+
+	/* signals the FW to config all the paramters from the DB*/
+	DB_WLAN(hCmdBld).SoftGeminiParams.paramIdx = 0xFF;
+
     return cmdBld_CfgSg (hCmdBld, 
                          &DB_WLAN(hCmdBld).SoftGeminiParams, 
                          (void *)cmdBld_ConfigSeq, 
+                         hCmdBld);
+}
+
+
+static TI_STATUS __cfg_fm_coex (TI_HANDLE hCmdBld)
+{
+    /* Set the FM Coexistence params */
+    return cmdBld_CfgIeFmCoex (hCmdBld,
+                               &DB_WLAN(hCmdBld).tFmCoexParams,
+                               (void *)cmdBld_ConfigSeq,
                                hCmdBld);
 }
 
+
+static TI_STATUS __cfg_rate_management (TI_HANDLE hCmdBld)
+{
+	DB_RM(hCmdBld).rateMngParams.paramIndex = 0xFF;
+
+	return cmdBld_CfgIeRateMngDbg(hCmdBld,
+						   &DB_RM(hCmdBld).rateMngParams,
+						   (void *)cmdBld_ConfigSeq,
+						   hCmdBld);
+
+}
 
 
 TI_STATUS __itr_memory_map (TI_HANDLE hCmdBld)
@@ -1699,6 +1815,7 @@ static const TCmdCfgFunc aCmdIniSeq [] =
     __cfg_sg,
     __cfg_sg_enable,
     __cfg_coex_activity_table,
+    __cfg_fm_coex,
     __cfg_cca_threshold,
     __cfg_bcn_brc_options,
     __cmd_enable_rx,
@@ -1745,9 +1862,12 @@ static const TCmdCfgFunc aCmdIniSeq [] =
     __cfg_ps_rx_streaming,
     __cfg_rx_data_filter,
     __cmd_sta_state,
-	__cmd_power_auth,
-
+    __cmd_power_auth,
 	__cmd_burst_mode_enable,
+    __cmd_smart_reflex_state,
+    __cmd_smart_reflex_params,
+    __cmd_smart_reflex_debug,
+	__cfg_rate_management,
     /* Interrogate command -> must be last!! */
     __itr_memory_map,
 
