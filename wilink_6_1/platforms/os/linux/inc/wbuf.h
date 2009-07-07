@@ -85,10 +85,10 @@ typedef struct
 #define WBUF_PRIORITY(pWbuf)		( ((struct sk_buff *)(pWbuf))->priority )
 #define WBUF_DEV(pWbuf)				( ((struct sk_buff *)(pWbuf))->dev )
 #define WBUF_DEV_SET(pWbuf,pDev)    ( ((struct sk_buff *)(pWbuf))->dev) = ((struct net_device *)(pDev))
-#ifdef  HOST_PLATFORM_OMAP3430 || HOST_PLATFORM_ZOOM2 || HOST_PLATFORM_ZOOM1
-#define WBUF_STAMP(pWbuf)			( ((struct sk_buff *)(pWbuf))->tstamp.tv.nsec )
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 #define WBUF_STAMP(pWbuf)			( ((struct sk_buff *)(pWbuf))->tstamp.off_usec )
+#else
+#define WBUF_STAMP(pWbuf)			( ((struct sk_buff *)(pWbuf))->tstamp.tv.nsec )
 #endif
 #define WBUF_CB(pWbuf)				( ((struct sk_buff *)(pWbuf))->cb )
 #define WBUF_PKT_TYPE(pWbuf)		( ((WBUF_PARAMS *)&(WBUF_CB(pWbuf)))->pktType )

@@ -997,11 +997,13 @@ static int wpa_driver_tista_associate(void *priv,
 {
 	struct wpa_driver_ti_data *drv = priv;
 	int allow_unencrypted_eapol;
-	int value;
+	int value /*, flags*/;
 
         TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
+	/* wpa_driver_wext_get_ifflags(drv->wext, &flags);
+	wpa_driver_wext_set_ifflags(drv->wext, flags | IFF_UP); */
 	/* Set driver network mode (Adhoc/Infrastructure) according to supplied parameters */
-	wpa_driver_wext_set_mode( drv->wext, params->mode);
+	wpa_driver_wext_set_mode(drv->wext, params->mode);
 
 	if (params->wpa_ie == NULL || params->wpa_ie_len == 0)
 		value = IW_AUTH_WPA_VERSION_DISABLED;

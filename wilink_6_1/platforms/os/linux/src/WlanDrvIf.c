@@ -71,7 +71,7 @@
 #include "tracebuf_api.h"
 #endif
 /* PM hooks */
-#if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2  || defined HOST_PLATFORM_ZOOM1
+#ifdef TI_CONFIG_PM_HOOKS
 #include "SdioDrv.h"
 static int wlanDrvIf_pm_resume(void);
 static int wlanDrvIf_pm_suspend(void);
@@ -299,15 +299,15 @@ static void wlanDrvIf_PollIrqHandler (TI_HANDLE parm)
  * \param  hDrv - The driver object handle
  * \return void
  * \sa     
- */ 
-#if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-static void wlanDrvIf_DriverTask(struct work_struct *work)
-{
-    TWlanDrvIfObj *drv = container_of(work, TWlanDrvIfObj, tWork);
-#else
+ */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 static void wlanDrvIf_DriverTask (void *hDrv)
 {
     TWlanDrvIfObj *drv = (TWlanDrvIfObj *)hDrv;
+#else
+static void wlanDrvIf_DriverTask(struct work_struct *work)
+{
+    TWlanDrvIfObj *drv = container_of(work, TWlanDrvIfObj, tWork);
 #endif
 
     #ifdef STACK_PROFILE
@@ -644,7 +644,7 @@ int wlanDrvIf_Open (struct net_device *dev)
     netif_start_queue (dev);
 
     /* register 3430 PM hooks in our SDIO driver */
-#if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
+#ifdef TI_CONFIG_PM_HOOKS
 #ifndef CONFIG_MMC_EMBEDDED_SDIO
     sdioDrv_register_pm(wlanDrvIf_pm_resume, wlanDrvIf_pm_suspend);
 #endif
@@ -681,7 +681,7 @@ int wlanDrvIf_Stop (struct net_device *dev)
 
 int wlanDrvIf_Release (struct net_device *dev)
 {
-    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
+    /* TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev); */
 
     ti_dprintf (TIWLAN_LOG_OTHER, "wlanDrvIf_Release()\n");
 
@@ -690,8 +690,8 @@ int wlanDrvIf_Release (struct net_device *dev)
     return 0;
 }
 
-/* 3430 PM hooksr */
-#if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
+/* 3430 PM hooks */
+#ifdef TI_CONFIG_PM_HOOKS
 static int wlanDrvIf_pm_resume(void)
 {
     return(wlanDrvIf_Start(pDrvStaticHandle->netdev));
@@ -734,8 +734,8 @@ static int wlanDrvIf_SetupNetif (TWlanDrvIfObj *drv)
 /* the following is required on at least BSP 23.8 and higher.
     Without it, the Open function of the driver will not be called
     when trying to 'ifconfig up' the interface */
-#if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-   dev->validate_addr	= NULL;
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
+   dev->validate_addr = NULL;
 #endif
 
    NETDEV_SET_PRIVATE(dev,drv);
@@ -762,7 +762,7 @@ static int wlanDrvIf_SetupNetif (TWlanDrvIfObj *drv)
 /*
 On the latest Kernel there is no more support for the below macro.
 */
-#ifdef  HOST_PLATFORM_OMAP2430
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
    SET_MODULE_OWNER (dev);
 #endif
    return 0;
@@ -836,10 +836,10 @@ static int wlanDrvIf_Create (void)
 	wake_lock_init(&drv->wl_wifi, WAKE_LOCK_SUSPEND, "wifi_wake");
 	wake_lock_init(&drv->wl_rxwake, WAKE_LOCK_SUSPEND, "wifi_rx_wake");
 #endif
-#if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-	INIT_WORK(&drv->tWork, wlanDrvIf_DriverTask); // Dm: Kernel version !!!
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	INIT_WORK(&drv->tWork, wlanDrvIf_DriverTask, (void *)drv);
+#else
+	INIT_WORK(&drv->tWork, wlanDrvIf_DriverTask);
 #endif
 	spin_lock_init (&drv->lock);
 
@@ -851,10 +851,10 @@ static int wlanDrvIf_Create (void)
 	}
 
 	/* Create the events socket interface */
-#if defined HOST_PLATFORM_OMAP3430 || defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-	drv->wl_sock = netlink_kernel_create(&init_net, NETLINK_USERSOCK, 0, NULL, NULL, THIS_MODULE ); // Dm: Version !!!
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 	drv->wl_sock = netlink_kernel_create( NETLINK_USERSOCK, 0, NULL, THIS_MODULE );
+#else
+	drv->wl_sock = netlink_kernel_create(&init_net, NETLINK_USERSOCK, 0, NULL, NULL, THIS_MODULE );
 #endif
 	if (drv->wl_sock == NULL) {
 	        ti_dprintf (TIWLAN_LOG_ERROR, "netlink_kernel_create() failed !\n");
@@ -885,9 +885,6 @@ static int wlanDrvIf_Create (void)
 		ti_dprintf (TIWLAN_LOG_ERROR, "wlanDrvIf_Create(): Failed to register interrupt handler!\n");
 		return rc;
 	}
-#ifdef  HOST_PLATFORM_OMAP2430
-	/* Dm:    set_irq_type (drv->irq, IRQT_FALLING); */
-#endif
 #endif  /* PRIODIC_INTERRUPT */
 	return 0;
 }

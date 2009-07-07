@@ -187,7 +187,7 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
             if (res == TI_OK)
             {
                 wrqu->freq.m = Param.content.siteMgrCurrentChannel;
-                wrqu->freq.e = 0;
+                wrqu->freq.e = 3;
                 wrqu->freq.i = 0;
             }
             break;
@@ -552,7 +552,7 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
 			int ies_offset;
             int i;
 
-#if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
             struct iw_request_info info;
             info.cmd= SIOCGIWSCAN;
             info.flags=0;
@@ -600,32 +600,29 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
                 iwe.u.ap_addr.sa_family = ARPHRD_ETHER;
                 iwe.len = IW_EV_ADDR_LEN;
                 os_memoryCopy(pCmdInterpret->hOs, iwe.u.ap_addr.sa_data, &my_current->MacAddress, ETH_ALEN);
-#if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-                event = iwe_stream_add_event(&info,event, end_buf, &iwe, IW_EV_ADDR_LEN);
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
                 event = iwe_stream_add_event(event, end_buf, &iwe, IW_EV_ADDR_LEN);
+#else
+                event = iwe_stream_add_event(&info,event, end_buf, &iwe, IW_EV_ADDR_LEN);
 #endif
-
                 /* Add SSID */
                 iwe.cmd = SIOCGIWESSID;
                 iwe.u.data.flags = 1;
                 iwe.u.data.length = min((TI_UINT8)my_current->Ssid.SsidLength, (TI_UINT8)32);
-#if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-                event = iwe_stream_add_point(&info,event, end_buf, &iwe, my_current->Ssid.Ssid);
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)		
                 event = iwe_stream_add_point(event, end_buf, &iwe, my_current->Ssid.Ssid);
+#else
+                event = iwe_stream_add_point(&info,event, end_buf, &iwe, my_current->Ssid.Ssid);
 #endif
-
                 /* Add the protocol name (BSS support for A/B/G) */
                 os_memorySet (pCmdInterpret->hOs, &iwe, 0, sizeof(iwe));
                 iwe.cmd = SIOCGIWNAME;
                 os_memoryCopy(pCmdInterpret->hOs, (void*)iwe.u.name, (void*)ieee80211_modes[my_current->NetworkTypeInUse], IFNAMSIZ);
-#if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-	         event = iwe_stream_add_event(&info,event, end_buf, &iwe, IW_EV_CHAR_LEN);
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
                 event = iwe_stream_add_event(event, end_buf, &iwe, IW_EV_CHAR_LEN);
+#else
+		event = iwe_stream_add_event(&info,event, end_buf, &iwe, IW_EV_CHAR_LEN);
 #endif
-
                 /* add mode (infrastructure or Adhoc) */
                 os_memorySet (pCmdInterpret->hOs, &iwe, 0, sizeof(iwe));
                 iwe.cmd = SIOCGIWMODE;
@@ -635,37 +632,35 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
                     iwe.u.mode = IW_MODE_INFRA;
                 else
                     iwe.u.mode = IW_MODE_AUTO;
-#if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-                event = iwe_stream_add_event(&info,event, end_buf, &iwe, IW_EV_UINT_LEN);
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
                 event = iwe_stream_add_event(event, end_buf, &iwe, IW_EV_UINT_LEN);
+#else
+                event = iwe_stream_add_event(&info,event, end_buf, &iwe, IW_EV_UINT_LEN);
 #endif
 
                 /* add freq */
                 os_memorySet (pCmdInterpret->hOs, &iwe, 0, sizeof(iwe));
                 iwe.cmd = SIOCGIWFREQ;
                 iwe.u.freq.m = my_current->Configuration.Union.channel;
-                iwe.u.freq.e = 3; /* Dm: Frequency divider */
+                iwe.u.freq.e = 3; /* Frequency divider */
                 iwe.u.freq.i = 0;
                 iwe.len = IW_EV_FREQ_LEN;
-#if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-                event = iwe_stream_add_event(&info,event, end_buf, &iwe, IW_EV_FREQ_LEN);
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
                 event = iwe_stream_add_event(event, end_buf, &iwe, IW_EV_FREQ_LEN);
+#else
+                event = iwe_stream_add_event(&info,event, end_buf, &iwe, IW_EV_FREQ_LEN);
 #endif
-
                 /* Add quality statistics */
                 iwe.cmd = IWEVQUAL;
                 iwe.u.qual.updated = IW_QUAL_LEVEL_UPDATED | IW_QUAL_QUAL_INVALID | IW_QUAL_NOISE_INVALID | IW_QUAL_DBM;
                 iwe.u.qual.qual = 0;
                 iwe.u.qual.level = my_current->Rssi;
                 iwe.u.qual.noise = 0;
-#if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-                event = iwe_stream_add_event(&info,event, end_buf, &iwe, IW_EV_QUAL_LEN);
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
                 event = iwe_stream_add_event(event, end_buf, &iwe, IW_EV_QUAL_LEN);
+#else
+                event = iwe_stream_add_event(&info,event, end_buf, &iwe, IW_EV_QUAL_LEN);
 #endif
-
                 /* Add encryption capability */
                 iwe.cmd = SIOCGIWENCODE;
                 if ((my_current->Capabilities >> CAP_PRIVACY_SHIFT) & CAP_PRIVACY_MASK)
@@ -673,10 +668,10 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
                 else
                     iwe.u.data.flags = IW_ENCODE_DISABLED;
                 iwe.u.data.length = 0;
-#if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-                event = iwe_stream_add_point(&info,event, end_buf, &iwe, NULL);
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
                 event = iwe_stream_add_point(event, end_buf, &iwe, NULL);
+#else
+                event = iwe_stream_add_point(&info,event, end_buf, &iwe, NULL);
 #endif
 
                 /* add rate */
@@ -688,10 +683,10 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
                     if (my_current->SupportedRates[j])
                     {
                         iwe.u.bitrate.value = ((my_current->SupportedRates[j] & 0x7f) * 500000);
-#if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-                        current_val = iwe_stream_add_value(&info,event, current_val,end_buf, &iwe,IW_EV_PARAM_LEN);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
+			current_val = iwe_stream_add_value(event, current_val, end_buf, &iwe,IW_EV_PARAM_LEN);
 #else
-						current_val = iwe_stream_add_value(event, current_val, end_buf, &iwe,IW_EV_PARAM_LEN);
+                        current_val = iwe_stream_add_value(&info,event, current_val,end_buf, &iwe,IW_EV_PARAM_LEN);
 #endif
                     }
                 }
@@ -703,10 +698,10 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
                 iwe.cmd = IWEVCUSTOM;
                 sprintf(buf, "Bcn int = %d ms ", my_current->Configuration.BeaconPeriod);
                 iwe.u.data.length = strlen(buf);
-#if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-                event = iwe_stream_add_point(&info,event, end_buf, &iwe, buf);
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
                 event = iwe_stream_add_point(event, end_buf, &iwe, buf);
+#else
+                event = iwe_stream_add_point(&info,event, end_buf, &iwe, buf);
 #endif
                 /* add RSN IE */
                 os_memorySet (pCmdInterpret->hOs, &iwe, 0, sizeof(iwe));
@@ -729,10 +724,10 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
 				{
                     iwe.u.data.flags = 1;
                     iwe.u.data.length = ies_offset;
-#if defined HOST_PLATFORM_ZOOM2 || defined HOST_PLATFORM_ZOOM1
-                     event = iwe_stream_add_point(&info, event, end_buf, &iwe, (char *)ies);
-#else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
                      event = iwe_stream_add_point(event, end_buf, &iwe, (char *)ies);
+#else
+                     event = iwe_stream_add_point(&info, event, end_buf, &iwe, (char *)ies);
 #endif
 				}
 
@@ -1767,4 +1762,3 @@ void *cmdInterpret_GetStat (TI_HANDLE hCmdInterpret)
     }
     return (void *)NULL;
 }
-
