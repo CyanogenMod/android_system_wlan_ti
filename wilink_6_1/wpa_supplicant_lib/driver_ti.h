@@ -35,6 +35,7 @@
 #include "wpa.h"
 #include "wpa_ctrl.h"
 #include "wpa_supplicant_i.h"
+#include "config_ssid.h"
 
 #include "cu_ostypes.h"
 #include "STADExternalIf.h"

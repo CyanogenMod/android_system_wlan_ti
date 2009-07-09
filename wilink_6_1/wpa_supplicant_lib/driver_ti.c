@@ -249,8 +249,9 @@ Return Value: 0 on success, -1 on failure
 static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 {
 	struct wpa_driver_ti_data *drv = (struct wpa_driver_ti_data *)priv;
+	struct wpa_supplicant *wpa_s = (struct wpa_supplicant *)(drv->ctx);
 	scan_Params_t scanParams;
-	int res;
+	int scan_type, res;
 
 	wpa_printf(MSG_DEBUG, "%s", __func__);
         TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
@@ -258,16 +259,22 @@ static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 #if 1
 	os_memset(&scanParams, 0, sizeof(scan_Params_t));
 	/* Initialize scan parameters */
-	ti_init_scan_params(&scanParams, drv->scan_type, drv->scan_channels);
+	scan_type = drv->scan_type;
+	if (wpa_s->prev_scan_ssid != BROADCAST_SSID_SCAN)
+		if (wpa_s->prev_scan_ssid->scan_ssid)
+			scan_type = SCAN_TYPE_NORMAL_ACTIVE;
+	ti_init_scan_params(&scanParams, scan_type, drv->scan_channels);
 
 	drv->force_merge_flag = 0;
 	if( ssid && ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.str) ) {
 		os_memcpy(scanParams.desiredSsid.str, ssid, ssid_len);
+		if (ssid_len < sizeof(scanParams.desiredSsid.str))
+			scanParams.desiredSsid.str[ssid_len] = '\0';
 		scanParams.desiredSsid.len = ssid_len;
 		drv->force_merge_flag = 1;
 	}
 
-	drv->last_scan = drv->scan_type; /* Remember scan type for last scan */
+	drv->last_scan = scan_type; /* Remember scan type for last scan */
 
 	res = wpa_driver_tista_private_send(priv, TIWLN_802_11_START_APP_SCAN_SET, &scanParams, sizeof(scanParams), NULL, 0);
 
@@ -593,6 +600,13 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 		wpa_printf(MSG_DEBUG,"Scan Active command");
 		drv->scan_type =  SCAN_TYPE_NORMAL_ACTIVE;
 		ret = 0;
+	}
+	else if( os_strcasecmp(cmd, "scan-mode") == 0 ) {
+		wpa_printf(MSG_DEBUG,"Scan Mode command");
+		ret = snprintf(buf, buf_len, "ScanMode = %u\n", drv->scan_type);
+		if (ret < (int)buf_len) {
+			return( ret );
+		}
 	}
 	else if( os_strcasecmp(cmd, "linkspeed") == 0 ) {
 		struct wpa_supplicant *wpa_s = (struct wpa_supplicant *)(drv->ctx);
