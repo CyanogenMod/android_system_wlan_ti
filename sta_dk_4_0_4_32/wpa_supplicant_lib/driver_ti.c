@@ -772,13 +772,14 @@ Return Value: None
 -----------------------------------------------------------------------------*/
 static void ti_init_scan_params( scan_Params_t *pScanParams,
                                  scan_Policy_t *pScanPolicy,
+                                 int scan_type,
                                  struct wpa_driver_ti_data *myDrv )
 {
     UINT32 scanMaxDwellTime = SME_SCAN_BG_MAX_DWELL_TIME_DEF;
     UINT32 scanMinDwellTime = SME_SCAN_BG_MIN_DWELL_TIME_DEF;
     UINT32 chanMaxDwellTime = SME_SCAN_BG_MIN_DWELL_TIME_DEF;
     UINT32 chanMinDwellTime = SME_SCAN_BG_MIN_DWELL_TIME_DEF / 2;
-    int scanType = myDrv->scan_type;
+    int scanType = scan_type;
     int noOfChan = myDrv->scan_channels;
     int btCoexScan = myDrv->btcoex_scan;
     int i, j;
@@ -888,19 +889,27 @@ static int wpa_driver_tista_scan( void *priv, const UINT8 *ssid, size_t ssid_len
     scan_Params_t scanParams;
     scan_Policy_t scanPolicy;
     struct wpa_driver_ti_data *myDrv = (struct wpa_driver_ti_data *)priv;
-    int ret;
+    struct wpa_supplicant *wpa_s = (struct wpa_supplicant *)(myDrv->hWpaSupplicant);
+    int scan_type, ret;
 
     wpa_printf(MSG_DEBUG,"wpa_driver_tista_scan called");
     /* If driver is not initialized yet - we cannot access it so return */
     TI_CHECK_DRIVER( myDrv->driver_is_loaded, -1 );
 
-    ti_init_scan_params( &scanParams, &scanPolicy, myDrv );
+    scan_type = myDrv->scan_type;
+    if (wpa_s->prev_scan_ssid != BROADCAST_SSID_SCAN)
+        if (wpa_s->prev_scan_ssid->scan_ssid)
+            scan_type = SCAN_TYPE_NORMAL_ACTIVE;
+
+    ti_init_scan_params( &scanParams, &scanPolicy, scan_type, myDrv );
     if (ssid && ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.ssidString)) {
         os_memcpy(scanParams.desiredSsid.ssidString, ssid, ssid_len);
+	if (ssid_len < sizeof(scanParams.desiredSsid.ssidString))
+            scanParams.desiredSsid.ssidString[ssid_len] = '\0';
         scanParams.desiredSsid.len = ssid_len;
     }
     TI_SetScanPolicy( myDrv->hDriver, (UINT8 *)&scanPolicy, sizeof(scan_Policy_t) );
-    myDrv->last_scan = myDrv->scan_type; /* Remember scan type for last scan */
+    myDrv->last_scan = scan_type; /* Remember scan type for last scan */
     ret = TI_StartScan( myDrv->hDriver, (scan_Params_t *)&scanParams );
     return( TI2WPA_STATUS(ret) );
 }
@@ -1484,30 +1493,30 @@ Return Value: 0 - success, -1 - error
 static int prepare_filter_struct( void *priv, int type,
                                   TIWLAN_DATA_FILTER_REQUEST *dfreq_ptr )
 {
-    const u8 *macaddr;
+    u8 *macaddr = NULL;
     size_t len = 0;
-    u8 mask;
+    u8 mask = 0;
     int ret = -1;
 
     wpa_printf(MSG_ERROR, "%s: type=%d", __func__, type);
     switch (type ) {
       case RX_SELF_FILTER:
-        macaddr = wpa_driver_tista_get_mac_addr(priv);
+        macaddr = (u8 *)wpa_driver_tista_get_mac_addr(priv);
         len = MAC_ADDR_LEN;
         mask = 0x3F; /* 6 bytes */
         break;
       case RX_BROADCAST_FILTER:
-        macaddr = (const u8 *)"\xFF\xFF\xFF\xFF\xFF\xFF";
+        macaddr = (u8 *)"\xFF\xFF\xFF\xFF\xFF\xFF";
         len = MAC_ADDR_LEN;
         mask = 0x3F; /* 6 bytes */
         break;
       case RX_IPV4_MULTICAST_FILTER:
-        macaddr = (const u8 *)"\x01\x00\x5E";
+        macaddr = (u8 *)"\x01\x00\x5E";
         len = 3;
         mask = 0x7; /* 3 bytes */
         break;
       case RX_IPV6_MULTICAST_FILTER:
-        macaddr = (const u8 *)"\x33\x33";
+        macaddr = (u8 *)"\x33\x33";
         len = 2;
         mask = 0x3; /* 2 bytes */
         break;
