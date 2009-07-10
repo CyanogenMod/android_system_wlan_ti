@@ -810,7 +810,10 @@ int cmdInterpret_convertAndExecute(TI_HANDLE hCmdInterpret, TConfigCommand *cmdO
 
             os_memoryCopy(pCmdInterpret->hOs, cmdObj->buffer2, &Param.content.siteMgrCurrentSSID.str, Param.content.siteMgrCurrentSSID.len );
 
-            extra[Param.content.siteMgrCurrentSSID.len] = 0;
+            if (Param.content.siteMgrCurrentSSID.len < MAX_SSID_LEN)
+            {
+                extra[Param.content.siteMgrCurrentSSID.len] = 0;
+            }
             wrqu->essid.length = Param.content.siteMgrCurrentSSID.len;
         }
 

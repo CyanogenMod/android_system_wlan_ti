@@ -56,13 +56,16 @@
 #define UPDATE_AGILITY(pSite, pFrame)                   pSite->agility = (((pFrame)->parsedIEs->content.iePacket.capabilities >> CAP_AGILE_SHIFT) & CAP_AGILE_MASK) ? TI_TRUE : TI_FALSE
 #define UPDATE_SLOT_TIME(pSite, pFrame)                 pSite->newSlotTime = (((pFrame)->parsedIEs->content.iePacket.capabilities >> CAP_SLOT_TIME_SHIFT) & CAP_SLOT_TIME_MASK) ? PHY_SLOT_TIME_SHORT : PHY_SLOT_TIME_LONG
 #define UPDATE_PROTECTION(pSite, pFrame)                pSite->useProtection = ((pFrame)->parsedIEs->content.iePacket.useProtection)
+
 #define UPDATE_SSID(pScanResultTable, pSite, pFrame)    if ((pFrame)->parsedIEs->content.iePacket.pSsid != NULL) { \
                                                             pSite->ssid.len = (pFrame)->parsedIEs->content.iePacket.pSsid->hdr[1]; \
                                                             os_memoryCopy(pScanResultTable->hOS, \
                                                                 (void *)pSite->ssid.str, \
                                                                 (void *)(pFrame)->parsedIEs->content.iePacket.pSsid->serviceSetId, \
                                                                 (pFrame)->parsedIEs->content.iePacket.pSsid->hdr[1]); \
-                                                            pSite->ssid.str[pSite->ssid.len] = '\0';}
+                                                            if (pSite->ssid.len < MAX_SSID_LEN) \
+                                                                pSite->ssid.str[pSite->ssid.len] = '\0';}
+
 #define UPDATE_CHANNEL(pSite, pFrame, rxChannel)        if ((pFrame)->parsedIEs->content.iePacket.pDSParamsSet == NULL) \
                                                             pSite->channel = rxChannel; \
                                                         else \
