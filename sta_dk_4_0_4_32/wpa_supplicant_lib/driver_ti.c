@@ -890,21 +890,25 @@ static int wpa_driver_tista_scan( void *priv, const UINT8 *ssid, size_t ssid_len
     scan_Policy_t scanPolicy;
     struct wpa_driver_ti_data *myDrv = (struct wpa_driver_ti_data *)priv;
     struct wpa_supplicant *wpa_s = (struct wpa_supplicant *)(myDrv->hWpaSupplicant);
-    int scan_type, ret;
+    int scan_type, ret, scan_probe_flag = 0;
 
     wpa_printf(MSG_DEBUG,"wpa_driver_tista_scan called");
     /* If driver is not initialized yet - we cannot access it so return */
     TI_CHECK_DRIVER( myDrv->driver_is_loaded, -1 );
 
     scan_type = myDrv->scan_type;
-    if (wpa_s->prev_scan_ssid != BROADCAST_SSID_SCAN)
+    if (wpa_s->prev_scan_ssid != BROADCAST_SSID_SCAN) {
         if (wpa_s->prev_scan_ssid->scan_ssid)
             scan_type = SCAN_TYPE_NORMAL_ACTIVE;
+        else
+            scan_probe_flag = 0;
+    }
 
     ti_init_scan_params( &scanParams, &scanPolicy, scan_type, myDrv );
 
     myDrv->force_merge_flag = 0;
-    if (ssid && ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.ssidString)) {
+    if ((scan_probe_flag && ssid) &&
+        (ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.ssidString))) {
         os_memcpy(scanParams.desiredSsid.ssidString, ssid, ssid_len);
 	if (ssid_len < sizeof(scanParams.desiredSsid.ssidString))
             scanParams.desiredSsid.ssidString[ssid_len] = '\0';

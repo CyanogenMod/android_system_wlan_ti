@@ -251,7 +251,7 @@ static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 	struct wpa_driver_ti_data *drv = (struct wpa_driver_ti_data *)priv;
 	struct wpa_supplicant *wpa_s = (struct wpa_supplicant *)(drv->ctx);
 	scan_Params_t scanParams;
-	int scan_type, res;
+	int scan_type, res, scan_probe_flag = 1;
 
 	wpa_printf(MSG_DEBUG, "%s", __func__);
         TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
@@ -260,13 +260,17 @@ static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 	os_memset(&scanParams, 0, sizeof(scan_Params_t));
 	/* Initialize scan parameters */
 	scan_type = drv->scan_type;
-	if (wpa_s->prev_scan_ssid != BROADCAST_SSID_SCAN)
+	if (wpa_s->prev_scan_ssid != BROADCAST_SSID_SCAN) {
 		if (wpa_s->prev_scan_ssid->scan_ssid)
 			scan_type = SCAN_TYPE_NORMAL_ACTIVE;
+		else
+			scan_probe_flag = 0;
+	}
 	ti_init_scan_params(&scanParams, scan_type, drv->scan_channels);
 
 	drv->force_merge_flag = 0;
-	if( ssid && ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.str) ) {
+	if ((scan_probe_flag && ssid) &&
+	    (ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.str))) {
 		os_memcpy(scanParams.desiredSsid.str, ssid, ssid_len);
 		if (ssid_len < sizeof(scanParams.desiredSsid.str))
 			scanParams.desiredSsid.str[ssid_len] = '\0';
@@ -278,7 +282,7 @@ static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 
 	res = wpa_driver_tista_private_send(priv, TIWLN_802_11_START_APP_SCAN_SET, &scanParams, sizeof(scanParams), NULL, 0);
 
-	if( 0 != res )
+	if (0 != res)
 		wpa_printf(MSG_ERROR, "ERROR - Failed to do tista scan!");
 	else
 		wpa_printf(MSG_DEBUG, "wpa_driver_tista_scan success");
