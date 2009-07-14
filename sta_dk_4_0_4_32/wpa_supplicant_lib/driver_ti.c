@@ -902,11 +902,14 @@ static int wpa_driver_tista_scan( void *priv, const UINT8 *ssid, size_t ssid_len
             scan_type = SCAN_TYPE_NORMAL_ACTIVE;
 
     ti_init_scan_params( &scanParams, &scanPolicy, scan_type, myDrv );
+
+    myDrv->force_merge_flag = 0;
     if (ssid && ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.ssidString)) {
         os_memcpy(scanParams.desiredSsid.ssidString, ssid, ssid_len);
 	if (ssid_len < sizeof(scanParams.desiredSsid.ssidString))
             scanParams.desiredSsid.ssidString[ssid_len] = '\0';
         scanParams.desiredSsid.len = ssid_len;
+        myDrv->force_merge_flag = 1;
     }
     TI_SetScanPolicy( myDrv->hDriver, (UINT8 *)&scanPolicy, sizeof(scan_Policy_t) );
     myDrv->last_scan = scan_type; /* Remember scan type for last scan */
@@ -1067,7 +1070,7 @@ static int wpa_driver_tista_get_scan_results( void *priv,
         pBssid = (OS_802_11_BSSID_EX *)(((u8 *)pBssid) + pBssid->Length);
     }
     /* Merge new results with previous */
-    number_items = scan_merge( myDrv, results, 0, number_items, max_size );
+    number_items = scan_merge( myDrv, results, myDrv->force_merge_flag, number_items, max_size );
 
     qsort( results, number_items, sizeof(struct wpa_scan_result),
            wpa_driver_tista_scan_result_compare );
@@ -1363,6 +1366,7 @@ static void *wpa_driver_tista_init( void *priv, const char *ifname )
 
     /* Set default scan type */
     myDrv->scan_type = SCAN_TYPE_NORMAL_ACTIVE;
+    myDrv->force_merge_flag = 0;
     scan_init( myDrv );
 
     /* Set default amount of channels */
