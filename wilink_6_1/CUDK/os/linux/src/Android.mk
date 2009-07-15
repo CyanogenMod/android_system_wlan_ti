@@ -3,7 +3,7 @@ include $(CLEAR_VARS)
 
 STATIC_LIB ?= y
 DEBUG ?= y
-BUILD_SUPPL ?= y
+BUILD_SUPPL ?= n
 WPA_ENTERPRISE ?= y
 
 ifeq ($(DEBUG),y)
@@ -41,10 +41,9 @@ LOCAL_SRC_FILES:= \
 	ParsEvent.c \
 	osapi.c
 
-
 ifeq ($(BUILD_SUPPL), y)
 LOCAL_SRC_FILES += \
-        $(TI_SUPP_LIB_DIR)/wpa_ctrl.c
+	$(TI_SUPP_LIB_DIR)/wpa_ctrl.c
 endif
 
 LOCAL_C_INCLUDES := \

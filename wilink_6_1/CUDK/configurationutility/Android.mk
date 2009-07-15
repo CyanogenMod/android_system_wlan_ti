@@ -3,7 +3,7 @@ include $(CLEAR_VARS)
 
 STATIC_LIB ?= y
 DEBUG ?= y
-BUILD_SUPPL ?= y
+BUILD_SUPPL ?= n
 WPA_ENTERPRISE ?= y
 CONFIG_EAP_WSC ?= n
 HOST_PLATFORM ?= wipp
@@ -24,7 +24,7 @@ ifeq ($(DEBUG),y)
 else
   DEBUGFLAGS = -O2
 endif
-DEBUGFLAGS+= -DHOST_COMPILE
+DEBUGFLAGS += -DHOST_COMPILE
 
 
 DK_DEFINES =
@@ -79,8 +79,10 @@ LOCAL_LDLIBS += -lpthread
 LOCAL_STATIC_LIBRARIES = \
 	libtiOsLib
 
+ifeq ($(BUILD_SUPPL), y)
 LOCAL_SHARED_LIBRARIES = \
 	libwpa_client
+endif
 
 LOCAL_MODULE:= wlan_cu
 

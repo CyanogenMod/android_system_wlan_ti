@@ -36,6 +36,7 @@
 #include <linux/rtnetlink.h>
 #include <linux/wireless.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "TWDriver.h"
 #include "STADExternalIf.h"
@@ -81,7 +82,7 @@ static S32 CuWext_FillBssidList(struct iw_event *iwe, OS_802_11_BSSID_EX* bssidL
             break;
         case SIOCGIWNAME:
             {
-                int i;
+                unsigned i;
                 S8 buffer[IFNAMSIZ];
                 static const char *ieee80211_modes[] = {
                     "?", 
