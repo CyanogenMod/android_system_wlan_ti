@@ -45,7 +45,7 @@ typedef void *	TI_HANDLE;
 static unsigned long TIWLAN_MMC_CONTROLLER = 2; /* MMC3 */
 static unsigned long TIWLAN_MMC_CONTROLLER_BASE_ADDR = OMAP_HSMMC3_BASE;
 #define TIWLAN_MMC_CONTROLLER_BASE_SIZE	512
-#define TIWLAN_MMC_MAX_DMA		4096
+#define TIWLAN_MMC_MAX_DMA		8192
 static unsigned long TIWLAN_MMC_DMA_TX = OMAP34XX_DMA_MMC3_TX;
 static unsigned long TIWLAN_MMC_DMA_RX = OMAP34XX_DMA_MMC3_RX;
 static unsigned long OMAP_MMC_IRQ = INT_MMC3_IRQ;
