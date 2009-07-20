@@ -532,24 +532,41 @@ void SoftGemini_printParams(TI_HANDLE hSoftGemini)
 	WLAN_OS_REPORT(("[8]:  coexMaxConsecutiveBeaconMissPrecent = %d (%)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_BEACON_MISS_PERCENT]));
 	WLAN_OS_REPORT(("[9]:  coexAPRateAdapationThr = %d\n", SoftGeminiParam->coexParams[SOFT_GEMINI_RATE_ADAPT_THRESH]));
 	WLAN_OS_REPORT(("[10]: coexAPRateAdapationSnr = %d\n", SoftGeminiParam->coexParams[SOFT_GEMINI_RATE_ADAPT_SNR]));
-	WLAN_OS_REPORT(("[11]: coexWlanPsBtAclMinBR = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR]));
-	WLAN_OS_REPORT(("[12]: coexWlanPsBtAclMaxBR = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR]));
-	WLAN_OS_REPORT(("[13]: coexbtAclWlanPsMaxBR = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR]));
-	WLAN_OS_REPORT(("[14]: coexWlanPsBtAclMinEDR = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR]));
-	WLAN_OS_REPORT(("[15]: coexWlanPsBtAclMaxEDR = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR]));
-	WLAN_OS_REPORT(("[16]: coexbtAclWlanPsMaxEDR = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR]));
-	WLAN_OS_REPORT(("[17]: coexRxt = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_RXT]));
-	WLAN_OS_REPORT(("[18]: coexTxt = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_TXT]));
-	WLAN_OS_REPORT(("[19]: coexAdaptiveRxtTxt = %s \n", (SoftGeminiParam->coexParams[SOFT_GEMINI_ADAPTIVE_RXT_TXT]?"Enabled":"Disabled")));
-	WLAN_OS_REPORT(("[20]: coexPsPollTimeout = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_PS_POLL_TIMEOUT]));
-	WLAN_OS_REPORT(("[21]: coexUpsdTimeout = %d (msec) \n", SoftGeminiParam->coexParams[SOFT_GEMINI_UPSD_TIMEOUT]));
-	WLAN_OS_REPORT(("[22]: coexBtAclWlanActiveBtMax = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MAX]));
-	WLAN_OS_REPORT(("[23]: coexBtAclWlanActiveWlanMax = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_BT_ACL_WLAN_ACTIVE_MAX]));
+	WLAN_OS_REPORT(("[11]: coexWlanPsBtAclMasterMinBR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MIN_BR]));
+	WLAN_OS_REPORT(("[12]: coexWlanPsBtAclMasterMaxBR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MAX_BR]));
+	WLAN_OS_REPORT(("[13]: coexWlanPsMaxBtAclMasterBR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_MASTER_BR]));
+    WLAN_OS_REPORT(("[14]: coexWlanPsBtAclSlaveMinBR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MIN_BR]));
+    WLAN_OS_REPORT(("[15]: coexWlanPsBtAclSlaveMaxBR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MAX_BR]));
+    WLAN_OS_REPORT(("[16]: coexWlanPsMaxBtAclSlaveBR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_SLAVE_BR]));
+    WLAN_OS_REPORT(("[17]: coexWlanPsBtAclMasterMinEDR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MIN_EDR]));
+    WLAN_OS_REPORT(("[18]: coexWlanPsBtAclMasterMaxEDR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MAX_EDR]));
+    WLAN_OS_REPORT(("[19]: coexWlanPsMaxBtAclMasterEDR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_MASTER_EDR]));
+    WLAN_OS_REPORT(("[20]: coexWlanPsBtAclSlaveMinEDR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MIN_EDR]));
+    WLAN_OS_REPORT(("[21]: coexWlanPsBtAclSlaveMaxEDR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MAX_EDR]));
+    WLAN_OS_REPORT(("[22]: coexWlanPsMaxBtAclSlaveEDR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_SLAVE_EDR]));
+	WLAN_OS_REPORT(("[23]: coexRxt = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_RXT]));
+	WLAN_OS_REPORT(("[24]: coexTxt = %d (usec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_TXT]));
+	WLAN_OS_REPORT(("[25]: coexAdaptiveRxtTxt = %s \n", (SoftGeminiParam->coexParams[SOFT_GEMINI_ADAPTIVE_RXT_TXT]?"Enabled":"Disabled"))); 
+	WLAN_OS_REPORT(("[26]: coexPsPollTimeout = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_PS_POLL_TIMEOUT]));
+	WLAN_OS_REPORT(("[27]: coexUpsdTimeout = %d (msec) \n", SoftGeminiParam->coexParams[SOFT_GEMINI_UPSD_TIMEOUT]));
+	WLAN_OS_REPORT(("[28]: coexWlanActiveBtAclMasterMinEDR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MASTER_MIN_EDR]));
+	WLAN_OS_REPORT(("[29]: coexWlanActiveBtAclMasterMaxEDR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MASTER_MAX_EDR]));
+	WLAN_OS_REPORT(("[30]: coexWlanActiveMaxBtAclMasterEDR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_MASTER_EDR]));
+    WLAN_OS_REPORT(("[31]: coexWlanActiveBtAclSlaveMinEDR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MIN_EDR]));
+	WLAN_OS_REPORT(("[32]: coexWlanActiveBtAclSlaveMaxEDR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MAX_EDR]));
+    WLAN_OS_REPORT(("[33]: coexWlanActiveMaxBtAclSlaveEDR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_SLAVE_EDR]));
+    WLAN_OS_REPORT(("[34]: coexWlanActiveBtAclMinBR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MIN_BR]));
+    WLAN_OS_REPORT(("[35]: coexWlanActiveBtAclMaxBR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MAX_BR]));
+    WLAN_OS_REPORT(("[36]: coexWlanActiveMaxBtAclBR = %d (msec)\n", SoftGeminiParam->coexParams[SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_SLAVE_BR]));
+    WLAN_OS_REPORT(("[37]: coexTempParam1 = %d \n", SoftGeminiParam->coexParams[SOFT_GEMINI_TEMP_PARAM_1]));
+    WLAN_OS_REPORT(("[38]: coexTempParam2 = %d \n", SoftGeminiParam->coexParams[SOFT_GEMINI_TEMP_PARAM_2]));
+    WLAN_OS_REPORT(("[39]: coexTempParam3 = %d \n", SoftGeminiParam->coexParams[SOFT_GEMINI_TEMP_PARAM_3]));
+    WLAN_OS_REPORT(("[40]: coexTempParam4 = %d \n", SoftGeminiParam->coexParams[SOFT_GEMINI_TEMP_PARAM_4]));
+    WLAN_OS_REPORT(("[41]: coexTempParam5 = %d \n", SoftGeminiParam->coexParams[SOFT_GEMINI_TEMP_PARAM_5]));
 	WLAN_OS_REPORT(("Enable mode : %s\n", SoftGemini_ConvertModeToString(pSoftGemini->SoftGeminiEnable))); 
 	WLAN_OS_REPORT(("Driver Enabled : %s\n",(pSoftGemini->bDriverEnabled ? "YES" : "NO"))); 
 	WLAN_OS_REPORT(("Protective mode : %s\n", (pSoftGemini->bProtectiveMode ? "ON" : "OFF"))); 
     WLAN_OS_REPORT(("PsPoll failure active : %s\n", (pSoftGemini->bPsPollFailureActive ? "YES" : "NO"))); 
-
 
 #endif
 }

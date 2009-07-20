@@ -306,23 +306,41 @@ NDIS_STRING STRBThWlanCoexistcoexMaxConsecutiveBeaconMissPrecent   = NDIS_STRING
 NDIS_STRING STRBThWlanCoexistcoexAPRateAdapationThr   = NDIS_STRING_CONST( "coexAPRateAdapationThr" );
 NDIS_STRING STRBThWlanCoexistcoexAPRateAdapationSnr   = NDIS_STRING_CONST( "coexAPRateAdapationSnr" );
 
-
-NDIS_STRING STRBThWlanCoexistUpsdAclMinBR  = NDIS_STRING_CONST( "coexWlanPsBtAclMinBR" );
-NDIS_STRING STRBThWlanCoexistUpsdAclMaxBR  = NDIS_STRING_CONST( "coexWlanPsBtAclMaxBR" );
-NDIS_STRING STRBThWlanCoexistUpsdWlanMaxBR  = NDIS_STRING_CONST( "coexbtAclWlanPsMaxBR" );
-
-NDIS_STRING STRBThWlanCoexistUpsdAclMinEDR  = NDIS_STRING_CONST( "coexWlanPsBtAclMinEDR" );
-NDIS_STRING STRBThWlanCoexistUpsdAclMaxEDR  = NDIS_STRING_CONST( "coexWlanPsBtAclMaxEDR" );
-NDIS_STRING STRBThWlanCoexistUpsdWlanMaxEDR  = NDIS_STRING_CONST( "coexbtAclWlanPsMaxEDR" );
-
+NDIS_STRING STRBThWlanCoexistUpsdAclMasterMinBR  = NDIS_STRING_CONST( "coexWlanPsBtAclMasterMinBR" );
+NDIS_STRING STRBThWlanCoexistUpsdAclSlaveMinBR  = NDIS_STRING_CONST( "coexWlanPsBtAclSlaveMinBR" );
+NDIS_STRING STRBThWlanCoexistUpsdAclMasterMaxBR  = NDIS_STRING_CONST( "coexWlanPsBtAclMasterMaxBR" );
+NDIS_STRING STRBThWlanCoexistUpsdAclSlaveMaxBR  = NDIS_STRING_CONST( "coexWlanPsBtAclSlaveMaxBR" );
+NDIS_STRING STRBThWlanPsMaxBtAclMasterBR  = NDIS_STRING_CONST( "coexWlanPsMaxBtAclMasterBR" );
+NDIS_STRING STRBThWlanPsMaxBtAclSlaveBR  = NDIS_STRING_CONST( "coexWlanPsMaxBtAclSlaveBR" );
+NDIS_STRING STRBThWlanCoexistUpsdAclMasterMinEDR  = NDIS_STRING_CONST( "coexWlanPsBtAclMasterMinEDR" );
+NDIS_STRING STRBThWlanCoexistUpsdAclSlaveMinEDR  = NDIS_STRING_CONST( "coexWlanPsBtAclSlaveMinEDR" );
+NDIS_STRING STRBThWlanCoexistUpsdAclMasterMaxEDR  = NDIS_STRING_CONST( "coexWlanPsBtAclMasterMaxEDR" );
+NDIS_STRING STRBThWlanCoexistUpsdAclSlaveMaxEDR  = NDIS_STRING_CONST( "coexWlanPsBtAclSlaveMaxEDR" );
+NDIS_STRING STRBThWlanPsMaxBtAclMasterEDR  = NDIS_STRING_CONST( "coexWlanPsMaxBtAclMasterEDR" );
+NDIS_STRING STRBThWlanPsMaxBtAclSlaveEDR  = NDIS_STRING_CONST( "coexWlanPsMaxBtAclSlaveEDR" );
 
 NDIS_STRING STRBThWlanCoexistRxt  = NDIS_STRING_CONST( "coexRxt" );
 NDIS_STRING STRBThWlanCoexistTxt  = NDIS_STRING_CONST( "coexTxt" );
 NDIS_STRING STRBThWlanCoexistAdaptiveRxtTxt  = NDIS_STRING_CONST( "coexAdaptiveRxtTxt" );
 NDIS_STRING STRBThWlanCoexistPsPollTimeout  = NDIS_STRING_CONST( "coexPsPollTimeout" );
 NDIS_STRING STRBThWlanCoexistUpsdTimeout  = NDIS_STRING_CONST( "coexUpsdTimeout" );
-NDIS_STRING STRBThWlanCoexistBtAclWlanActiveBtMax  = NDIS_STRING_CONST( "coexBtAclWlanActiveBtMax" );
-NDIS_STRING STRBThWlanCoexistBtAclWlanActiveWlanMax  = NDIS_STRING_CONST( "coexBtAclWlanActiveWlanMax" );
+
+NDIS_STRING STRBThWlanCoexistWlanActiveBtAclMasterMinEDR  = NDIS_STRING_CONST( "coexWlanActiveBtAclMasterMinEDR" );
+NDIS_STRING STRBThWlanCoexistWlanActiveBtAclMasterMaxEDR  = NDIS_STRING_CONST( "coexWlanActiveBtAclMasterMaxEDR" );
+NDIS_STRING STRBThWlanCoexistWlanActiveMaxBtAclMasterEDR  = NDIS_STRING_CONST( "coexWlanActiveMaxBtAclMasterEDR" );
+NDIS_STRING STRBThWlanCoexistWlanActiveBtAclSlaveMinEDR  = NDIS_STRING_CONST( "coexWlanActiveBtAclSlaveMinEDR" );
+NDIS_STRING STRBThWlanCoexistWlanActiveBtAclSlaveMaxEDR  = NDIS_STRING_CONST( "coexWlanActiveBtAclSlaveMaxEDR" );
+NDIS_STRING STRBThWlanCoexistWlanActiveMaxBtAclSlaveEDR  = NDIS_STRING_CONST( "coexWlanActiveMaxBtAclSlaveEDR" );
+
+NDIS_STRING STRBThWlanCoexistWlanActiveBtAclMinBR  = NDIS_STRING_CONST( "coexWlanActiveBtAclMinBR" );
+NDIS_STRING STRBThWlanCoexistWlanActiveBtAclMaxBR  = NDIS_STRING_CONST( "coexWlanActiveBtAclMaxBR" );
+NDIS_STRING STRBThWlanCoexistWlanActiveMaxBtAclBR  = NDIS_STRING_CONST( "coexWlanActiveMaxBtAclBR" );
+
+NDIS_STRING STRBThWlanCoexTemp1  = NDIS_STRING_CONST( "coexTempParam1" );
+NDIS_STRING STRBThWlanCoexTemp2  = NDIS_STRING_CONST( "coexTempParam2" );
+NDIS_STRING STRBThWlanCoexTemp3  = NDIS_STRING_CONST( "coexTempParam3" );
+NDIS_STRING STRBThWlanCoexTemp4  = NDIS_STRING_CONST( "coexTempParam4" );
+NDIS_STRING STRBThWlanCoexTemp5  = NDIS_STRING_CONST( "coexTempParam5" );
 
 NDIS_STRING STRDisableSsidPending           = NDIS_STRING_CONST( "DisableSsidPending" );
 
@@ -1996,36 +2014,72 @@ regFillInitTable(
 							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_RATE_ADAPT_SNR]);
 
 
-	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclMinBR,
-							SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR_MAX,
-							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR],
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_BR]);
+    /* BR section */
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclMasterMinBR,
+							SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MIN_BR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MIN_BR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MIN_BR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MIN_BR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MIN_BR]);
 
-	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclMaxBR,
-							SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR_MAX,
-							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR],
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_BR]);
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclSlaveMinBR,
+							SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MIN_BR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MIN_BR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MIN_BR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MIN_BR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MIN_BR]);
 
-	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdWlanMaxBR,
-							SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR_DEF, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR_MIN, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR_MAX,
-							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR],
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_BR]);
 
-	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclMinEDR,
-							SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR_MAX,
-							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR],
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MIN_EDR]);
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclMasterMaxBR,
+							SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MAX_BR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MAX_BR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MAX_BR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MAX_BR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MAX_BR]);
 
-	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclMaxEDR,
-							SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR_MAX,
-							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR],
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MAX_EDR]);
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclSlaveMaxBR,
+							SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MAX_BR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MAX_BR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MAX_BR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MAX_BR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MAX_BR]);
 
-	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdWlanMaxEDR,
-							SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR_DEF, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR_MIN, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR_MAX,
-							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR],
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_EDR]);
 
+    regReadIntegerParameter(pAdapter, &STRBThWlanPsMaxBtAclMasterBR,
+							SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_MASTER_BR_DEF, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_MASTER_BR_MIN, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_MASTER_BR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_MASTER_BR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_MASTER_BR]);
+
+
+     regReadIntegerParameter(pAdapter, &STRBThWlanPsMaxBtAclSlaveBR,
+							SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_SLAVE_BR_DEF, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_SLAVE_BR_MIN, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_SLAVE_BR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_SLAVE_BR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_SLAVE_BR]);
+
+
+
+   /* EDR section */     
+   regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclMasterMinEDR,
+							SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MIN_EDR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MIN_EDR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MIN_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MIN_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MIN_EDR]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclSlaveMinEDR,
+							SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MIN_EDR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MIN_EDR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MIN_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MIN_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MIN_EDR]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclMasterMaxEDR,
+							SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MAX_EDR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MAX_EDR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MAX_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MAX_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_MASTER_MAX_EDR]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexistUpsdAclSlaveMaxEDR,
+							SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MAX_EDR_DEF, SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MAX_EDR_MIN, SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MAX_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MAX_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_BT_ACL_SLAVE_MAX_EDR]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanPsMaxBtAclMasterEDR,
+							SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_MASTER_EDR_DEF, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_MASTER_EDR_MIN, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_MASTER_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_MASTER_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_MASTER_EDR]);
+
+   regReadIntegerParameter(pAdapter, &STRBThWlanPsMaxBtAclSlaveEDR,
+							SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_SLAVE_EDR_DEF, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_SLAVE_EDR_MIN, SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_SLAVE_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_SLAVE_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_PS_MAX_BT_ACL_SLAVE_EDR]);
 
 	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistRxt,
 							SOFT_GEMINI_RXT_DEF, SOFT_GEMINI_RXT_MIN, SOFT_GEMINI_RXT_MAX,
@@ -2052,15 +2106,78 @@ regFillInitTable(
 							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_UPSD_TIMEOUT],
 							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_UPSD_TIMEOUT]);
 
-	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistBtAclWlanActiveBtMax,
-							SOFT_GEMINI_WLAN_ACTIVE_BT_MAX_DEF, SOFT_GEMINI_WLAN_ACTIVE_BT_MAX_MIN, SOFT_GEMINI_WLAN_ACTIVE_BT_MAX_MAX,
-							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MAX],
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MAX]);
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistWlanActiveBtAclMasterMinEDR,
+							SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MASTER_MIN_EDR_DEF, SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MASTER_MIN_EDR_MIN, SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MASTER_MIN_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MASTER_MIN_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MASTER_MIN_EDR]);
 
-	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistBtAclWlanActiveWlanMax,
-							SOFT_GEMINI_WLAN_ACTIVE_WLAN_MAX_DEF, SOFT_GEMINI_WLAN_ACTIVE_WLAN_MAX_MIN, SOFT_GEMINI_WLAN_ACTIVE_WLAN_MAX_MAX,
-							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_BT_ACL_WLAN_ACTIVE_MAX],
-							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_BT_ACL_WLAN_ACTIVE_MAX]);
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexistWlanActiveBtAclSlaveMinEDR,
+							SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MIN_EDR_DEF, SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MIN_EDR_MIN, SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MIN_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MIN_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MIN_EDR]);
+
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistWlanActiveBtAclMasterMaxEDR,
+							SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MASTER_MAX_EDR_DEF, SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MASTER_MAX_EDR_MIN, SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MASTER_MAX_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MASTER_MAX_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_MASTER_MAX_EDR]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexistWlanActiveBtAclSlaveMaxEDR,
+							SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MAX_EDR_DEF, SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MAX_EDR_MIN, SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MAX_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MAX_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MAX_EDR]);
+
+
+	regReadIntegerParameter(pAdapter, &STRBThWlanCoexistWlanActiveMaxBtAclMasterEDR,
+							SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_MASTER_EDR_DEF, SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_MASTER_EDR_MIN, SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_MASTER_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_MASTER_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_MASTER_EDR]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexistWlanActiveMaxBtAclSlaveEDR,
+							SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_SLAVE_EDR_DEF, SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_SLAVE_EDR_MIN, SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_SLAVE_EDR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_SLAVE_EDR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_SLAVE_EDR]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexistWlanActiveBtAclMinBR,
+							SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MIN_BR_DEF, SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MIN_BR_MIN, SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MIN_BR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MIN_BR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MIN_BR]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexistWlanActiveBtAclMaxBR,
+							SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MAX_BR_DEF, SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MAX_BR_MIN, SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MAX_BR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MAX_BR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_BT_ACL_SLAVE_MAX_BR]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexistWlanActiveMaxBtAclBR,
+							SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_SLAVE_BR_DEF, SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_SLAVE_BR_MIN, SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_SLAVE_BR_MAX,
+							sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_SLAVE_BR],
+							(TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_WLAN_ACTIVE_MAX_BT_ACL_SLAVE_BR]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexTemp1,
+                            SOFT_GEMINI_TEMP_PARAM_1_DEF, SOFT_GEMINI_TEMP_PARAM_1_MIN, SOFT_GEMINI_TEMP_PARAM_1_MAX,
+                            sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_TEMP_PARAM_1],
+                            (TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_TEMP_PARAM_1]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexTemp2,
+                            SOFT_GEMINI_TEMP_PARAM_2_DEF, SOFT_GEMINI_TEMP_PARAM_2_MIN, SOFT_GEMINI_TEMP_PARAM_2_MAX,
+                            sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_TEMP_PARAM_2],
+                            (TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_TEMP_PARAM_2]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexTemp3,
+                            SOFT_GEMINI_TEMP_PARAM_3_DEF, SOFT_GEMINI_TEMP_PARAM_3_MIN, SOFT_GEMINI_TEMP_PARAM_3_MAX,
+                            sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_TEMP_PARAM_3],
+                            (TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_TEMP_PARAM_3]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexTemp4,
+                            SOFT_GEMINI_TEMP_PARAM_4_DEF, SOFT_GEMINI_TEMP_PARAM_4_MIN, SOFT_GEMINI_TEMP_PARAM_4_MAX,
+                            sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_TEMP_PARAM_4],
+                            (TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_TEMP_PARAM_4]);
+
+    regReadIntegerParameter(pAdapter, &STRBThWlanCoexTemp5,
+                            SOFT_GEMINI_TEMP_PARAM_5_DEF, SOFT_GEMINI_TEMP_PARAM_5_MIN, SOFT_GEMINI_TEMP_PARAM_5_MAX,
+                            sizeof p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_TEMP_PARAM_5],
+                            (TI_UINT8*)&p->SoftGeminiInitParams.coexParams[SOFT_GEMINI_TEMP_PARAM_5]);;
+
 
     /* 
      * CoexActivity table 
