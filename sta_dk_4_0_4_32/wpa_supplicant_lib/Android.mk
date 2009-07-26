@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 LOCAL_PATH := $(call my-dir)
-STA_DK_ROOT = $(LOCAL_PATH)/../sta_dk_4_0_4_32
 
 # This makefile is only included if BOARD_WLAN_TI_STA_DK_ROOT is set,
 # and if we're not building for the simulator.
@@ -132,7 +131,7 @@ L_CFLAGS += -DCONFIG_DRIVER_CUSTOM -DHOST_COMPILE
 ifeq ($(notdir $(BOARD_WLAN_TI_STA_DK_ROOT)),sta_dk_5_0_0_94)
 L_CFLAGS += -DSTA_DK_VER_5_0_0_94 
 endif
-OBJS = driver_ti.c scanmerge.c ../../../core/adb/shlist.c
+OBJS = driver_ti.c scanmerge.c ../../../../core/adb/shlist.c
 
 ifdef CONFIG_NO_STDOUT_DEBUG
 L_CFLAGS += -DCONFIG_NO_STDOUT_DEBUG

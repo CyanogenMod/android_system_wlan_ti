@@ -47,11 +47,13 @@
 #include <cutils/properties.h>
 #endif
 /*-------------------------------------------------------------------*/
-#define TI_DRIVER_MSG_PORT      9000
-#define RX_SELF_FILTER          0
-#define RX_BROADCAST_FILTER     1
-#define TI2WPA_STATUS(s)        (((s) != OK) ? -1 : 0)
-#define TI_CHECK_DRIVER(f,r)    \
+#define TI_DRIVER_MSG_PORT       9000
+#define RX_SELF_FILTER           0
+#define RX_BROADCAST_FILTER      1
+#define RX_IPV4_MULTICAST_FILTER 2
+#define RX_IPV6_MULTICAST_FILTER 3
+#define TI2WPA_STATUS(s)         (((s) != OK) ? -1 : 0)
+#define TI_CHECK_DRIVER(f,r)     \
     if( !(f) ) { \
         wpa_printf(MSG_ERROR,"TI: Driver not initialized yet...aborting..."); \
         return( r ); \
@@ -132,6 +134,8 @@ void wpa_driver_tista_event_receive( IPC_EV_DATA *pData )
     echoserver.sin_addr.s_addr = inet_addr("127.0.0.1"); /* IP address */
     echoserver.sin_port = htons(TI_DRIVER_MSG_PORT);     /* server port */
 
+    res = sendto(mySuppl->driverEventsSocket, pData, msg_size, 0, (struct sockaddr *)&echoserver, sizeof(echoserver));
+    echoserver.sin_port = htons(TI_DRIVER_MSG_PORT + 1);
     res = sendto(mySuppl->driverEventsSocket, pData, msg_size, 0, (struct sockaddr *)&echoserver, sizeof(echoserver));
 }
 
@@ -1122,7 +1126,7 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
     switch( ((IPC_EVENT_PARAMS*)pData)->uEventType ) {
         case IPC_EVENT_ASSOCIATED:
             /* Associated event is called after successfull ASSOC_RSP packet is received */
-            wpa_printf(MSG_INFO,"wpa_supplicant - Associated");
+            wpa_printf(MSG_DEBUG,"wpa_supplicant - Associated");
 
             TI_GetBSSType( mySuppl->hDriver, &myBssType );
             wpa_printf(MSG_DEBUG,"myBssType = %d",myBssType);
@@ -1183,7 +1187,7 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
 
         case IPC_EVENT_DISASSOCIATED:
             if( mySuppl->block_disassoc_events != BLOCK_DISASSOC ) {
-               wpa_printf(MSG_INFO,"wpa_supplicant - Disassociated");
+               wpa_printf(MSG_DEBUG,"wpa_supplicant - Disassociated");
                wpa_supplicant_event( mySuppl->hWpaSupplicant, EVENT_DISASSOC, NULL );
             }
             else {
@@ -1192,7 +1196,7 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
             break;
 
         case IPC_EVENT_SCAN_COMPLETE:
-            wpa_printf(MSG_INFO,"wpa_supplicant - IPC_EVENT_SCAN_COMPLETE");
+            wpa_printf(MSG_DEBUG,"wpa_supplicant - IPC_EVENT_SCAN_COMPLETE");
             wpa_supplicant_event( mySuppl->hWpaSupplicant, EVENT_SCAN_RESULTS, NULL );
             break;
 
@@ -1201,14 +1205,14 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
             break;
 
         case IPC_EVENT_EAPOL:
-            wpa_printf(MSG_INFO,"wpa_supplicant - EAPOL");
+            wpa_printf(MSG_DEBUG,"wpa_supplicant - EAPOL");
             buf = pData->uBuffer;
             wpa_supplicant_rx_eapol( mySuppl->hWpaSupplicant, (UINT8 *)(buf + MAC_ADDR_LEN),
                                      (UINT8 *)(buf + ETHERNET_HDR_LEN), (pData->uBufferSize - ETHERNET_HDR_LEN) );
             break;
 
         case IPC_EVENT_MEDIA_SPECIFIC:
-            wpa_printf(MSG_INFO,"wpa_supplicant - Media_Specific");
+            wpa_printf(MSG_DEBUG,"wpa_supplicant - Media_Specific");
             bufLong = (UINT32 *)pData->uBuffer;
             /* Check for Authentication type messages from driver */
             if( (*bufLong) == os802_11StatusType_Authentication ) {
@@ -1227,15 +1231,15 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
 
         case IPC_EVENT_LINK_SPEED:
             bufLong = (UINT32 *)pData->uBuffer;
-            wpa_printf(MSG_INFO,"wpa_supplicant - Link Speed = %u MB/s", ((*bufLong) / 2));
+            wpa_printf(MSG_DEBUG,"wpa_supplicant - Link Speed = %u MB/s", ((*bufLong) / 2));
             /* wpa_msg(mySuppl->hWpaSupplicant, MSG_INFO, WPA_EVENT_LINK_SPEED "%u MB/s", ((*bufLong) / 2)); */
             mySuppl->link_speed = (unsigned)((*bufLong) / 2);
             break;
 
         case IPC_EVENT_WPA2_PREAUTHENTICATION:
-            wpa_printf(MSG_INFO,"wpa_supplicant - WPA2_PREAUTHENTICATION");
+            wpa_printf(MSG_DEBUG,"wpa_supplicant - WPA2_PREAUTHENTICATION");
             bufLong = (UINT32 *)pData->uBuffer;
-            wpa_printf(MSG_INFO,"Preauth Status Code = %u",*bufLong);
+            wpa_printf(MSG_DEBUG,"Preauth Status Code = %u",*bufLong);
             /* Dm: wpa_supplicant_event( mySuppl->hWpaSupplicant, EVENT_PMKID_CANDIDATE, &data); */
             break;
 
@@ -1243,13 +1247,16 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
         case IPC_EVENT_BT_COEX_MODE:
             btCoexStatus = (btCoexStatus_t *)pData->uBuffer;
             if( (btCoexStatus != NULL) && btCoexStatus->state ) {
-                wpa_printf(MSG_INFO,"wpa_supplicant - BT_COEX_MODE (SG is ON, minTxRate = %d)\n", btCoexStatus->minTxRate);
+                wpa_printf(MSG_DEBUG,"wpa_supplicant - BT_COEX_MODE (SG is ON, minTxRate = %d)\n", btCoexStatus->minTxRate);
             }
             else {
-                wpa_printf(MSG_INFO,"wpa_supplicant - BT_COEX_MODE (SG is OFF)\n");
+                wpa_printf(MSG_DEBUG,"wpa_supplicant - BT_COEX_MODE (SG is OFF)\n");
             }
             break;
 #endif
+        case IPC_EVENT_LOW_SNR:
+        case IPC_EVENT_LOW_RSSI:
+            break;
 
         default:
             wpa_printf(MSG_ERROR,"wpa_supplicant - Unhandled driver event: %d", ((IPC_EVENT_PARAMS*)pData)->uEventType);
@@ -1339,7 +1346,7 @@ static void *wpa_driver_tista_init( void *priv, const char *ifname )
     myDrv->driverEventsSocket = socket( PF_INET, SOCK_DGRAM, IPPROTO_UDP );
 
     if( myDrv->driverEventsSocket < 0 ) {
-        wpa_printf(MSG_ERROR,"Error: failed to create driver events socket...");
+        wpa_printf(MSG_ERROR,"Error: failed to create driver events socket... (%s)", strerror(errno));
         goto label_init_error_free;
     }
 
@@ -1349,7 +1356,7 @@ static void *wpa_driver_tista_init( void *priv, const char *ifname )
     echoserver.sin_port = htons(TI_DRIVER_MSG_PORT);  /* server port */
 
     if( bind(myDrv->driverEventsSocket, (struct sockaddr *) &echoserver, sizeof(echoserver)) < 0 ) {
-        wpa_printf(MSG_ERROR,"Error: failed to create driver events socket...");
+        wpa_printf(MSG_ERROR,"Error: failed to create driver events socket... (%s)", strerror(errno));
         close(myDrv->driverEventsSocket);
         goto label_init_error_free;
     }
@@ -1407,7 +1414,7 @@ static void wpa_driver_tista_unload( void *priv )
 {
     struct wpa_driver_ti_data *myDrv = (struct wpa_driver_ti_data *)priv;
 
-    wpa_printf(MSG_INFO,"wpa_driver_tista_unload called");
+    wpa_printf(MSG_DEBUG,"wpa_driver_tista_unload called");
     /* Unregister driver events */
     wpa_driver_tista_unregister_events( priv );
     /* Close connection socket */
@@ -1486,23 +1493,6 @@ static int ti_send_eapol( void *priv, const u8 *dest, u16 proto,
 
 #ifndef STA_DK_VER_5_0_0_94
 /*-----------------------------------------------------------------------------
-Routine Name: get_filter_mac_addr
-Routine Description: returns mac address according to parameter type
-Arguments:
-   priv - pointer to private data structure
-   type - type of mac address
-Return Value: pointer to mac address array, or NULL
------------------------------------------------------------------------------*/
-static const u8 *get_filter_mac_addr( void *priv, int type )
-{
-    if( type == RX_SELF_FILTER )
-        return( wpa_driver_tista_get_mac_addr(priv) );
-    if( type == RX_BROADCAST_FILTER )
-        return( (const u8 *)"\xFF\xFF\xFF\xFF\xFF\xFF" );
-    return( NULL );
-}
-
-/*-----------------------------------------------------------------------------
 Routine Name: prepare_filter_struct
 Routine Description: fills rx data filter structure according to parameter type
 Arguments:
@@ -1514,15 +1504,40 @@ Return Value: 0 - success, -1 - error
 static int prepare_filter_struct( void *priv, int type,
                                   TIWLAN_DATA_FILTER_REQUEST *dfreq_ptr )
 {
-    u8 *macaddr = (u8 *)get_filter_mac_addr( priv, type );
+    const u8 *macaddr;
+    size_t len = 0;
+    u8 mask;
     int ret = -1;
 
-    if( macaddr != NULL ) {
+    wpa_printf(MSG_ERROR, "%s: type=%d", __func__, type);
+    switch (type ) {
+      case RX_SELF_FILTER:
+        macaddr = wpa_driver_tista_get_mac_addr(priv);
+        len = MAC_ADDR_LEN;
+        mask = 0x3F; /* 6 bytes */
+        break;
+      case RX_BROADCAST_FILTER:
+        macaddr = (const u8 *)"\xFF\xFF\xFF\xFF\xFF\xFF";
+        len = MAC_ADDR_LEN;
+        mask = 0x3F; /* 6 bytes */
+        break;
+      case RX_IPV4_MULTICAST_FILTER:
+        macaddr = (const u8 *)"\x01\x00\x5E";
+        len = 3;
+        mask = 0x7; /* 3 bytes */
+        break;
+      case RX_IPV6_MULTICAST_FILTER:
+        macaddr = (const u8 *)"\x33\x33";
+        len = 2;
+        mask = 0x3; /* 2 bytes */
+        break;
+    }
+    if (len && macaddr) {
         dfreq_ptr->Offset = 0;
         dfreq_ptr->MaskLength = 1;
-        dfreq_ptr->Mask[0] = 0x3F; /* 6 bytes */
-        dfreq_ptr->PatternLength = MAC_ADDR_LEN;
-        os_memcpy( dfreq_ptr->Pattern, macaddr, MAC_ADDR_LEN );
+        dfreq_ptr->Mask[0] = mask;
+        dfreq_ptr->PatternLength = len;
+        os_memcpy( dfreq_ptr->Pattern, macaddr, len );
         ret = 0;
     }
     return( ret );
@@ -1596,6 +1611,13 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
         wpa_printf(MSG_DEBUG,"Scan Active command");
         myDrv->scan_type = SCAN_TYPE_NORMAL_ACTIVE;
         ret = 0;
+    }
+    else if( os_strcasecmp(cmd, "scan-mode") == 0 ) {
+        wpa_printf(MSG_DEBUG,"Scan Mode command");
+        ret = snprintf(buf, buf_len, "ScanMode = %u\n", myDrv->scan_type);
+        if (ret < (int)buf_len) {
+            return( ret );
+        }
     }
     else if( os_strcasecmp(cmd, "linkspeed") == 0 ) {
         wpa_printf(MSG_DEBUG,"Link Speed command");

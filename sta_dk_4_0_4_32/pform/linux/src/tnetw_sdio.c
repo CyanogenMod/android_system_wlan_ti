@@ -16,6 +16,12 @@
  */
 /*-------------------------------------------------------------------*/
 #ifdef TIWLAN_MSM7000
+#include <linux/mm.h>
+#include <linux/vmalloc.h>
+#include <linux/pagemap.h>
+#include <asm/pgtable.h>
+#include <asm/cacheflush.h>
+
 #include <linux/delay.h>
 #include <linux/mmc/core.h>
 #include <linux/mmc/card.h>
@@ -25,17 +31,19 @@
 #include "esta_drv.h"
 #include "mmc_omap_api.h"
 #include "osApi.h"
-#define DM_DMA_WORKAROUND
+
 /*-------------------------------------------------------------------*/
 extern int tiwlan_sdio_init(struct sdio_func *func);
 extern int sdio_reset_comm(struct mmc_card *card);
+
 /*-------------------------------------------------------------------*/
 static struct sdio_func *tiwlan_func = NULL;
 static int sdio_reset_flag = 0;
-#ifdef DM_DMA_WORKAROUND
+
 #define DMA_THRESHOLD_SIZE  64
 static void *sdio_dma_ptr = NULL;
-#endif
+#define USE_SKETCHY_WRITES 0
+
 /*-------------------------------------------------------------------*/
 void SDIO_SetFunc( struct sdio_func *func )
 {
@@ -44,39 +52,37 @@ void SDIO_SetFunc( struct sdio_func *func )
 
 struct sdio_func *SDIO_GetFunc( void )
 {
-	return( tiwlan_func );
+	return tiwlan_func;
 }
 
 SDIO_Status SDIO_Init(SDIO_ConfigParams *ConfigParams, SDIO_Handle *Handle)
 {
-	if( Handle == NULL ) {
+	if (Handle == NULL) {
 		printk(KERN_ERR "Error: SDIO_Init() called with NULL!\n");
 		return SDIO_FAILURE;
 	}
+
 	*Handle = (SDIO_Handle)SDIO_GetFunc();
-	if( (*Handle) == NULL ) {
-		printk(KERN_ERR "Error: SDIO_Init() called before SDIO probe completed!\n");
+	if ((*Handle) == NULL) {
+		printk(KERN_ERR "SDIO_Init() called before init!\n");
 		return SDIO_FAILURE;
 	}
-#ifdef DM_DMA_WORKAROUND
-    if( !sdio_dma_ptr ) {
-        sdio_dma_ptr = kmalloc( PAGE_SIZE, GFP_KERNEL );
-        if( !sdio_dma_ptr )
-            return SDIO_FAILURE;
-    }
-#endif
+
+	if (!sdio_dma_ptr) {
+		if (!(sdio_dma_ptr = kmalloc(PAGE_SIZE, GFP_KERNEL))) {
+			printk(KERN_ERR "Failed to alloc DMA bounce buffer\n");
+			return SDIO_FAILURE;
+		}
+	}
 	return SDIO_SUCCESS;
 }
 
 SDIO_Status SDIO_Shutdown(SDIO_Handle Handle)
 {
-	/* printk("%s:\n", __FUNCTION__); */
-#ifdef DM_DMA_WORKAROUND
-    if( sdio_dma_ptr ) {
-        kfree( sdio_dma_ptr );
-        sdio_dma_ptr = NULL;
-    }
-#endif
+	if (sdio_dma_ptr) {
+		kfree(sdio_dma_ptr);
+		sdio_dma_ptr = NULL;
+	}
 	return SDIO_SUCCESS;
 }
 
@@ -84,14 +90,14 @@ SDIO_Status SDIO_Start(SDIO_Handle Handle)
 {
 	struct sdio_func *func = (struct sdio_func *)Handle;
 
-	/* printk("%s:\n", __FUNCTION__); */
-	if( func ) {
-		if( sdio_reset_flag ) {
+	if (func) {
+		if (sdio_reset_flag) {
 			sdio_reset_flag = 0;
-			if( tiwlan_sdio_init(func) ) {
-				printk("TI: tiwlan_sdio_init Error !\n");
+			if (tiwlan_sdio_init(func)) {
+				printk("TI: tiwlan_sdio_init Error!\n");
 				return SDIO_FAILURE;
 			}
+
 		}
 	}
 	return SDIO_SUCCESS;
@@ -101,135 +107,95 @@ SDIO_Status SDIO_Reset(SDIO_Handle Handle)
 {
 	struct sdio_func *func = (struct sdio_func *)Handle;
 
-	/* printk("%s:\n", __FUNCTION__); */
-	if( func && func->card ) {
+	if(func && func->card)
 		sdio_reset_comm(func->card);
-	}
 	return SDIO_SUCCESS;
 }
 
 SDIO_Status SDIO_Stop(SDIO_Handle Handle, unsigned long Wait_Window)
 {
-	/* printk("%s:\n", __FUNCTION__); */
 	sdio_reset_flag = 1;
-	return SDIO_Reset( Handle );
+	return SDIO_Reset(Handle);
 }
 
-static int read_direct(struct sdio_func *func, unsigned char *buf, 
-                            unsigned long addr, unsigned len)
+static inline int spans_page(void *s, int len)
 {
-	unsigned i;
-	int rc0, rc = 0;
-
-	for(i=0;( i < len );i++,addr++) {
-		*buf++ = (unsigned char)sdio_readb(func, addr, &rc0);
-		if( rc0 != 0 )
-			rc = rc0;
-	}
-	return rc;
+	if (((unsigned long) s + len) <= ((((unsigned long) s) & ~(PAGE_SIZE-1)) + PAGE_SIZE))
+		return 0;
+	return 1;
 }
 
-static int write_direct(struct sdio_func *func, unsigned long addr,
-			unsigned char *buf, unsigned len)
+static void *vmalloc_to_unity(void *a)
 {
-	unsigned i;
-	int rc0, rc = 0;
+	pte_t *pte;
+	unsigned long virt = (unsigned long) a;
+	unsigned long phys;
 
-	for(i=0;( i < len );i++,addr++) {
-		sdio_writeb(func, *buf++, addr, &rc0);
-		if( rc0 != 0 )
-			rc = rc0;
-	}
-	return rc;
+	pte = pte_offset_map(pmd_offset(pgd_offset_k(virt), virt), virt);
+	phys = (pte_val(*pte) & ~(PAGE_SIZE -1)) | (virt & (PAGE_SIZE -1));
+	pte_unmap(pte);
+	return phys_to_virt(phys);
 }
 
 SDIO_Status SDIO_SyncRead(SDIO_Handle Handle, SDIO_Request_t *Req)
 {
 	struct sdio_func *func = (struct sdio_func *)Handle;
-	int rc, retries = 5;
+	int rc;
+	void *tgt = Req->buffer;
 
-#if 0
-	printk("%s: p_addr = 0x%.8lx, sz = %d\n",
-	       __FUNCTION__,
-	       Req->peripheral_addr,
-	       Req->buffer_len);
-#endif
-
-	while(retries) {
-        if( retries > 2 )
-#ifdef DM_DMA_WORKAROUND
-            if( Req->buffer_len < DMA_THRESHOLD_SIZE ) {
-                rc = sdio_memcpy_fromio(func, Req->buffer, Req->peripheral_addr, Req->buffer_len);
-            }
-            else {
-                rc = sdio_memcpy_fromio(func, sdio_dma_ptr, Req->peripheral_addr, Req->buffer_len);
-                memcpy( Req->buffer, sdio_dma_ptr, Req->buffer_len );
-            }
-#else
-            rc = sdio_memcpy_fromio(func, Req->buffer, Req->peripheral_addr, Req->buffer_len);
-#endif
-        else
-            rc = read_direct(func, Req->buffer, Req->peripheral_addr, Req->buffer_len);
-
-		if (rc) {
-			printk(KERN_ERR "%s: Read operation failed (%d) (retries = %d)\n",
-		       		__FUNCTION__, rc, retries);
-			retries--;
-			continue;
+	if (Req->buffer_len >= DMA_THRESHOLD_SIZE) {
+		if (is_vmalloc_addr(tgt)) {
+			if (!spans_page(tgt, Req->buffer_len)) {
+				tgt = vmalloc_to_unity(tgt);
+				dmac_flush_range(Req->buffer,
+						 Req->buffer + Req->buffer_len);
+			} else
+				tgt = sdio_dma_ptr;
 		}
-		if (retries != 5)
-			printk(KERN_ERR "%s: Retry succeeded\n", __FUNCTION__);
-		return SDIO_SUCCESS;
 	}
-	printk(KERN_ERR "%s: Giving up\n", __FUNCTION__);
-	return SDIO_FAILURE;
+
+	if ((rc = sdio_memcpy_fromio(func, tgt, Req->peripheral_addr,
+				     Req->buffer_len))) {
+		printk(KERN_ERR "%s: failed (%d)\n", __func__, rc);
+		return SDIO_FAILURE;
+	}
+
+	if (tgt == sdio_dma_ptr)
+		memcpy(Req->buffer, sdio_dma_ptr, Req->buffer_len);
+
+	return SDIO_SUCCESS;
 }
 
 SDIO_Status SDIO_SyncWrite(SDIO_Handle Handle, SDIO_Request_t *Req)
 {
 	struct sdio_func *func = (struct sdio_func *)Handle;
-	int rc, retries = 5;
-#ifdef DM_DMA_WORKAROUND
-    void *dma_ptr;
-#endif
+	int rc;
+	void *src = Req->buffer;
 
-#if 0
-	printk("%s: p_addr = 0x%.8lx, sz = %d\n",
-	       __FUNCTION__,
-	       Req->peripheral_addr,
-	       Req->buffer_len);
+	if (Req->buffer_len >= DMA_THRESHOLD_SIZE) {
+#if USE_SKETCHY_WRITES
+		if (is_vmalloc_addr(src)) {
+			if (!spans_page(src, Req->buffer_len)) {
+				src = vmalloc_to_unity(src);
+				dmac_clean_range(Req->buffer,
+						 Req->buffer + Req->buffer_len);
+			} else {
 #endif
-
-	while(retries) {
-        if( retries > 2 ) {
-#ifdef DM_DMA_WORKAROUND
-            if( Req->buffer_len < DMA_THRESHOLD_SIZE ) {
-                dma_ptr = Req->buffer;
-            }
-            else {
-                dma_ptr = sdio_dma_ptr;
-                memcpy( dma_ptr, Req->buffer, Req->buffer_len );
-            }
-            rc = sdio_memcpy_toio(func, Req->peripheral_addr, dma_ptr, Req->buffer_len);
-#else
-            rc = sdio_memcpy_toio(func, Req->peripheral_addr, Req->buffer, Req->buffer_len);
-#endif
-        }
-        else
-            rc = write_direct(func, Req->peripheral_addr, Req->buffer, Req->buffer_len);
-
-		if (rc) {
-			printk(KERN_ERR "%s: Write operation failed (%d) (retries = %d)\n",
-		       	__FUNCTION__, rc, retries);
-			retries--;
-			continue;
+				src = sdio_dma_ptr;
+				memcpy(src, Req->buffer, Req->buffer_len);
+#if USE_SKETCHY_WRITES
+			}
 		}
-
-		if (retries != 5)
-			printk(KERN_ERR "%s: Retry succeeded\n", __FUNCTION__);
-		return SDIO_SUCCESS;
+#endif
 	}
-	printk(KERN_ERR "%s: Giving up\n", __FUNCTION__);
+
+	rc = sdio_memcpy_toio(func, Req->peripheral_addr, src,
+			      Req->buffer_len);
+
+	if (!rc)
+		return SDIO_SUCCESS;
+
+	printk(KERN_ERR "%s: failed (%d)\n", __func__, rc);
 	return SDIO_FAILURE;
 }
 #endif

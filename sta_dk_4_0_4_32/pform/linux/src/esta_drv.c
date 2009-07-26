@@ -494,7 +494,7 @@ static int tiwlan_calibration_write_proc(struct file *file, const char *buffer,
 
 static int tiwlan_drv_net_open(struct net_device * dev)
 {
-   tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)dev->priv;
+   tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev);
 
    ti_nodprintf(TIWLAN_LOG_INFO, "tiwlan_drv_net_open()\n");
 
@@ -592,7 +592,7 @@ static void tiwlan_xmit_handler( struct work_struct *work )
  */
 static int tiwlan_drv_net_xmit(struct sk_buff *skb, struct net_device *dev)
 {
-    tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)dev->priv;
+    tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev);
     int status;
     mem_MSDU_T *pMsdu;
     UINT32      packetHeaderLength;
@@ -740,7 +740,7 @@ static int tiwlan_drv_net_xmit(struct sk_buff *skb, struct net_device *dev)
 
 struct net_device_stats * tiwlan_drv_net_get_stats(struct net_device * dev)
 {
-    tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)dev->priv;
+    tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev);
     ti_dprintf(TIWLAN_LOG_OTHER, "tiwlan_drv_net_get_stats()\n");
 
     return &drv->stats;
@@ -759,7 +759,7 @@ static int setup_netif(tiwlan_net_dev_t *drv)
         return -ENOMEM;
     }
     ether_setup(dev);
-    dev->priv = drv;
+    NETDEV_SET_PRIVATE(dev, drv);
     drv->netdev = dev;
     strcpy(dev->name, TIWLAN_DRV_IF_NAME);
     netif_carrier_off(dev);
@@ -835,8 +835,8 @@ static irqreturn_t tiwlan_interrupt (int irq, void *netdrv, struct pt_regs *cpu_
 {
     tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)netdrv;
 
-    drv->interrupt_pending = 1;
     /* printk("TI: %s:\t%lu\n", __FUNCTION__, jiffies); */
+    drv->interrupt_pending = 1;
 #ifdef DM_USE_WORKQUEUE
 #ifdef CONFIG_ANDROID_POWER
     android_lock_suspend( &drv->irq_wake_lock );
@@ -913,6 +913,7 @@ static void tiwlan_irq_handler( struct work_struct *work )
 {
     tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)container_of( work, struct tiwlan_net_dev, tirq );
 
+    /* printk("TI: %s:\t%lu\n", __FUNCTION__, jiffies); */
 #ifdef CONFIG_ANDROID_POWER
     android_lock_suspend( &drv->exec_wake_lock );
     android_unlock_suspend( &drv->irq_wake_lock );
@@ -925,7 +926,6 @@ static void tiwlan_irq_handler( struct work_struct *work )
         /* enable_irq( drv->irq ); */
         return;
     }
-    /* printk("TI: %s:\t%lu\n", __FUNCTION__, jiffies); */
     configMgr_handleInterrupts( drv->adapter.CoreHalCtx );
     tiwlan_handle_control_requests( drv );
 #ifdef CONFIG_ANDROID_POWER
@@ -961,6 +961,7 @@ static void tiwlan_tasklet_handler( unsigned long netdrv )
     static unsigned int maximum_stack = 0;
 #endif
 
+    /* printk("TI: %s:\t%lu\n", __FUNCTION__, jiffies); */
 #ifdef CONFIG_ANDROID_POWER
     android_lock_suspend( &drv->exec_wake_lock );
     android_unlock_suspend( &drv->timer_wake_lock );
@@ -973,7 +974,6 @@ static void tiwlan_tasklet_handler( unsigned long netdrv )
 #endif
         return;
     }
-    /* printk("TI: %s:\t%lu\n", __FUNCTION__, jiffies); */
 #if 0
     ti_dprintf(TIWLAN_LOG_INFO, "%s in\n" , __FUNCTION__);
 #endif
@@ -1092,6 +1092,9 @@ int tiwlan_send_wait_reply(tiwlan_net_dev_t *drv,
     unsigned long flags;
 
     /* Send request to tiwlan_tasklet and wait for reply */
+    if (!drv->adapter.CoreHalCtx) {
+        return STATION_IS_NOT_RUNNING;
+    }
 
     req.drv = drv;
     req.u.req.f = f;
@@ -1492,7 +1495,11 @@ static void tiwlan_destroy_drv(tiwlan_net_dev_t *drv)
 
     bm_destroy();
 
-    tiwlan_stop_and_destroy_drv(drv);
+    if (drv->started)
+        tiwlan_send_wait_reply(drv, tiwlan_stop_and_destroy_drv_request, 0, 0, 0, 0);
+    else
+        tiwlan_stop_and_destroy_drv(drv);
+
 #ifdef DM_USE_WORKQUEUE
     while( tiwlan_del_msdu(drv) != NULL );
 #endif
@@ -1516,7 +1523,7 @@ static void tiwlan_destroy_drv(tiwlan_net_dev_t *drv)
             os_printf("Timeout while waiting for driver to shutdown...Shutdown status flag=0x%x\n",configMgr_DriverShutdownStatus(drv->adapter.CoreHalCtx));
         }
    
-        drv->unload_driver = 1;
+        /* drv->unload_driver = 1; Dm: moved to tiwlan_stop_and_destroy_drv */
 
         proc_stat_destroy();
         if (drv->irq) {
@@ -1714,7 +1721,17 @@ int tiwlan_stop_and_destroy_drv(tiwlan_net_dev_t *drv)
     /* SmeSm_stop finish notification will be one by setting flags */
     configMgr_InitiateUnload(drv->adapter.CoreHalCtx);
     drv->started = 0;
+    drv->unload_driver = 1;
     return 0;
+}
+
+/* tiwlan_stop__and_destroy_driver from workqueue
+*/
+int tiwlan_stop_and_destroy_drv_request(tiwlan_req_t *req)
+{
+    tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)(req->drv);
+    printk("%s: Called\n",__FUNCTION__);
+    return tiwlan_stop_and_destroy_drv(drv);
 }
 
 void *wifi_kernel_prealloc(int section, unsigned long size)

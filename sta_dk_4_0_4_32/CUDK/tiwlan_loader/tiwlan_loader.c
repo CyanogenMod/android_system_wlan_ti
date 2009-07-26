@@ -66,7 +66,7 @@
 #ifdef ANDROID
 
 #define ENABLE_LOG_ERROR
-#define ENABLE_LOG_DEBUG
+#define ENABLE_LOG_INFO
 
 #ifdef ENABLE_LOG_ERROR
 #define print_error(fmt, args...) \
@@ -82,7 +82,15 @@
 #else
 #define print_debug(fmt, args...) \
     do { } while (0)
-#endif /* ENABLE_LOG_MOUNT */
+#endif /* ENABLE_LOG_DEBUG */
+
+#ifdef ENABLE_LOG_INFO
+#define print_info(fmt, args...) \
+    { LOGI(fmt , ## args); }
+#else
+#define print_info(fmt, args...) \
+    do { } while (0)
+#endif /* ENABLE_LOG_INFO */
 
 #else /* !ANDROID */
 
@@ -98,14 +106,14 @@ TI_HANDLE g_id_adapter = 0;
 /*---------------------------------------------------------*/
 int print_usage(void)
 {
-    printf("Usage: ./wlan_loader [driver_name] [options]\n");
+    print_info("Usage: ./wlan_loader [driver_name] [options]\n");
 #ifdef HOST_PLATFORM_WIPP
-    printf("   -e <filename>  - eeprom image file name. default=/var/run/nvs_map.bin\n");
+    print_info("   -e <filename>  - eeprom image file name. default=/var/run/nvs_map.bin\n");
 #else
-    printf("   -e <filename>  - eeprom image file name. default=./nvs_map.bin\n");
+    print_info("   -e <filename>  - eeprom image file name. default=./nvs_map.bin\n");
 #endif
-    printf("   -i <filename>  - init file name. default=tiwlan.ini\n");
-    printf("   -f <filename>  - firmware image file name. default=firmware.bin\n");
+    print_info("   -i <filename>  - init file name. default=tiwlan.ini\n");
+    print_info("   -f <filename>  - firmware image file name. default=firmware.bin\n");
     return 1;
 }
 
@@ -283,12 +291,6 @@ int check_and_set_property(char *prop_name, char *prop_val)
             (strcmp(prop_status, prop_val) == 0) )
 	    break;
     }
-    if( count ) {
-        print_debug("Set property %s = %s - Ok\n", prop_name, prop_val);
-    }
-    else {
-        print_debug("Set property %s = %s - Fail\n", prop_name, prop_val);
-    }
     return( count );
 }
 #endif
@@ -328,7 +330,7 @@ int main(int argc, char ** argv)
                eeprom_file_name = NULL;
             }
             else {
-                printf("ticon: unknown parameter '%s'\n", argv[i] );
+                print_error("ticon: unknown parameter '%s'\n", argv[i] );
 #ifdef ANDROID		
                 check_and_set_property("wlan.driver.status", "failed");
 #endif		
@@ -366,7 +368,6 @@ int start_cli()
 
     TI_AdapterDeinit(g_id_adapter);
 #ifdef ANDROID    
-    print_debug("Firmware loaded and running OK\n");
     check_and_set_property("wlan.driver.status", "ok");
     release_wake_lock(PROGRAM_NAME);
 #endif    

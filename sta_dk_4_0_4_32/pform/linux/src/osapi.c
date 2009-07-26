@@ -1320,7 +1320,7 @@ os_sendPacket(
         )
 {
     struct net_device *dev = (struct net_device *)OsContext;
-    tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)dev->priv;
+    tiwlan_net_dev_t *drv = (tiwlan_net_dev_t *)NETDEV_GET_PRIVATE(dev);
 
     INT32 status;
     mem_MSDU_T* pMsdu;
