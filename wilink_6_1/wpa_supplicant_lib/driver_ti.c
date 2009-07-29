@@ -203,20 +203,19 @@ int wpa_driver_tista_parse_custom(void *ctx, const void *custom)
 	return 0;
 }
 
-static void ti_init_scan_params( scan_Params_t *pScanParams,
-                                 int scanType, int noOfChan )
+static void ti_init_scan_params( scan_Params_t *pScanParams, int scanType,
+					int noOfChan, int scan_probe_flag )
 {
 	u8 i,j;
-	int maxDwellTime;
+	int maxDwellTime = 110000;
 
 	/* init application scan default params */
 	pScanParams->desiredSsid.len = 0;
 	/* all scan, we will use active scan */
 	pScanParams->scanType = scanType;
-	if (scanType == SCAN_TYPE_NORMAL_ACTIVE)
+	if ((scanType == SCAN_TYPE_NORMAL_ACTIVE) && scan_probe_flag)
 		maxDwellTime = 30000;
-	else
-		maxDwellTime = 110000;
+
 	pScanParams->band = RADIO_BAND_2_4_GHZ;
 	pScanParams->probeReqNumber = 3;
 	pScanParams->probeRequestRate = RATE_MASK_UNSPECIFIED; /* Let the FW select */;
@@ -251,7 +250,7 @@ static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 	struct wpa_driver_ti_data *drv = (struct wpa_driver_ti_data *)priv;
 	struct wpa_supplicant *wpa_s = (struct wpa_supplicant *)(drv->ctx);
 	scan_Params_t scanParams;
-	int scan_type, res, scan_probe_flag = 1;
+	int scan_type, res, scan_probe_flag = 0;
 
 	wpa_printf(MSG_DEBUG, "%s", __func__);
         TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
@@ -261,12 +260,13 @@ static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 	/* Initialize scan parameters */
 	scan_type = drv->scan_type;
 	if (wpa_s->prev_scan_ssid != BROADCAST_SSID_SCAN) {
-		if (wpa_s->prev_scan_ssid->scan_ssid)
+		if (wpa_s->prev_scan_ssid->scan_ssid) {
 			scan_type = SCAN_TYPE_NORMAL_ACTIVE;
-		else
-			scan_probe_flag = 0;
+			scan_probe_flag = 1;
+		}
 	}
-	ti_init_scan_params(&scanParams, scan_type, drv->scan_channels);
+	ti_init_scan_params(&scanParams, scan_type, drv->scan_channels,
+				scan_probe_flag);
 
 	drv->force_merge_flag = 0;
 	if ((scan_probe_flag && ssid) &&
