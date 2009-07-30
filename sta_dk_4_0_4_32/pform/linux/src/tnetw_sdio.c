@@ -107,8 +107,11 @@ SDIO_Status SDIO_Reset(SDIO_Handle Handle)
 {
 	struct sdio_func *func = (struct sdio_func *)Handle;
 
-	if(func && func->card)
+	if (func && func->card) {
+		sdio_release_host(func);
 		sdio_reset_comm(func->card);
+		sdio_claim_host(func);
+	}
 	return SDIO_SUCCESS;
 }
 
