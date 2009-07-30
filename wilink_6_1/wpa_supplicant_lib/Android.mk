@@ -55,11 +55,10 @@ INCLUDES = $(STAD)/Export_Inc \
 	$(CUDK)/os/common/inc \
 	external/openssl/include \
 	external/wpa_supplicant \
-	system/core/adb \
 	$(DK_ROOT)/../lib
   
 L_CFLAGS += -DCONFIG_DRIVER_CUSTOM -DHOST_COMPILE -D__BYTE_ORDER_LITTLE_ENDIAN
-OBJS = driver_ti.c $(LIB)/scanmerge.c ../../../../core/adb/shlist.c
+OBJS = driver_ti.c $(LIB)/scanmerge.c $(LIB)/shlist.c
 
 ifdef CONFIG_NO_STDOUT_DEBUG
 L_CFLAGS += -DCONFIG_NO_STDOUT_DEBUG
