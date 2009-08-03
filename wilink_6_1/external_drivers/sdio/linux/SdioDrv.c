@@ -269,14 +269,16 @@ void sdio_init( int sdcnum )
 
 static void sdioDrv_hsmmc_save_ctx(void)
 {
-        /* MMC : context save */
-        hsmmc_ctx.hctl = OMAP_HSMMC_READ(HCTL);
-        hsmmc_ctx.capa = OMAP_HSMMC_READ(CAPA);
-        hsmmc_ctx.sysconfig = OMAP_HSMMC_READ(SYSCONFIG);
-        hsmmc_ctx.ise = OMAP_HSMMC_READ(ISE);
-        hsmmc_ctx.ie = OMAP_HSMMC_READ(IE);
-        hsmmc_ctx.con = OMAP_HSMMC_READ(CON);
-        hsmmc_ctx.sysctl = OMAP_HSMMC_READ(SYSCTL);
+	/* MMC : context save */
+	hsmmc_ctx.hctl = OMAP_HSMMC_READ(HCTL);
+	hsmmc_ctx.capa = OMAP_HSMMC_READ(CAPA);
+	hsmmc_ctx.sysconfig = OMAP_HSMMC_READ(SYSCONFIG);
+	hsmmc_ctx.ise = OMAP_HSMMC_READ(ISE);
+	hsmmc_ctx.ie = OMAP_HSMMC_READ(IE);
+	hsmmc_ctx.con = OMAP_HSMMC_READ(CON);
+	hsmmc_ctx.sysctl = OMAP_HSMMC_READ(SYSCTL);
+	OMAP_HSMMC_WRITE(ISE, 0);
+	OMAP_HSMMC_WRITE(IE, 0);
 }
 
 static void sdioDrv_hsmmc_restore_ctx(void)
