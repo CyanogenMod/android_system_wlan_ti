@@ -258,7 +258,7 @@ TAR_FILE = $(HOST_PLATFORM)Binaries.tar
 apps.tar: apps
 ifeq ($(STRIP),y)
 	@echo stripping...
-	cd $(OUTPUT_DIR) && $(CROSS_COMPILE)strip -g $(MODULES_LIST)
+	cd $(OUTPUT_DIR) && $(CROSS_COMPILE)strip -g --strip-unneeded $(MODULES_LIST)
 #	cd $(DK_ROOT)/external_drivers/$(HOST_PLATFORM)/Linux/$(BUS_DRV) && $(CROSS_COMPILE)strip -g $(BUS_DRIVER_MODULE)
 endif
 #	tar Ccvf $(OUTPUT_DIR)  $(TAR_FILE) $(MODULES_LIST) tiwlan_loader
