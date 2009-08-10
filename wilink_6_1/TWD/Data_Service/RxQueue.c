@@ -355,7 +355,7 @@ void RxQueue_ReceivePacket (TI_HANDLE hRxQueue, const void * pBuffer)
      */
     if (IS_QOS_FRAME(*(TI_UINT16*)pFrame) && (pRxParams->packet_class_tag != TAG_CLASS_QOS_DATA) && (pRxParams->packet_class_tag != TAG_CLASS_AMSDU))
 	{
-        TRACE1(pRxQueue->hReport, REPORT_SEVERITY_ERROR, "RxQueue_ReceivePacket: BAD CLASS TAG =0x%x from FW.\n", pRxParams->packet_class_tag);
+        TRACE1(pRxQueue->hReport, REPORT_SEVERITY_WARNING, "RxQueue_ReceivePacket: BAD CLASS TAG =0x%x from FW.\n", pRxParams->packet_class_tag);
 		
         /* Get AMSDU bit from frame */
         if( uQosControl & DOT11_QOS_CONTROL_FIELD_A_MSDU_BITS)
@@ -366,14 +366,14 @@ void RxQueue_ReceivePacket (TI_HANDLE hRxQueue, const void * pBuffer)
         {
             pRxParams->packet_class_tag = TAG_CLASS_QOS_DATA;
         }
-	}
+    }
 
     /* 
      * packet doesn't need reorder ? 
      */
     if ((pRxParams->packet_class_tag != TAG_CLASS_QOS_DATA) && (pRxParams->packet_class_tag != TAG_CLASS_BA_EVENT) && (pRxParams->packet_class_tag != TAG_CLASS_AMSDU))
     {
-        TRACE0(pRxQueue->hReport, REPORT_SEVERITY_INFORMATION , "RxQueue_ReceivePacket: pass packet without reorder.\n");
+        TRACE0(pRxQueue->hReport, REPORT_SEVERITY_INFORMATION, "RxQueue_ReceivePacket: pass packet without reorder.\n");
         
         RxQueue_PassPacket (pRxQueue, tStatus, pBuffer);
 

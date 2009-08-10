@@ -1105,33 +1105,33 @@ TI_STATUS mlmeParser_readWMEParams(mlme_t *pMlme,TI_UINT8 *pData, TI_UINT32 data
 
 	/* Note:  This function actually reads either the WME-Params IE or the WME-Info IE! */
 
-    pWMEParamIE->hdr[0] = *pData;
-    pWMEParamIE->hdr[1] = *(pData+1);
+	pWMEParamIE->hdr[0] = *pData;
+	pWMEParamIE->hdr[1] = *(pData+1);
 
-    *pReadLen = pWMEParamIE->hdr[1] + 2;
+	*pReadLen = pWMEParamIE->hdr[1] + 2;
 
-    if (dataLen < *pReadLen)
-    {
-TRACE2(pMlme->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: WME Parameter: eleLen=%d is too long (%d)\n", *pReadLen, dataLen);
+	if (dataLen < *pReadLen)
+	{
+		TRACE2(pMlme->hReport, REPORT_SEVERITY_WARNING, "MLME_PARSER: WME Parameter: eleLen=%d is too long (%d)\n", *pReadLen, dataLen);
 		*pReadLen = dataLen;
 		return TI_NOK;
-    }
+	}
 
-    if ((pWMEParamIE->hdr[1]> WME_TSPEC_IE_LEN) || (pWMEParamIE->hdr[1]< DOT11_WME_ELE_LEN))
-    {
-        TRACE1(pMlme->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: WME Parameter IE error: eleLen=%d\n", pWMEParamIE->hdr[1]);
-        return TI_NOK;
-    }
+	if ((pWMEParamIE->hdr[1]> WME_TSPEC_IE_LEN) || (pWMEParamIE->hdr[1]< DOT11_WME_ELE_LEN))
+	{
+		TRACE1(pMlme->hReport, REPORT_SEVERITY_WARNING, "MLME_PARSER: WME Parameter IE error: eleLen=%d\n", pWMEParamIE->hdr[1]);
+		return TI_NOK;
+	}
 
 	ieSubtype = *((TI_UINT8*)(pData+6));
-    switch (ieSubtype)
+	switch (ieSubtype)
 	{
 		case dot11_WME_OUI_SUB_TYPE_IE:
 		case dot11_WME_OUI_SUB_TYPE_PARAMS_IE:
 			/* Checking WME Version validity */
 			if (*((TI_UINT8*)(pData+7)) != dot11_WME_VERSION )
 			{
-TRACE1(pMlme->hReport, REPORT_SEVERITY_INFORMATION, "MLME_PARSER: WME Parameter IE error: Version =%d is unsupported\n",								  *((TI_UINT8*)(pData+7)) );
+				TRACE1(pMlme->hReport, REPORT_SEVERITY_INFORMATION, "MLME_PARSER: WME Parameter IE error: Version =%d is unsupported\n",								  *((TI_UINT8*)(pData+7)) );
 				return TI_NOK;
 			}
 

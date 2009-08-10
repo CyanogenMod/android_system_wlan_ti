@@ -642,7 +642,7 @@ TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_INFORMATION, "regulatoryDomai
         break;
 
 	default:
-TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_ERROR, "Get param, Params is not supported, %d\n\n", pParam->paramType);
+		TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_WARNING, "Get param, Params is not supported, %d\n\n", pParam->paramType);
 		return PARAM_NOT_SUPPORTED;
 	}
 

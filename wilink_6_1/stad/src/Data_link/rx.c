@@ -960,7 +960,7 @@ void rxData_receivePacketFromWlan (TI_HANDLE hRxData, void *pBuffer, TRxAttr* pR
         /* distribute mgmt pBuffer to mlme */
         if( mlmeParser_recv(pRxData->hMlme, pBuffer, pRxAttr) != TI_OK )
         {
-            TRACE0(pRxData->hReport, REPORT_SEVERITY_ERROR, " rxData_receivePacketFromWlan() : MLME returned error \n");
+            TRACE0(pRxData->hReport, REPORT_SEVERITY_WARNING, " rxData_receivePacketFromWlan() : MLME returned error \n");
         }
         break;
 
@@ -979,7 +979,7 @@ void rxData_receivePacketFromWlan (TI_HANDLE hRxData, void *pBuffer, TRxAttr* pR
         }
 
     default:
-        TRACE0(pRxData->hReport, REPORT_SEVERITY_ERROR, " rxData_receivePacketFromWlan(): Received unspecified packet type !!! \n");
+        TRACE0(pRxData->hReport, REPORT_SEVERITY_WARNING, " rxData_receivePacketFromWlan(): Received unspecified packet type !!! \n");
         RxBufFree(pRxData->hOs, pBuffer); 
         break;
     }
@@ -1169,10 +1169,8 @@ static void rxData_rcvPacketInOpenNotify (TI_HANDLE hRxData, void *pBuffer, TRxA
 {
     rxData_t *pRxData = (rxData_t *)hRxData;
 
-    TRACE0(pRxData->hReport, REPORT_SEVERITY_ERROR, " rxData_rcvPacketInOpenNotify: receiving data packet while in rx port status is open notify\n");
+    TRACE0(pRxData->hReport, REPORT_SEVERITY_WARNING, " rxData_rcvPacketInOpenNotify: receiving data packet while in rx port status is open notify\n");
 
-    TRACE0(pRxData->hReport, REPORT_SEVERITY_INFORMATION, "rxData_rcvPacketInOpenNotify: ERROR !!! receiving data packet while in rx port status is open notify\n");
-    
     pRxData->rxDataDbgCounters.rcvUnicastFrameInOpenNotify++;
 
     /* free Buffer */

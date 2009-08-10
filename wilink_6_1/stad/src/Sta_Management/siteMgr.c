@@ -4139,29 +4139,29 @@ static void siteMgr_TxPowerAdaptation(TI_HANDLE hSiteMgr, RssiEventDir_e highLow
     siteMgr_t    *pSiteMgr = (siteMgr_t *)hSiteMgr;
     paramInfo_t   param;
     TI_UINT8      txPowerLevel;
-
+    TI_STATUS     status;
 
     if ((pSiteMgr->pSitesMgmtParams->pPrimarySite) && (pSiteMgr->siteMgrTxPowerEnabled))
     {
         /* getting the current Tx power  */
         param.paramType = REGULATORY_DOMAIN_CURRENT_TX_ATTENUATION_PARAM;
-        regulatoryDomain_getParam(pSiteMgr->hRegulatoryDomain,&param);
+        status = regulatoryDomain_getParam(pSiteMgr->hRegulatoryDomain,&param);
         txPowerLevel = param.content.desiredTxPower;
 
         TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Current Tx PowerLevel = %d\n", txPowerLevel);
         TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION, ": TxPowerRecoverLevel = %d\n", pSiteMgr->pDesiredParams->TxPowerRecoverLevel);
 
-        if ((highLowEdge == RSSI_EVENT_DIR_HIGH) && (pSiteMgr->pDesiredParams->TxPowerRecoverLevel > txPowerLevel))
+        if ((status != TI_OK) || ((highLowEdge == RSSI_EVENT_DIR_HIGH) && (pSiteMgr->pDesiredParams->TxPowerRecoverLevel > txPowerLevel)))
         {
             /* Setting the power in the FW , only if the translation succeeded */
 
-            siteMgr_setTemporaryTxPower (pSiteMgr, pSiteMgr->pDesiredParams->TxPowerRecoverLevel) ;  /*set lowest power lvel */;
+            siteMgr_setTemporaryTxPower (pSiteMgr, pSiteMgr->pDesiredParams->TxPowerRecoverLevel) ;  /* set lowest power lvel */;
         }
         else
         {
              if ( highLowEdge == RSSI_EVENT_DIR_LOW )
              {
-                siteMgr_setTemporaryTxPower (pSiteMgr, txPowerLevel);  /*set highest power level */;
+                siteMgr_setTemporaryTxPower (pSiteMgr, txPowerLevel);  /* set highest power level */;
 
              }
         }
