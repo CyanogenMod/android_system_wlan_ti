@@ -923,6 +923,61 @@ static int wpa_driver_tista_set_drop_unencrypted(void *priv,
 					      enabled);
 }
 
+static int wpa_driver_tista_pmksa(struct wpa_driver_ti_data *drv,
+				 u32 cmd, const u8 *bssid, const u8 *pmkid)
+{
+	struct iwreq iwr;
+	struct iw_pmksa pmksa;
+	int ret = 0;
+
+	os_memset(&iwr, 0, sizeof(iwr));
+	os_strncpy(iwr.ifr_name, drv->ifname, IFNAMSIZ);
+	os_memset(&pmksa, 0, sizeof(pmksa));
+	pmksa.cmd = cmd;
+	pmksa.bssid.sa_family = ARPHRD_ETHER;
+	if (bssid)
+		os_memcpy(pmksa.bssid.sa_data, bssid, ETH_ALEN);
+	if (pmkid) {
+		os_memcpy(pmksa.pmkid, pmkid, IW_PMKID_LEN);
+		wpa_printf(MSG_DEBUG, "pmkid %s", pmkid);
+	}
+	iwr.u.data.pointer = (caddr_t)&pmksa;
+	iwr.u.data.length = sizeof(pmksa);
+
+	if (ioctl(drv->ioctl_sock, SIOCSIWPMKSA, &iwr) < 0) {
+		if (errno != EOPNOTSUPP)
+			perror("ioctl[SIOCSIWPMKSA]");
+		ret = -1;
+	}
+	return ret;
+}
+
+static int wpa_driver_tista_add_pmkid(void *priv, const u8 *bssid,
+				     const u8 *pmkid)
+{
+	struct wpa_driver_ti_data *drv = priv;
+	wpa_printf(MSG_DEBUG, "%s", __FUNCTION__);
+	TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
+	return wpa_driver_tista_pmksa(drv, IW_PMKSA_ADD, bssid, pmkid);
+}
+
+static int wpa_driver_tista_remove_pmkid(void *priv, const u8 *bssid,
+		 			const u8 *pmkid)
+{
+	struct wpa_driver_ti_data *drv = priv;
+	wpa_printf(MSG_DEBUG, "%s", __FUNCTION__);
+	TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
+	return wpa_driver_tista_pmksa(drv, IW_PMKSA_REMOVE, bssid, pmkid);
+}
+
+static int wpa_driver_tista_flush_pmkid(void *priv)
+{
+	struct wpa_driver_ti_data *drv = priv;
+	wpa_printf(MSG_DEBUG, "%s", __FUNCTION__);
+	TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
+	return wpa_driver_tista_pmksa(drv, IW_PMKSA_FLUSH, NULL, NULL);
+}
+
 static int wpa_driver_tista_mlme(struct wpa_driver_ti_data *drv,
 				const u8 *addr, int cmd, int reason_code)
 {
@@ -1096,6 +1151,9 @@ const struct wpa_driver_ops wpa_driver_custom_ops = {
 	.get_mac_addr = wpa_driver_tista_get_mac_addr,
 	.init = wpa_driver_tista_init,
 	.deinit = wpa_driver_tista_deinit,
+	.add_pmkid = wpa_driver_tista_add_pmkid,
+	.remove_pmkid = wpa_driver_tista_remove_pmkid,
+	.flush_pmkid = wpa_driver_tista_flush_pmkid,
 	.set_operstate = wpa_driver_tista_set_operstate,
 	.driver_cmd = wpa_driver_tista_driver_cmd
 };
