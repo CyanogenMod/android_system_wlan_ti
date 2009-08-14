@@ -637,11 +637,10 @@ int os_wake_lock (TI_HANDLE OsContext)
 
 	os_protectLock(OsContext, NULL);
 	if (drv) {
-		if (drv->wl_count == 0) {
 #ifdef CONFIG_HAS_WAKELOCK
+		if (!drv->wl_count)
 			wake_lock(&drv->wl_wifi);
 #endif
-		}
 		drv->wl_count++;
 		ret = drv->wl_count;
 	}
@@ -657,7 +656,7 @@ Routine Description: Called to allow system to suspend
 
 Arguments:     OsContext - handle to OS context
 
-Return Value:  wkae_lock counter
+Return Value:  wake_lock counter
 -----------------------------------------------------------------------------*/
 int os_wake_unlock (TI_HANDLE OsContext)
 {
@@ -665,15 +664,12 @@ int os_wake_unlock (TI_HANDLE OsContext)
 	int ret = 0;
 
 	os_protectLock(OsContext, NULL);
-	if (drv) {
-		if (drv->wl_count) {
-			drv->wl_count--;
-			if (!drv->wl_count) {
+	if (drv && drv->wl_count) {
+		drv->wl_count--;
 #ifdef CONFIG_HAS_WAKELOCK
-				wake_unlock(&drv->wl_wifi);
+		if (!drv->wl_count)
+			wake_unlock(&drv->wl_wifi);
 #endif
-			}
-		}
 		ret = drv->wl_count;
 	}
 	os_protectUnlock(OsContext, NULL);
