@@ -68,8 +68,11 @@ static int scan_equal( void *val,  void *idata )
     struct wpa_scan_result *new_res = (struct wpa_scan_result *)val;
     struct wpa_scan_result *lst_res =
                (struct wpa_scan_result *)(&(((scan_merge_t *)idata)->scanres));
+    int ret;
 
-    return( !os_memcmp(new_res->bssid, lst_res->bssid, ETH_ALEN) );
+    ret = os_memcmp(new_res->bssid, lst_res->bssid, ETH_ALEN) ||
+          os_memcmp(new_res->ssid, lst_res->ssid, new_res->ssid_len);
+    return !ret;
 }
 
 /*-----------------------------------------------------------------------------
