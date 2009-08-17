@@ -462,7 +462,9 @@ TI_BOOL os_receivePacket (TI_HANDLE OsContext, void* pPacket, TI_UINT16 Length)
    printk("-->> os_receivePacket() pPacket=0x%x Length=%d skb=0x%x skb->data=0x%x skb->head=0x%x skb->len=%d\n",
 		  (int)pPacket, (int)Length, (int)skb, (int)skb->data, (int)skb->head, (int)skb->len);
 */
+   /* Use skb_reserve, it updates both skb->data and skb->tail. */
    skb->data = RX_ETH_PKT_DATA(pPacket);
+   skb->tail = skb->data;
    skb_put(skb, RX_ETH_PKT_LEN(pPacket));
 /*
    printk("-->> os_receivePacket() skb=0x%x skb->data=0x%x skb->head=0x%x skb->len=%d\n",
