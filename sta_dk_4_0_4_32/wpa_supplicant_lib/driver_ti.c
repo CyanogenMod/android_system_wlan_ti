@@ -444,7 +444,8 @@ static int wpa_driver_tista_set_auth_mode( void *priv )
     wpa_printf(MSG_DEBUG, "proto: %d", myDrv->proto); /* should be set BEFORE */
     wpa_printf(MSG_DEBUG, "auth_alg: %d",myDrv->auth_alg);
 
-    if( myDrv->auth_alg == AUTH_ALG_OPEN_SYSTEM ) {
+    if( (myDrv->auth_alg == AUTH_ALG_OPEN_SYSTEM) ||
+        (myDrv->auth_alg == AUTH_ALG_LEAP) ) {
         switch( myDrv->key_mgmt ) {
             case KEY_MGMT_802_1X:
                 if( myDrv->proto & WPA_PROTO_WPA ) {
@@ -475,8 +476,9 @@ static int wpa_driver_tista_set_auth_mode( void *priv )
     else if( myDrv->auth_alg == AUTH_ALG_SHARED_KEY ) {
         myAuth = os802_11AuthModeShared;
     }
-    else if( myDrv->auth_alg == AUTH_ALG_LEAP ) {                 /* Dm: ??? */
-        myAuth = os802_11AuthModeWPA;
+    if( myDrv->auth_alg == AUTH_ALG_LEAP ) {
+        TI_SetEAPType( myDrv->hDriver, OS_EAP_TYPE_LEAP );
+        TI_SetEAPTypeDriver( myDrv->hDriver, OS_EAP_TYPE_LEAP );
     }
     wpa_driver_tista_print_auth_mode( myAuth );
     ret = TI_SetAuthenticationMode( myDrv->hDriver, myAuth );
