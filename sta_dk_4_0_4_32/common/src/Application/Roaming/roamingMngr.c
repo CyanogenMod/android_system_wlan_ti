@@ -1442,7 +1442,11 @@ static TI_STATUS roamingMngr_smRoamTrigger(TI_HANDLE hRoamingMngr)
     apConn_prepareToRoaming(pRoamingMngr->hAPConnection, pRoamingMngr->roamingTrigger);
 
     /* Get the current BSSIDs from ScanMngr */
+#if 0
     pRoamingMngr->pListOfAPs = scanMngr_getBSSList(pRoamingMngr->hScanMngr);
+#else
+    pRoamingMngr->pListOfAPs = NULL; /* force immediate scan */
+#endif
     if ((pRoamingMngr->pListOfAPs != NULL) && (pRoamingMngr->pListOfAPs->numOfEntries > 0))
     {   /* No need to SCAN, start SELECTING */
         roamingEvent = ROAMING_EVENT_SELECT;
@@ -1499,6 +1503,8 @@ static TI_STATUS roamingMngr_smInvokeScan(TI_HANDLE hRoamingMngr)
     {
         return NOK;
     }
+
+    scanMngrClearBSSListEntry(pRoamingMngr->hScanMngr);
 
     /* check which scan should be performed: Partial on list of channels, or full scan */
     if ((pRoamingMngr->scanType == ROAMING_PARTIAL_SCAN) ||
