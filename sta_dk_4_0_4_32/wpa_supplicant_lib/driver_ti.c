@@ -839,7 +839,7 @@ static void ti_init_scan_params( scan_Params_t *pScanParams,
     for(i=0;( i < noOfChan );i++) {
         pScanPolicy->bandScanPolicy[ 0 ].channelList[ i ] = i + 1;
     }
-    pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.scanType = scanType;
+    pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.scanType = SCAN_TYPE_NO_SCAN;
     pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.earlyTerminationEvent = SCAN_ET_COND_DISABLE;
     pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.ETMaxNumberOfApFrames = 0;
     pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.maxChannelDwellTime = chanMaxDwellTime;
@@ -851,7 +851,7 @@ static void ti_init_scan_params( scan_Params_t *pScanParams,
 #else
     pScanPolicy->bandScanPolicy[ 0 ].trackingMethod.method.basicMethodParams.probReqParams.txPowerDbm = MAX_TX_POWER;
 #endif
-    pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.scanType = scanType;
+    pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.scanType = SCAN_TYPE_NO_SCAN;
     pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.earlyTerminationEvent = SCAN_ET_COND_DISABLE;
     pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.ETMaxNumberOfApFrames = 0;
     pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.maxChannelDwellTime = chanMaxDwellTime;
@@ -863,7 +863,7 @@ static void ti_init_scan_params( scan_Params_t *pScanParams,
 #else
     pScanPolicy->bandScanPolicy[ 0 ].discoveryMethod.method.basicMethodParams.probReqParams.txPowerDbm = MAX_TX_POWER;
 #endif
-    pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.scanType = scanType;
+    pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.scanType = btCoexScan ? SCAN_TYPE_TRIGGERED_ACTIVE : SCAN_TYPE_NORMAL_ACTIVE;
     pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.method.basicMethodParams.earlyTerminationEvent = SCAN_ET_COND_DISABLE;
     pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.method.basicMethodParams.ETMaxNumberOfApFrames = 0;
     pScanPolicy->bandScanPolicy[ 0 ].immediateScanMethod.method.basicMethodParams.maxChannelDwellTime = chanMaxDwellTime;
@@ -951,22 +951,26 @@ Return Value: pointer to BSSID structure or NULL
 -----------------------------------------------------------------------------*/
 static OS_802_11_BSSID_EX *wpa_driver_tista_get_bssid_info( TI_HANDLE hDriver )
 {
-    OS_802_11_BSSID_EX mySelectedBssidInfo;
     OS_802_11_BSSID_LIST_EX *bssid_list;
     OS_802_11_BSSID_EX *pBssid, *nBssid = NULL;
     int i, number_items, res;
-
-    res = TI_GetSelectedBSSIDInfo( hDriver, &mySelectedBssidInfo );
-    if( res != TI_RESULT_OK )
-        return( nBssid );
+    OS_802_11_MAC_ADDRESS bssid;
+    OS_802_11_SSID ssid;
 
     if( TI_GetBSSIDList( hDriver, &bssid_list ) || !bssid_list )
+        return( nBssid );
+
+    if( TI_GetBSSID( hDriver, &bssid ) != TI_RESULT_OK )
+        return( nBssid );
+
+    if( TI_GetCurrentSSID( hDriver, &ssid ) != TI_RESULT_OK )
         return( nBssid );
 
     pBssid = &bssid_list->Bssid[0];
     number_items = (int)(bssid_list->NumberOfItems);
     for(i=0;( i < number_items );i++) {
-        if( os_memcmp( mySelectedBssidInfo.Ssid.Ssid, pBssid->Ssid.Ssid, pBssid->Ssid.SsidLength ) == 0 ) {
+        if( !os_memcmp((void *)&bssid, pBssid->MacAddress, MAC_ADDR_LEN) &&
+            !os_memcmp(ssid.Ssid, pBssid->Ssid.Ssid, pBssid->Ssid.SsidLength) ) {
             nBssid = (OS_802_11_BSSID_EX *)os_malloc( pBssid->Length );
             if( nBssid != NULL )
                 os_memcpy( nBssid, pBssid, pBssid->Length );
@@ -1145,7 +1149,7 @@ static void wpa_driver_tista_receive_driver_event( int sock, void *priv, void *s
                     /* Get AP Beacon IEs - especially WPA/RSN IE */
                     pSelectedBssidInfo = wpa_driver_tista_get_bssid_info( mySuppl->hDriver );
                     if( pSelectedBssidInfo ) {
-                        if( pSelectedBssidInfo->IELength && pSelectedBssidInfo->IEs ) { // Dm: Fixed IEs ???
+                        if( pSelectedBssidInfo->IELength && pSelectedBssidInfo->IEs ) { /* Dm: Fixed IEs */
                             myEventData.assoc_info.beacon_ies = (UINT8 *)pSelectedBssidInfo->IEs + sizeof(OS_802_11_FIXED_IEs);
                             myEventData.assoc_info.beacon_ies_len = pSelectedBssidInfo->IELength - sizeof(OS_802_11_FIXED_IEs);
                         }
