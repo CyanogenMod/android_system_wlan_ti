@@ -1501,7 +1501,15 @@ static void drvMain_Sm (TI_HANDLE hDrvMain, ESmEvent eEvent)
 		{
 			WLAN_OS_REPORT(("SDBus Connect Failed, Set Object Event !!\r\n"));
 			TRACE0(pDrvMain->tStadHandles.hReport, REPORT_SEVERITY_ERROR , "SDBus Connect Failed, Set Object Event !!\r\n");
-			os_SignalObjectSet (hOs, pDrvMain->hSignalObj);
+			if (!pDrvMain->bRecovery)
+			{
+				os_SignalObjectSet(hOs, pDrvMain->hSignalObj);
+			}
+                        else
+			{
+				/* in case recovery fails, stop the sme which will send disassociation event to os */
+				sme_Stop(pDrvMain->tStadHandles.hSme);
+			}
 		}
 		else /* SDBus Connect success */
         {
@@ -1517,11 +1525,11 @@ static void drvMain_Sm (TI_HANDLE hDrvMain, ESmEvent eEvent)
         }
         break;
     case SM_STATE_HW_INIT:
-        /* 
+        /*
          * HW-Init process is completed.
          * Request for the FW image file.
          */
-        if (eEvent == SM_EVENT_HW_INIT_COMPLETE) 
+        if (eEvent == SM_EVENT_HW_INIT_COMPLETE)
         {
             pDrvMain->tFileInfo.eFileType = FILE_TYPE_FW;
             pDrvMain->eSmState = SM_STATE_DOWNLOAD_FW_FILE;
@@ -1529,7 +1537,7 @@ static void drvMain_Sm (TI_HANDLE hDrvMain, ESmEvent eEvent)
         }
         break;
     case SM_STATE_DOWNLOAD_FW_FILE:
-        if (eEvent == SM_EVENT_FW_FILE_READY) 
+        if (eEvent == SM_EVENT_FW_FILE_READY)
         {
             pDrvMain->tFileInfo.eFileType = FILE_TYPE_FW_NEXT;
             if (pDrvMain->tFileInfo.bLast == TI_TRUE)
@@ -1548,14 +1556,14 @@ static void drvMain_Sm (TI_HANDLE hDrvMain, ESmEvent eEvent)
         }
         break;
     case SM_STATE_WAIT_FW_FILE:
-        if (eEvent == SM_EVENT_FW_INIT_COMPLETE) 
+        if (eEvent == SM_EVENT_FW_INIT_COMPLETE)
         {
             pDrvMain->eSmState = SM_STATE_DOWNLOAD_FW_FILE;
             eStatus = wlanDrvIf_GetFile (hOs, &pDrvMain->tFileInfo);
         }
         break;
     case SM_STATE_FW_INIT:
-        /* 
+        /*
          * FW-Init process is completed.
          * Free the semaphore of the START action to enable the OS interface.
          * Enable interrupts (or polling for debug).
@@ -1564,12 +1572,12 @@ static void drvMain_Sm (TI_HANDLE hDrvMain, ESmEvent eEvent)
          * Note that in some OSs, the semaphore must be released in order to enable the
          *     interrupts, and the interrupts are needed for the configuration process!
          */
-        if (eEvent == SM_EVENT_FW_INIT_COMPLETE) 
+        if (eEvent == SM_EVENT_FW_INIT_COMPLETE)
         {
             pDrvMain->eSmState = SM_STATE_FW_CONFIG;
-            if (!pDrvMain->bRecovery) 
+            if (!pDrvMain->bRecovery)
             {
-            os_SignalObjectSet (hOs, pDrvMain->hSignalObj);
+		os_SignalObjectSet(hOs, pDrvMain->hSignalObj);
             }
             TWD_EnableInterrupts(pDrvMain->tStadHandles.hTWD);
           #ifdef PRIODIC_INTERRUPT
@@ -1580,7 +1588,7 @@ static void drvMain_Sm (TI_HANDLE hDrvMain, ESmEvent eEvent)
         }
         break;
     case SM_STATE_FW_CONFIG:
-        /* 
+        /*
          * FW-configuration process is completed.
          * Stop watchdog timer.
          * For recovery, notify the relevant STAD modules.
@@ -1717,7 +1725,10 @@ static void drvMain_Sm (TI_HANDLE hDrvMain, ESmEvent eEvent)
         txnQ_DisconnectBus (pDrvMain->tStadHandles.hTxnQ);
         hPlatform_DevicePowerOff ();
         WLAN_OS_REPORT(("[WLAN] Exit application\n"));
-        os_SignalObjectSet (hOs, pDrvMain->hSignalObj);
+        if (!pDrvMain->bRecovery) 
+        {
+            os_SignalObjectSet (hOs, pDrvMain->hSignalObj);
+        }
         break;
     case SM_STATE_FAILED:
         /* Nothing to do except waiting for Destroy */
@@ -1746,6 +1757,3 @@ static void drvMain_Sm (TI_HANDLE hDrvMain, ESmEvent eEvent)
         eStatus = drvMain_StopActivities (pDrvMain);
     }
 }
-
-
-
