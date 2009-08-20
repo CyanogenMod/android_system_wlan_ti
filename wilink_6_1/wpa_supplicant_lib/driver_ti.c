@@ -156,7 +156,7 @@ static int wpa_driver_tista_driver_start( void *priv )
 	if(0 != res)
 		wpa_printf(MSG_ERROR, "ERROR - Failed to start driver!");
 	else {
-		os_sleep(0, 200000); /* delay 200 ms */
+		os_sleep(0, WPA_DRIVER_WEXT_WAIT_US); /* delay 400 ms */
 		wpa_printf(MSG_DEBUG, "wpa_driver_tista_driver_start success");
 	}
 	return res;
@@ -1051,11 +1051,14 @@ static int wpa_driver_tista_get_scan_results(void *priv,
 					      size_t max_size)
 {
 	struct wpa_driver_ti_data *drv = priv;
-	size_t ap_num = 0;
+	int ap_num = 0;
 
         TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );	
 	ap_num = wpa_driver_wext_get_scan_results(drv->wext, results, max_size);
 	wpa_printf(MSG_DEBUG, "Actual APs number %d", ap_num);
+
+	if (ap_num < 0)
+		return -1;
 
 	/* Merge new results with previous */
         ap_num = scan_merge( drv, results, drv->force_merge_flag, ap_num, max_size );
