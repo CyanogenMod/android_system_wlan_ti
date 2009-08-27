@@ -900,10 +900,10 @@ static int wpa_driver_tista_scan( void *priv, const UINT8 *ssid, size_t ssid_len
 
     scan_type = myDrv->scan_type;
     if (wpa_s->prev_scan_ssid != BROADCAST_SSID_SCAN) {
-        if (wpa_s->prev_scan_ssid->scan_ssid)
+        if (wpa_s->prev_scan_ssid->scan_ssid) {
             scan_type = SCAN_TYPE_NORMAL_ACTIVE;
-        else
-            scan_probe_flag = 0;
+            scan_probe_flag = 1;
+        }
     }
 
     ti_init_scan_params( &scanParams, &scanPolicy, scan_type, myDrv );
