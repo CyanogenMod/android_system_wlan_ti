@@ -77,6 +77,9 @@ static int wlanDrvIf_pm_resume(void);
 static int wlanDrvIf_pm_suspend(void);
 #endif
 #include "bmtrace_api.h"
+#ifdef STACK_PROFILE
+#include "stack_profile.h"
+#endif
 
 /* save driver handle just for module cleanup */
 static TWlanDrvIfObj *pDrvStaticHandle;  
@@ -86,10 +89,6 @@ static TWlanDrvIfObj *pDrvStaticHandle;
 
 MODULE_DESCRIPTION("TI WLAN Embedded Station Driver");
 MODULE_LICENSE("GPL");
-
-/* linux/irq.h declarations */ 
-extern void disable_irq(unsigned int);
-
 
 /** 
  * \fn     wlanDrvIf_Xmit
@@ -303,49 +302,47 @@ static void wlanDrvIf_PollIrqHandler (TI_HANDLE parm)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
 static void wlanDrvIf_DriverTask (void *hDrv)
 {
-    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)hDrv;
+	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)hDrv;
 #else
 static void wlanDrvIf_DriverTask(struct work_struct *work)
 {
-    TWlanDrvIfObj *drv = container_of(work, TWlanDrvIfObj, tWork);
+#ifdef STACK_PROFILE
+	register unsigned long sp asm ("sp");
+	unsigned long local_sp = sp;
+#endif
+	TWlanDrvIfObj *drv = container_of(work, TWlanDrvIfObj, tWork);
 #endif
 
-    #ifdef STACK_PROFILE
-    unsigned int curr1,base1;
-    unsigned int curr2,base2;
-    static unsigned int maximum_stack = 0;
-    #endif   
+#ifdef STACK_PROFILE
+	unsigned long curr1, base1;
+	unsigned long curr2, base2;
+	static unsigned long maximum_stack = 0;
+#endif   
+	os_profile (drv, 0, 0);
 
-    os_profile (drv, 0, 0);
+#ifdef STACK_PROFILE
+	curr1 = check_stack_start(&base1, local_sp + 4, 0);
+#endif
 
-    #ifdef STACK_PROFILE
-    curr1 = check_stack_start(&base1);
-    #endif
+	/* Call the driver main task */
+	context_DriverTask (drv->tCommon.hContext);
 
-
-    /* Call the driver main task */
-    context_DriverTask (drv->tCommon.hContext);
-
-
-    #ifdef STACK_PROFILE
-	curr2 = check_stack_stop(&base2);
-    if (base2 == base1)
-    {   
-       /* if the current measurement is bigger then the maximum store it and print*/
-        if ((curr1 - curr2) > maximum_stack)
-        {
-            printk("STACK PROFILER GOT THE LOCAL MAXIMMUM!!!! \n");
-            printk("current operation stack use =%d \n",(curr1 - curr2));
-            printk("total stack use=%d \n",8192 - curr2 + base2);
-            printk("total stack usage= %d percent \n",100 * (8192 - curr2 + base2) / 8192);
+	os_profile (drv, 1, 0);
+	os_wake_lock_timeout(drv);
+	os_wake_unlock(drv);
+#ifdef STACK_PROFILE
+	curr2 = check_stack_stop(&base2, 0);
+	if (base2 == base1) {
+	/* if the current measurement is bigger then the maximum store it and print*/
+		if ((curr1 - curr2) > maximum_stack) {
+			printk("STACK PROFILER GOT THE LOCAL MAXIMMUM!!!! \n");
+			printk("current operation stack use=%lu \n",(curr1 - curr2));
+			printk("total stack use=%lu \n",8192 - curr2 + base2);
+			printk("total stack usage=%lu percent \n",100 * (8192 - curr2 + base2) / 8192);
 			maximum_stack = curr1 - curr2;
-       }
-    }
-    #endif
-
-    os_profile (drv, 1, 0);
-    os_wake_lock_timeout(drv);
-    os_wake_unlock(drv);
+		}
+	}
+#endif
 }
 
 
@@ -804,7 +801,7 @@ void wlanDrvIf_CommandDone (TI_HANDLE hOs, void *pSignalObject, TI_UINT8 *CmdRes
  */ 
 static int wlanDrvIf_Create (void)
 {
-	TWlanDrvIfObj *drv; // Dm: Failure is not cleaned properly !!!
+	TWlanDrvIfObj *drv; /* Dm: Failure is not cleaned properly !!! */
 	int rc;
 
 	/* Allocate driver's structure */
