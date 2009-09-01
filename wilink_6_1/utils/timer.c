@@ -180,14 +180,18 @@ void tmr_ClearInitQueue (TI_HANDLE hTimerModule)
 {
     TTimerModule *pTimerModule = (TTimerModule *)hTimerModule;
 
+    context_EnterCriticalSection (pTimerModule->hContext);
     while (que_Dequeue (pTimerModule->hInitQueue) != NULL) {}
+    context_LeaveCriticalSection (pTimerModule->hContext);
 }
 
 void tmr_ClearOperQueue (TI_HANDLE hTimerModule)
 {
     TTimerModule *pTimerModule = (TTimerModule *)hTimerModule;
 
+    context_EnterCriticalSection (pTimerModule->hContext);
     while (que_Dequeue (pTimerModule->hOperQueue) != NULL) {}
+    context_LeaveCriticalSection (pTimerModule->hContext);
 }
 
 
@@ -593,5 +597,4 @@ void tmr_PrintTimer (TI_HANDLE hTimerInfo)
 }
 
 #endif /* TI_DBG */
-
 
