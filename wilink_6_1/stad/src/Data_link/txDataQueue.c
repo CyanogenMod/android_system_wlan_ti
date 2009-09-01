@@ -222,8 +222,7 @@ TI_STATUS txDataQ_Destroy (TI_HANDLE hTxDataQ)
     {
         if (que_Destroy(pTxDataQ->aQueues[uQueId]) != TI_OK)
 		{
-TRACE1(pTxDataQ->hReport, REPORT_SEVERITY_ERROR, "txDataQueue_unLoad: fail to free Data Queue number: %d\n",uQueId);
-
+            TRACE1(pTxDataQ->hReport, REPORT_SEVERITY_ERROR, "txDataQueue_unLoad: fail to free Data Queue number: %d\n",uQueId);
 			status = TI_NOK;
 		}
     }
@@ -255,10 +254,14 @@ void txDataQ_ClearQueues (TI_HANDLE hTxDataQ)
     /* Dequeue and free all queued packets */
     for (uQueId = 0 ; uQueId < pTxDataQ->uNumQueues ; uQueId++)
     {
-        while ( (pPktCtrlBlk = (TTxCtrlBlk *) que_Dequeue(pTxDataQ->aQueues[uQueId])) != NULL ) 
-        {
-            txCtrl_FreePacket (pTxDataQ->hTxCtrl, pPktCtrlBlk, TI_NOK);
-        }
+        do {
+            context_EnterCriticalSection (pTxDataQ->hContext);
+            pPktCtrlBlk = (TTxCtrlBlk *) que_Dequeue(pTxDataQ->aQueues[uQueId]);
+            context_LeaveCriticalSection (pTxDataQ->hContext);
+            if (pPktCtrlBlk != NULL) {
+                txCtrl_FreePacket (pTxDataQ->hTxCtrl, pPktCtrlBlk, TI_NOK);
+            }
+        } while (pPktCtrlBlk != NULL);
     }
 }
 
