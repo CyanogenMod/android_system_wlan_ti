@@ -38,7 +38,7 @@
  *  \see    timer.h, osapi.c
  */
 
-
+#include <linux/kernel.h>
 #define __FILE_ID__  FILE_ID_0
 #include "osApi.h"
 #include "report.h"
@@ -353,20 +353,21 @@ TI_HANDLE tmr_CreateTimer (TI_HANDLE hTimerModule)
  */ 
 TI_STATUS tmr_DestroyTimer (TI_HANDLE hTimerInfo)
 {
-    TTimerInfo   *pTimerInfo   = (TTimerInfo *)hTimerInfo;                 /* The timer handle */     
-	TTimerModule *pTimerModule = (TTimerModule *)pTimerInfo->hTimerModule; /* The timer module handle */
+    TTimerInfo *pTimerInfo = (TTimerInfo *)hTimerInfo;  /* The timer handle */     
+    TTimerModule *pTimerModule;                  /* The timer module handle */
 
+    if (!pTimerInfo)
+        return TI_NOK;
+    pTimerModule = (TTimerModule *)pTimerInfo->hTimerModule;
     /* Free the OS-API timer */
-    os_timerDestroy (pTimerModule->hOs, pTimerInfo->hOsTimerObj);
-
+    if (pTimerInfo->hOsTimerObj) {
+        os_timerDestroy (pTimerModule->hOs, pTimerInfo->hOsTimerObj);
+        pTimerModule->uTimersCount--;  /* update created timers number */
+    }
     /* Free the timer object */
     os_memoryFree (pTimerModule->hOs, hTimerInfo, sizeof(TTimerInfo));
-	
-    pTimerModule->uTimersCount--;  /* update created timers number */
-
     return TI_OK;
 }
-
 
 
 /** 

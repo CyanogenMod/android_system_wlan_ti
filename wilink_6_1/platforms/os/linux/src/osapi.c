@@ -80,11 +80,6 @@ typedef struct timer_list TOsTimer;
 TI_BOOL bRedirectOutputToLogger = TI_FALSE;
 TI_BOOL use_debug_module = TI_FALSE;
 
-/* linux/irq.h declerations */
-extern void disable_irq(unsigned int);
-extern void enable_irq(unsigned int);
-
-
 /****************************************************************************************
  *                        																*
  *						OS Report API													*       
@@ -483,11 +478,13 @@ TI_BOOL os_receivePacket (TI_HANDLE OsContext, void* pPacket, TI_UINT16 Length)
     * it responsibly of the Linux kernel to free the skb
     */
    {
+       unsigned long flags;
+
        CL_TRACE_START_L1();
 
-       os_protectLock(OsContext, NULL);
+       spin_lock_irqsave(&drv->lock, flags);
        drv->wl_packet = 1;
-       os_protectUnlock(OsContext, NULL);
+       spin_unlock_irqrestore(&drv->lock, flags);
 
        netif_rx_ni(skb);
 
@@ -607,8 +604,9 @@ int os_wake_lock_timeout (TI_HANDLE OsContext)
 {
 	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
 	int ret = 0;
+	unsigned long flags;
 
-	os_protectLock(OsContext, NULL);
+	spin_lock_irqsave(&drv->lock, flags);
 	if (drv) {
 		ret = drv->wl_packet;
 		if (drv->wl_packet) {
@@ -618,7 +616,7 @@ int os_wake_lock_timeout (TI_HANDLE OsContext)
 #endif
 		}
 	}
-	os_protectUnlock(OsContext, NULL);
+	spin_unlock_irqrestore(&drv->lock, flags);
 	/* printk("%s: %d\n", __func__, ret); */
 	return ret;
 }
@@ -636,8 +634,9 @@ int os_wake_lock (TI_HANDLE OsContext)
 {
 	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
 	int ret = 0;
+	unsigned long flags;
 
-	os_protectLock(OsContext, NULL);
+	spin_lock_irqsave(&drv->lock, flags);
 	if (drv) {
 #ifdef CONFIG_HAS_WAKELOCK
 		if (!drv->wl_count)
@@ -646,7 +645,7 @@ int os_wake_lock (TI_HANDLE OsContext)
 		drv->wl_count++;
 		ret = drv->wl_count;
 	}
-	os_protectUnlock(OsContext, NULL);
+	spin_unlock_irqrestore(&drv->lock, flags);
 	/* printk("%s: %d\n", __func__, ret); */
 	return ret;
 }
@@ -664,8 +663,9 @@ int os_wake_unlock (TI_HANDLE OsContext)
 {
 	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
 	int ret = 0;
+	unsigned long flags;
 
-	os_protectLock(OsContext, NULL);
+	spin_lock_irqsave(&drv->lock, flags);
 	if (drv && drv->wl_count) {
 		drv->wl_count--;
 #ifdef CONFIG_HAS_WAKELOCK
@@ -674,7 +674,7 @@ int os_wake_unlock (TI_HANDLE OsContext)
 #endif
 		ret = drv->wl_count;
 	}
-	os_protectUnlock(OsContext, NULL);
+	spin_unlock_irqrestore(&drv->lock, flags);
 	/* printk("%s: %d\n", __func__, ret); */
 	return ret;
 }
@@ -700,6 +700,7 @@ int os_RequestSchedule (TI_HANDLE OsContext)
 
 	os_wake_lock(drv);
 	if( !queue_work(drv->tiwlan_wq, &drv->tWork) ) {
+		/* printk("%s: Fail\n",__func__); */
 		os_wake_unlock(drv);
 		return TI_NOK;
 	}
