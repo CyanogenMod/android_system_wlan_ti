@@ -100,4 +100,5 @@ TI_STATUS externalSec_config(mainSec_t *pMainSec);
 struct externalSec_t* externalSec_create(TI_HANDLE hOs);
 TI_STATUS externalSec_event(struct externalSec_t *pExternalSec, TI_UINT8 event, void *pData);
 TI_STATUS externalSec_rsnComplete(struct externalSec_t *pExternalSec);
+TI_STATUS externalSec_unload(struct externalSec_t *pExternalSec);
 #endif /* _EXTERNAL_SEC_H*/

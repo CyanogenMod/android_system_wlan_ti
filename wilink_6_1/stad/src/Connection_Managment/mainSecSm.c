@@ -266,6 +266,13 @@ TI_STATUS mainSec_unload(mainSec_t *pMainSec)
         TRACE0(pMainSec->hReport, REPORT_SEVERITY_ERROR, "MAIN_SEC_SM: Error releasing FSM memory \n");
     }
 
+    status = externalSec_unload(pMainSec->pExternalSec);
+    if (status != TI_OK)
+    {
+        /* report failure but don't stop... */
+        TRACE0(pMainSec->hReport, REPORT_SEVERITY_ERROR, "MAIN_SEC_SM: Error releasing ExternalSec memory \n");
+    }
+
     os_memoryFree(pMainSec->hOs, pMainSec, sizeof(mainSec_t));
 
     return TI_OK;
