@@ -156,15 +156,11 @@ void cmdHndlr_ClearQueue (TI_HANDLE hCmdHndlr)
     TConfigCommand  *pCurrCmd;
 
     /* Dequeue and free all queued commands */
-    do {
-        context_EnterCriticalSection (pCmdHndlr->hContext);
-        pCurrCmd = (TConfigCommand *)que_Dequeue(pCmdHndlr->hCmdQueue);
-        context_LeaveCriticalSection (pCmdHndlr->hContext);
-        if (pCurrCmd != NULL) {
-            /* Just release the semaphore. The command is freed subsequently. */
-            os_SignalObjectSet (pCmdHndlr->hOs, pCurrCmd->pSignalObject);
-        }
-    } while (pCurrCmd != NULL);
+    while ( (pCurrCmd = (TConfigCommand *)que_Dequeue(pCmdHndlr->hCmdQueue)) != NULL ) 
+    {
+        /* Just release the semaphore. The command is freed subsequently. */
+        os_SignalObjectSet (pCmdHndlr->hOs, pCurrCmd->pSignalObject);
+    }
 }
 
 

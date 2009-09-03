@@ -276,7 +276,8 @@ TI_STATUS txMgmtQ_Destroy (TI_HANDLE hTxMgmtQ)
     {
         if (que_Destroy(pTxMgmtQ->aQueues[uQueId]) != TI_OK)
 		{
-            TRACE1(pTxMgmtQ->hReport, REPORT_SEVERITY_ERROR, "txMgmtQueue_unLoad: fail to free Mgmt Queue number: %d\n",uQueId);
+TRACE1(pTxMgmtQ->hReport, REPORT_SEVERITY_ERROR, "txMgmtQueue_unLoad: fail to free Mgmt Queue number: %d\n",uQueId);
+
 			eStatus = TI_NOK;
 		}
     }
@@ -308,14 +309,10 @@ void txMgmtQ_ClearQueues (TI_HANDLE hTxMgmtQ)
     /* Dequeue and free all queued packets */
     for (uQueId = 0 ; uQueId < NUM_OF_MGMT_QUEUES ; uQueId++)
     {
-        do {
-            context_EnterCriticalSection (pTxMgmtQ->hContext);
-            pPktCtrlBlk = (TTxCtrlBlk *)que_Dequeue(pTxMgmtQ->aQueues[uQueId]);
-            context_LeaveCriticalSection (pTxMgmtQ->hContext);
-            if (pPktCtrlBlk != NULL) {
-                txCtrl_FreePacket (pTxMgmtQ->hTxCtrl, pPktCtrlBlk, TI_NOK);
-            }
-        } while (pPktCtrlBlk != NULL);
+        while ( (pPktCtrlBlk = (TTxCtrlBlk *)que_Dequeue(pTxMgmtQ->aQueues[uQueId])) != NULL ) 
+        {
+            txCtrl_FreePacket (pTxMgmtQ->hTxCtrl, pPktCtrlBlk, TI_NOK);
+        }
     }
 }
 
