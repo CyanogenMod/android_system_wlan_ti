@@ -888,10 +888,11 @@ Return Value: 0 on success, -1 on failure
 -----------------------------------------------------------------------------*/
 static int wpa_driver_tista_scan( void *priv, const UINT8 *ssid, size_t ssid_len )
 {
-    scan_Params_t scanParams;
-    scan_Policy_t scanPolicy;
     struct wpa_driver_ti_data *myDrv = (struct wpa_driver_ti_data *)priv;
     struct wpa_supplicant *wpa_s = (struct wpa_supplicant *)(myDrv->hWpaSupplicant);
+    struct wpa_ssid *issid;
+    scan_Params_t scanParams;
+    scan_Policy_t scanPolicy;
     int scan_type, ret, scan_probe_flag = 0;
 
     wpa_printf(MSG_DEBUG,"wpa_driver_tista_scan called");
@@ -908,7 +909,14 @@ static int wpa_driver_tista_scan( void *priv, const UINT8 *ssid, size_t ssid_len
 
     ti_init_scan_params( &scanParams, &scanPolicy, scan_type, myDrv );
 
-    myDrv->force_merge_flag = 0;
+    myDrv->force_merge_flag = 0; /* Set merge flag */
+    for(issid = wpa_s->conf->ssid;( issid );issid = issid->next) {
+        if (!issid->disabled && issid->scan_ssid) {
+            myDrv->force_merge_flag = 1;
+            break;
+        }
+    }
+
     if ((scan_probe_flag && ssid) &&
         (ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.ssidString))) {
         os_memcpy(scanParams.desiredSsid.ssidString, ssid, ssid_len);
