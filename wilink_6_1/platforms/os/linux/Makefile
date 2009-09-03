@@ -53,15 +53,7 @@ BMTRACE ?= n
 # 
 USE_IRQ_ACTIVE_HIGH ?= n
 
-#
-# Eth Support
-#
 ETH_SUPPORT ?= n
-
-#
-# Debug
-#
-DEBUG ?= y
 
 ##
 ##
