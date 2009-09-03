@@ -249,7 +249,6 @@ static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 {
 	struct wpa_driver_ti_data *drv = (struct wpa_driver_ti_data *)priv;
 	struct wpa_supplicant *wpa_s = (struct wpa_supplicant *)(drv->ctx);
-	struct wpa_ssid *issid;
 	scan_Params_t scanParams;
 	int scan_type, res, scan_probe_flag = 0;
 
@@ -269,14 +268,7 @@ static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 	ti_init_scan_params(&scanParams, scan_type, drv->scan_channels,
 				scan_probe_flag);
 
-	drv->force_merge_flag = 0; /* Set merge flag */
-	for(issid = wpa_s->conf->ssid;( issid );issid = issid->next) {
-		if (!issid->disabled && issid->scan_ssid) {
-			drv->force_merge_flag = 1;
-			break;
-		}
-	}
-
+	drv->force_merge_flag = 0;
 	if ((scan_probe_flag && ssid) &&
 	    (ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.str))) {
 		os_memcpy(scanParams.desiredSsid.str, ssid, ssid_len);
@@ -327,7 +319,7 @@ const u8 *wpa_driver_tista_get_mac_addr( void *priv )
 	}
 	wpa_printf(MSG_DEBUG, "wpa_driver_tista_get_mac_addr success");
 
-	return (const u8 *)&drv->own_addr;
+	return (const u8 *)&drv->own_addr ;
 }
 
 static int wpa_driver_tista_get_rssi(void *priv, int *rssi_data, int *rssi_beacon)
@@ -882,12 +874,9 @@ static int wpa_driver_tista_set_auth_param(struct wpa_driver_ti_data *drv,
 static int wpa_driver_tista_set_wpa(void *priv, int enabled)
 {
 	struct wpa_driver_ti_data *drv = priv;
-	int ret;
-
         TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
-	ret = wpa_driver_tista_set_auth_param(drv, IW_AUTH_WPA_ENABLED,
+	return wpa_driver_tista_set_auth_param(drv, IW_AUTH_WPA_ENABLED,
 					      enabled);
-	return ret;
 }
 
 static int wpa_driver_tista_set_auth_alg(void *priv, int auth_alg)
@@ -916,28 +905,22 @@ static int wpa_driver_tista_set_auth_alg(void *priv, int auth_alg)
 static int wpa_driver_tista_set_countermeasures(void *priv, int enabled)
 {
 	struct wpa_driver_ti_data *drv = priv;
-	int ret;
-
 	wpa_printf(MSG_DEBUG, "%s", __FUNCTION__);
         TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
-	ret = wpa_driver_tista_set_auth_param(drv,
+	return wpa_driver_tista_set_auth_param(drv,
 					      IW_AUTH_TKIP_COUNTERMEASURES,
 					      enabled);
-	return ret;
 }
 
 static int wpa_driver_tista_set_drop_unencrypted(void *priv,
 						int enabled)
 {
 	struct wpa_driver_ti_data *drv = priv;
-	int ret;
-
 	wpa_printf(MSG_DEBUG, "%s", __FUNCTION__);
         TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
 	/* Dm: drv->use_crypt = enabled; */
-	ret = wpa_driver_tista_set_auth_param(drv, IW_AUTH_DROP_UNENCRYPTED,
+	return wpa_driver_tista_set_auth_param(drv, IW_AUTH_DROP_UNENCRYPTED,
 					      enabled);
-	return ret;
 }
 
 static int wpa_driver_tista_pmksa(struct wpa_driver_ti_data *drv,
@@ -973,35 +956,26 @@ static int wpa_driver_tista_add_pmkid(void *priv, const u8 *bssid,
 				     const u8 *pmkid)
 {
 	struct wpa_driver_ti_data *drv = priv;
-	int ret;
-
 	wpa_printf(MSG_DEBUG, "%s", __FUNCTION__);
 	TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
-	ret = wpa_driver_tista_pmksa(drv, IW_PMKSA_ADD, bssid, pmkid);
-	return ret;
+	return wpa_driver_tista_pmksa(drv, IW_PMKSA_ADD, bssid, pmkid);
 }
 
 static int wpa_driver_tista_remove_pmkid(void *priv, const u8 *bssid,
 		 			const u8 *pmkid)
 {
 	struct wpa_driver_ti_data *drv = priv;
-	int ret;
-
 	wpa_printf(MSG_DEBUG, "%s", __FUNCTION__);
 	TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
-	ret = wpa_driver_tista_pmksa(drv, IW_PMKSA_REMOVE, bssid, pmkid);
-	return ret;
+	return wpa_driver_tista_pmksa(drv, IW_PMKSA_REMOVE, bssid, pmkid);
 }
 
 static int wpa_driver_tista_flush_pmkid(void *priv)
 {
 	struct wpa_driver_ti_data *drv = priv;
-	int ret;
-
 	wpa_printf(MSG_DEBUG, "%s", __FUNCTION__);
 	TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
-	ret = wpa_driver_tista_pmksa(drv, IW_PMKSA_FLUSH, NULL, NULL);
-	return ret;
+	return wpa_driver_tista_pmksa(drv, IW_PMKSA_FLUSH, NULL, NULL);
 }
 
 static int wpa_driver_tista_mlme(struct wpa_driver_ti_data *drv,
@@ -1033,12 +1007,9 @@ static int wpa_driver_tista_deauthenticate(void *priv, const u8 *addr,
 					  int reason_code)
 {
 	struct wpa_driver_ti_data *drv = priv;
-	int ret;
-
 	wpa_printf(MSG_DEBUG, "%s", __FUNCTION__);
         TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
-	ret = wpa_driver_tista_mlme(drv, addr, IW_MLME_DEAUTH, reason_code);
-	return ret;
+	return wpa_driver_tista_mlme(drv, addr, IW_MLME_DEAUTH, reason_code);
 }
 
 
@@ -1046,12 +1017,10 @@ static int wpa_driver_tista_disassociate(void *priv, const u8 *addr,
 					int reason_code)
 {
 	struct wpa_driver_ti_data *drv = priv;
-	int ret;
-
 	wpa_printf(MSG_DEBUG, "%s", __FUNCTION__);
         TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
-	ret = wpa_driver_tista_mlme(drv, addr, IW_MLME_DISASSOC, reason_code);
-	return ret;
+	return wpa_driver_tista_mlme(drv, addr, IW_MLME_DISASSOC,
+				    reason_code);
 }
 
 static int wpa_driver_tista_set_key(void *priv, wpa_alg alg,
@@ -1060,13 +1029,10 @@ static int wpa_driver_tista_set_key(void *priv, wpa_alg alg,
 			    const u8 *key, size_t key_len)
 {
 	struct wpa_driver_ti_data *drv = priv;
-	int ret;
-
 	wpa_printf(MSG_DEBUG, "%s", __func__);
         TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
-	ret = wpa_driver_wext_set_key(drv->wext, alg, addr, key_idx, set_tx,
-					seq, seq_len, key, key_len);
-	return ret;
+	return wpa_driver_wext_set_key(drv->wext, alg, addr, key_idx, set_tx,
+		                                                 seq, seq_len, key, key_len);
 }
 
 /*-----------------------------------------------------------------------------
