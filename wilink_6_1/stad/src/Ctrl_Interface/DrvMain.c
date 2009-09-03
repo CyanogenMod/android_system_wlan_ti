@@ -658,11 +658,6 @@ TI_STATUS drvMain_Destroy (TI_HANDLE  hDrvMain)
         scr_release (pDrvMain->tStadHandles.hSCR);
     }
 
-    if (pDrvMain->tStadHandles.hTxnQ != NULL)
-    {
-        txnQ_Destroy (pDrvMain->tStadHandles.hTxnQ);
-    }
-
     if (pDrvMain->tStadHandles.hEvHandler != NULL)
     {
          EvHandlerUnload (pDrvMain->tStadHandles.hEvHandler);

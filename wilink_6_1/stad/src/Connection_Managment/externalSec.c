@@ -322,13 +322,3 @@ TI_STATUS externalSecSM_Unexpected(struct externalSec_t *pExternalSec)
     return(TI_OK);
 }
 
-TI_STATUS externalSec_unload(struct externalSec_t *pExternalSec)
-{
-    TI_STATUS status = TI_NOK;
-    if (!pExternalSec) {
-        return status;
-    }
-    status = fsm_Unload(pExternalSec->hOs, pExternalSec->pExternalSecSm);
-    os_memoryFree(pExternalSec->hOs, pExternalSec, sizeof(struct externalSec_t));
-    return status;
-}
