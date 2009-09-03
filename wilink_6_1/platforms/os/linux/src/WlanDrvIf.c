@@ -381,7 +381,7 @@ int wlanDrvIf_LoadFiles (TWlanDrvIfObj *drv, TLoaderFilesData *pInitFiles)
         drv->tCommon.tIniFile.uSize = pInitFiles->uIniFileLength;
         drv->tCommon.tIniFile.pImage = kmalloc (pInitFiles->uIniFileLength, GFP_KERNEL);
         #ifdef TI_MEM_ALLOC_TRACE        
-          osPrintf ("MTT:%s:%d ::kmalloc(%lu, %x) : %lu\n", __FUNCTION__, __LINE__, pInitFiles->uIniFileLength, GFP_KERNEL, pInitFiles->uIniFileLength);
+          os_printf ("MTT:%s:%d ::kmalloc(%lu, %x) : %lu\n", __FUNCTION__, __LINE__, pInitFiles->uIniFileLength, GFP_KERNEL, pInitFiles->uIniFileLength);
         #endif
         if (!drv->tCommon.tIniFile.pImage)
         {
@@ -398,7 +398,7 @@ int wlanDrvIf_LoadFiles (TWlanDrvIfObj *drv, TLoaderFilesData *pInitFiles)
         drv->tCommon.tNvsImage.uSize = pInitFiles->uNvsFileLength;
         drv->tCommon.tNvsImage.pImage = kmalloc (drv->tCommon.tNvsImage.uSize, GFP_KERNEL);
         #ifdef TI_MEM_ALLOC_TRACE        
-          osPrintf ("MTT:%s:%d ::kmalloc(%lu, %x) : %lu\n", 
+          os_printf ("MTT:%s:%d ::kmalloc(%lu, %x) : %lu\n", 
               __FUNCTION__, __LINE__, drv->tCommon.tNvsImage.uSize, GFP_KERNEL, drv->tCommon.tNvsImage.uSize);
         #endif
         if (!drv->tCommon.tNvsImage.pImage)
@@ -417,7 +417,7 @@ int wlanDrvIf_LoadFiles (TWlanDrvIfObj *drv, TLoaderFilesData *pInitFiles)
     }
     drv->tCommon.tFwImage.pImage = os_memoryAlloc (drv, drv->tCommon.tFwImage.uSize);
     #ifdef TI_MEM_ALLOC_TRACE        
-      osPrintf ("MTT:%s:%d ::kmalloc(%lu, %x) : %lu\n", 
+      os_printf ("MTT:%s:%d ::kmalloc(%lu, %x) : %lu\n", 
           __FUNCTION__, __LINE__, drv->tCommon.tFwImage.uSize, GFP_KERNEL, drv->tCommon.tFwImage.uSize);
     #endif
     if (!drv->tCommon.tFwImage.pImage)

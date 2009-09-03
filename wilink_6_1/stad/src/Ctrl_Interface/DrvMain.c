@@ -658,6 +658,11 @@ TI_STATUS drvMain_Destroy (TI_HANDLE  hDrvMain)
         scr_release (pDrvMain->tStadHandles.hSCR);
     }
 
+    if (pDrvMain->tStadHandles.hTxnQ != NULL)
+    {
+        txnQ_Destroy (pDrvMain->tStadHandles.hTxnQ);
+    }
+
     if (pDrvMain->tStadHandles.hEvHandler != NULL)
     {
          EvHandlerUnload (pDrvMain->tStadHandles.hEvHandler);
@@ -753,7 +758,7 @@ TI_STATUS drvMain_Destroy (TI_HANDLE  hDrvMain)
         context_Destroy (pDrvMain->tStadHandles.hContext);
     }
 
-     if (pDrvMain->tStadHandles.hStaCap != NULL)
+    if (pDrvMain->tStadHandles.hStaCap != NULL)
     {
         StaCap_Destroy (pDrvMain->tStadHandles.hStaCap);
     }

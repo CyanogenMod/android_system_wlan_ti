@@ -115,8 +115,6 @@ TI_STATUS externalSec_config(mainSec_t *pMainSec)
 	return status;
 }
 
-
-
 /**
 *
 * Function  - externalSec_create.
@@ -158,6 +156,41 @@ struct externalSec_t* externalSec_create(TI_HANDLE hOs)
     }
 	
     return pHandle;
+}
+
+/**
+*
+* Function  - externalSec_unload.
+*
+* \b Description:
+*
+* Called by mainSecSM (mainSec_unload).
+*
+* \b ARGS:
+*
+*
+* \b RETURNS:
+*
+*  TI_STATUS - 0 on success, any other value on failure.
+*
+*/
+TI_STATUS externalSec_unload(struct externalSec_t *pExternalSec)
+{
+    TI_STATUS status;
+
+    if (!pExternalSec)
+    {
+        return TI_NOK;
+    }
+    status = fsm_Unload(pExternalSec->hOs, pExternalSec->pExternalSecSm);
+    if (status != TI_OK)
+    {
+        /* report failure but don't stop... */
+        TRACE0(pExternalSec->hReport, REPORT_SEVERITY_ERROR, "EXTERNAL SECURITY: Error releasing FSM memory \n");
+    }
+
+    os_memoryFree(pExternalSec->hOs, pExternalSec, sizeof(struct externalSec_t));
+    return TI_OK;
 }
 
 /**
@@ -321,4 +354,3 @@ TI_STATUS externalSecSM_Unexpected(struct externalSec_t *pExternalSec)
     TRACE0(pExternalSec->hReport, REPORT_SEVERITY_ERROR, "EXTERNAL_SEC_SM: ERROR UnExpected Event\n");
     return(TI_OK);
 }
-
