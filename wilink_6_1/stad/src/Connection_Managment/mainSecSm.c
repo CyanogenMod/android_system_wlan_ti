@@ -140,6 +140,13 @@ mainSec_t* mainSec_create(TI_HANDLE hOs)
     
     /* created only for external security mode */
     pHandle->pExternalSec = externalSec_create(hOs);
+    if (pHandle->pExternalSec == NULL)
+    {
+        mainKeys_unload(pHandle->pMainKeys);
+        fsm_Unload(hOs, pHandle->pMainSecSm);
+        os_memoryFree(hOs, pHandle, sizeof(mainSec_t));
+        return NULL;
+    }
 
     return pHandle;
 }
@@ -264,6 +271,13 @@ TI_STATUS mainSec_unload(mainSec_t *pMainSec)
     {
         /* report failure but don't stop... */
         TRACE0(pMainSec->hReport, REPORT_SEVERITY_ERROR, "MAIN_SEC_SM: Error releasing FSM memory \n");
+    }
+
+    status = externalSec_unload(pMainSec->pExternalSec);
+    if (status != TI_OK)
+    {
+        /* report failure but don't stop... */
+        TRACE0(pMainSec->hReport, REPORT_SEVERITY_ERROR, "MAIN_SEC_SM: Error releasing ExternalSec memory \n");
     }
 
     os_memoryFree(pMainSec->hOs, pMainSec, sizeof(mainSec_t));
