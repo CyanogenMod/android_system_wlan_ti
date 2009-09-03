@@ -606,9 +606,7 @@ TI_STATUS assoc_recv(TI_HANDLE hAssoc, mlmeFrameInfo_t *pFrame)
 */
 TI_STATUS assoc_getParam(TI_HANDLE hAssoc, paramInfo_t *pParam)
 {
-    assoc_t     *pHandle;
-
-    pHandle = (assoc_t*)hAssoc;
+    assoc_t *pHandle = (assoc_t *)hAssoc;
 
     if ((pHandle == NULL) || (pParam == NULL))
     {
@@ -644,14 +642,20 @@ TI_STATUS assoc_getParam(TI_HANDLE hAssoc, paramInfo_t *pParam)
            TI_UINT8  reqBuffIEOffset, respBuffIEOffset;
            TI_UINT32 RequestIELength = 0;
            TI_UINT32 ResponseIELength = 0;
-           paramInfo_t  param;
+           paramInfo_t  *lParam;
+           ScanBssType_enum bssType;
 
            TRACE0(pHandle->hReport, REPORT_SEVERITY_SM, "ASSOC_SM: DEBUG - Association Information Get:  \n");
+           lParam = (paramInfo_t *)os_memoryAlloc(pHandle->hOs, sizeof(paramInfo_t));
+           if (!lParam)
+               return TI_NOK;
 
            /* Assoc exists only in Infrastructure */
-           param.paramType = CTRL_DATA_CURRENT_BSS_TYPE_PARAM;
-           ctrlData_getParam(pHandle->hCtrlData, &param);
-           if (param.content.ctrlDataCurrentBssType != BSS_INFRASTRUCTURE)
+           lParam->paramType = CTRL_DATA_CURRENT_BSS_TYPE_PARAM;
+           ctrlData_getParam(pHandle->hCtrlData, lParam);
+           bssType = lParam->content.ctrlDataCurrentBssType;
+           os_memoryFree(pHandle->hOs, lParam, sizeof(paramInfo_t));
+           if (bssType != BSS_INFRASTRUCTURE)
            {
                TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "Not in Infrastructure BSS, No ASSOC Info for GET ASSOC_ASSOCIATION_INFORMATION_PARAM\n");
                return TI_NOK;
@@ -914,22 +918,26 @@ TI_STATUS assoc_smMaxRetryWait(assoc_t *pAssoc)
 
 TI_STATUS assoc_smSendAssocReq(assoc_t *pAssoc)
 {
-    TI_UINT8                assocMsg[MAX_ASSOC_MSG_LENGTH];
-    TI_UINT32               msgLen;
+    TI_UINT8           *assocMsg;
+    TI_UINT32           msgLen;
     TI_STATUS           status;
     dot11MgmtSubType_e  assocType=ASSOC_REQUEST;
+
+    assocMsg = os_memoryAlloc(pAssoc->hOs, MAX_ASSOC_MSG_LENGTH);
+    if (!assocMsg)
+        return TI_NOK;
 
     if (pAssoc->reAssoc)
     {
         assocType = RE_ASSOC_REQUEST;
     }
     status = assoc_smRequestBuild(pAssoc, assocMsg, &msgLen);
-    if (status != TI_OK)
-        return status;
-
-    /* Save the association request message */
-    assoc_saveAssocReqMessage(pAssoc, assocMsg, msgLen);
-    status = mlmeBuilder_sendFrame(pAssoc->hMlme, assocType, assocMsg, msgLen, 0);
+    if (status == TI_OK) {
+        /* Save the association request message */
+        assoc_saveAssocReqMessage(pAssoc, assocMsg, msgLen);
+        status = mlmeBuilder_sendFrame(pAssoc->hMlme, assocType, assocMsg, msgLen, 0);
+    }
+    os_memoryFree(pAssoc->hOs, assocMsg, MAX_ASSOC_MSG_LENGTH);
     return status;
 }
 

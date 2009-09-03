@@ -3765,12 +3765,16 @@ TI_STATUS scanMngr_setParam( TI_HANDLE hScanMngr, paramInfo_t *pParam )
  */
 void scanMngr_SetDefaults (TI_HANDLE hScanMngr, TRoamScanMngrInitParams *pInitParams)
 {
-    int i;
+	scanMngr_t* pScanMngr = (scanMngr_t*)hScanMngr;
     TScanPolicy    defaultScanPolicy;
-    paramInfo_t    param;
+    paramInfo_t    *pParam;
+    int i;
 
     WLAN_OS_REPORT(("pInitParams->RoamingScanning_2_4G_enable %d \n",pInitParams->RoamingScanning_2_4G_enable ));
 
+    pParam = os_memoryAlloc(pScanMngr->hOS, sizeof(paramInfo_t));
+    if (!pParam)
+        return;
     if (pInitParams->RoamingScanning_2_4G_enable)
     {
         /* Configure default scan policy for 2.4G  */
@@ -3822,15 +3826,16 @@ void scanMngr_SetDefaults (TI_HANDLE hScanMngr, TRoamScanMngrInitParams *pInitPa
         defaultScanPolicy.bandScanPolicy[0].immediateScanMethod.method.basicMethodParams.probReqParams.txPowerDbm = MAX_TX_POWER;
 
 
-        param.paramType = SCAN_MNGR_SET_CONFIGURATION;
+        pParam->paramType = SCAN_MNGR_SET_CONFIGURATION;
 
         /* scanMngr_setParam() copy the content and not the pointer */
-        param.content.pScanPolicy = &defaultScanPolicy;
-        param.paramLength = sizeof(TScanPolicy);
+        pParam->content.pScanPolicy = &defaultScanPolicy;
+        pParam->paramLength = sizeof(TScanPolicy);
 
-        scanMngr_setParam (hScanMngr,&param);
+        scanMngr_setParam (hScanMngr, pParam);
 
     }
+    os_memoryFree(pScanMngr->hOS, pParam, sizeof(paramInfo_t));
     /* Configure default scan parameters - SHIRIT END */
 }
 /**

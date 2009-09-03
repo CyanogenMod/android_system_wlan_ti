@@ -824,44 +824,48 @@ static TI_STATUS measurementMgrSM_acStartMeasurement(void * pData)
 	/* the second one is the measurementSRV request */
     MeasurementRequest_t * pRequestArr[MAX_NUM_REQ];
 	TMeasurementRequest request;
-
-    paramInfo_t	param;
+    paramInfo_t	*pParam;
     TI_UINT8 numOfRequestsInParallel;
     TI_UINT8 requestIndex;
 	TI_UINT32 timePassed;
 	TI_BOOL requestedBeaconMeasurement= TI_FALSE;
 	TI_STATUS status;
 
-TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Starting Measurement operation\n");
+    TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Starting Measurement operation\n");
+
+    pParam = (paramInfo_t *)os_memoryAlloc(pMeasurementMgr->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
 
 	request.channel = pMeasurementMgr->measuredChannelID;
 	request.startTime = 0;	/* ignored by MeasurementSRV for now - for .11k */
 	request.numberOfTypes = 0;
 
-TRACE1(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Measured Channel = %d\n", pMeasurementMgr->measuredChannelID);
+    TRACE1(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Measured Channel = %d\n", pMeasurementMgr->measuredChannelID);
 
-	param.paramType = REGULATORY_DOMAIN_GET_SCAN_CAPABILITIES;
-	param.content.channelCapabilityReq.channelNum = pMeasurementMgr->measuredChannelID;
-	param.content.channelCapabilityReq.scanOption = ACTIVE_SCANNING;
+	pParam->paramType = REGULATORY_DOMAIN_GET_SCAN_CAPABILITIES;
+	pParam->content.channelCapabilityReq.channelNum = pMeasurementMgr->measuredChannelID;
+	pParam->content.channelCapabilityReq.scanOption = ACTIVE_SCANNING;
 
 	if (pMeasurementMgr->measuredChannelID <= MAX_CHANNEL_IN_BAND_2_4)
 	{
 		request.band = RADIO_BAND_2_4_GHZ;
-		param.content.channelCapabilityReq.band = RADIO_BAND_2_4_GHZ;
+		pParam->content.channelCapabilityReq.band = RADIO_BAND_2_4_GHZ;
 	}
 	else
 	{
 		request.band = RADIO_BAND_5_0_GHZ;
-		param.content.channelCapabilityReq.band = RADIO_BAND_5_0_GHZ;
+		pParam->content.channelCapabilityReq.band = RADIO_BAND_5_0_GHZ;
 	}
 
-	regulatoryDomain_getParam(pMeasurementMgr->hRegulatoryDomain, &param);
+	regulatoryDomain_getParam(pMeasurementMgr->hRegulatoryDomain, pParam);
 	
-    request.txPowerDbm = param.content.channelCapabilityRet.maxTxPowerDbm;
+    request.txPowerDbm = pParam->content.channelCapabilityRet.maxTxPowerDbm;
 
     request.eTag = SCAN_RESULT_TAG_MEASUREMENT;
+    os_memoryFree(pMeasurementMgr->hOs, pParam, sizeof(paramInfo_t));
 
-TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Querying Request Handler for the next request in the queue\n");
+    TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Querying Request Handler for the next request in the queue\n");
 
     /* Getting the next request/requests from the request handler */
     status = requestHandler_getNextReq(pMeasurementMgr->hRequestH, TI_TRUE, pRequestArr,
@@ -869,8 +873,7 @@ TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Querying Reques
 
 	if (status != TI_OK)
 	{	
-TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_ERROR, ": Failed getting next request from Request Handler\n");
-
+        TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_ERROR, ": Failed getting next request from Request Handler\n");
         return measurementMgrSM_event((TI_UINT8 *) &(pMeasurementMgr->currentState), 
 				MEASUREMENTMGR_EVENT_COMPLETE, pMeasurementMgr);  
 	}
@@ -888,7 +891,7 @@ TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_ERROR, ": Failed getting next r
 
 			if (pRequestArr[requestIndex]->ScanMode == MSR_SCAN_MODE_BEACON_TABLE)
 			{
-TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Beacon Table request encountered, building report now\n");
+                TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Beacon Table request encountered, building report now\n");
 
 				/* building Report for beacon table request */
 				pMeasurementMgr->buildReport(pMeasurementMgr, *pRequestArr[requestIndex], NULL);
@@ -905,7 +908,7 @@ TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Beacon Table re
 		request.msrTypes[request.numberOfTypes].scanMode = pRequestArr[requestIndex]->ScanMode;
 		request.msrTypes[request.numberOfTypes].msrType = pRequestArr[requestIndex]->Type;
 
-TRACE3(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ":\n\nMeasurement Request #%d Details: Type = %d, Duration = %d\n\n",						request.numberOfTypes+1,						request.msrTypes[request.numberOfTypes].msrType,						request.msrTypes[request.numberOfTypes].duration);
+        TRACE3(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ":\n\nMeasurement Request #%d Details: Type = %d, Duration = %d\n\n",						request.numberOfTypes+1,						request.msrTypes[request.numberOfTypes].msrType,						request.msrTypes[request.numberOfTypes].duration);
 
 		request.numberOfTypes++;
 	}
@@ -923,7 +926,7 @@ TRACE3(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ":\n\nMeasurement 
         templateStruct.uRateMask = RATE_MASK_UNSPECIFIED;
 		broadcastSSID.len = 0;
 
-TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Sending probe request template...\n");
+        TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Sending probe request template...\n");
 
         buildProbeReqTemplate( pMeasurementMgr->hSiteMgr, &templateStruct, &broadcastSSID, request.band );
 #ifdef XCC_MODULE_INCLUDED
@@ -944,16 +947,15 @@ TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Sending probe r
 	timePassed = os_timeStampMs(pMeasurementMgr->hOs) - pMeasurementMgr->currentRequestStartTime;
 	if (timePassed > MSR_START_MAX_DELAY)
 	{
-TRACE2(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Maximum delay to perform measurement operation has passed (%d / %d)\n",						MSR_START_MAX_DELAY, (os_timeStampMs(pMeasurementMgr->hOs) - pMeasurementMgr->currentRequestStartTime));
+        TRACE2(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Maximum delay to perform measurement operation has passed (%d / %d)\n",						MSR_START_MAX_DELAY, (os_timeStampMs(pMeasurementMgr->hOs) - pMeasurementMgr->currentRequestStartTime));
 
 		pMeasurementMgr->buildRejectReport(pMeasurementMgr, pRequestArr, numOfRequestsInParallel, MSR_REJECT_MAX_DELAY_PASSED);
-
         return measurementMgrSM_event((TI_UINT8 *) &(pMeasurementMgr->currentState), 
 				MEASUREMENTMGR_EVENT_COMPLETE, pMeasurementMgr);  
 	}
 
 	/* Yalla, start measuring */
-TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Finished preparing request. Handing over to MeasurementSRV...\n");
+    TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Finished preparing request. Handing over to MeasurementSRV...\n");
 
 	TWD_StartMeasurement (pMeasurementMgr->hTWD,
                                &request, 
@@ -961,7 +963,6 @@ TRACE0(pMeasurementMgr->hReport, REPORT_SEVERITY_INFORMATION, ": Finished prepar
                                NULL, NULL,
                                measurementMgr_MeasurementCompleteCB, 
                                pMeasurementMgr);
-
 	return TI_OK;
 }
 

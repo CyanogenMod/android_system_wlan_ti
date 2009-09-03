@@ -612,13 +612,17 @@ static void roamingMngr_smSuccHandover(TI_HANDLE hRoamingMngr)
     /* Start pre-authentication in order to set PMKID
         for the current AP */
     if (pRoamingMngr->staCapabilities.authMode==os802_11AuthModeWPA2)
-    {   
+    {
 		/* No Pre-Auth is required */
-        bssList_t           bssList;
+        bssList_t           *pBssList;
 
         TRACE0(pRoamingMngr->hReport, REPORT_SEVERITY_INFORMATION, "roamingMngr_smStartIdle, Pre-Auth to cur AP\n");
-        bssList.numOfEntries = 0;
-        apConn_preAuthenticate(pRoamingMngr->hAPConnection, &bssList);
+        pBssList = os_memoryAlloc(pRoamingMngr->hOs, sizeof(bssList_t));
+        if (!pBssList)
+            return;
+        pBssList->numOfEntries = 0;
+        apConn_preAuthenticate(pRoamingMngr->hAPConnection, pBssList);
+        os_memoryFree(pRoamingMngr->hOs, pBssList, sizeof(bssList_t));
     }
 }
 
@@ -772,12 +776,16 @@ static void roamingMngr_smStartIdle(void *pData)
         for the current AP */
     if (pRoamingMngr->staCapabilities.authMode==os802_11AuthModeWPA2)
     {   /* No Pre-Auth is required */
-        bssList_t           bssList;
+        bssList_t           *pBssList;
 
         TRACE0(pRoamingMngr->hReport, REPORT_SEVERITY_INFORMATION, "roamingMngr_smStartIdle, Pre-Auth to cur AP\n");
-        bssList.numOfEntries = 0;
-        apConn_preAuthenticate(pRoamingMngr->hAPConnection, &bssList);
+        pBssList = os_memoryAlloc(pRoamingMngr->hOs, sizeof(bssList_t));
+        if (!pBssList)
+            return;
+
+        pBssList->numOfEntries = 0;
+        apConn_preAuthenticate(pRoamingMngr->hAPConnection, pBssList);
+        os_memoryFree(pRoamingMngr->hOs, pBssList, sizeof(bssList_t));
     }
 }
-
 

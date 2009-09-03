@@ -1583,7 +1583,7 @@ static void drvMain_Sm (TI_HANDLE hDrvMain, ESmEvent eEvent)
             pDrvMain->eSmState = SM_STATE_FW_CONFIG;
             if (!pDrvMain->bRecovery)
             {
-		os_SignalObjectSet(hOs, pDrvMain->hSignalObj);
+                os_SignalObjectSet(hOs, pDrvMain->hSignalObj);
             }
             TWD_EnableInterrupts(pDrvMain->tStadHandles.hTWD);
           #ifdef PRIODIC_INTERRUPT

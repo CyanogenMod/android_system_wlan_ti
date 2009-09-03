@@ -370,7 +370,7 @@ void apConn_init (TStadHandlesList *pStadHandles)
     apConn_t *pAPConnection = (apConn_t *)(pStadHandles->hAPConnection);
 
     /** State Machine matrix */
-    fsm_actionCell_t apConn_matrix[AP_CONNECT_NUM_STATES][AP_CONNECT_NUM_EVENTS] =
+    static fsm_actionCell_t apConn_matrix[AP_CONNECT_NUM_STATES][AP_CONNECT_NUM_EVENTS] =
     {
         /* next state and actions for IDLE state */
         {   {AP_CONNECT_STATE_IDLE, apConn_smUnexpected},               /* PREPARE_FOR_ROAMING  */ 

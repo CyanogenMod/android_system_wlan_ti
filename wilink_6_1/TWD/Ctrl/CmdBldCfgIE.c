@@ -768,14 +768,19 @@ TI_STATUS cmdBld_CfgIeTxPowerDbm (TI_HANDLE hCmdBld, TI_UINT8 uTxPowerDbm , void
 TI_STATUS cmdBld_CfgIeStatisitics (TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb)
 {
     TCmdBld *pCmdBld = (TCmdBld *)hCmdBld;
-    ACXStatistics_t  acx;
-    ACXStatistics_t  *pCfg = &acx;
+    TI_STATUS status = TI_NOK;
+    ACXStatistics_t  *pCfg;
 
+    pCfg = os_memoryAlloc(pCmdBld->hOs, sizeof(ACXStatistics_t));
+    if (!pCfg)
+        return status;
     /* Set information element header */
     pCfg->EleHdr.id  = ACX_STATISTICS;
     pCfg->EleHdr.len = sizeof(*pCfg) - sizeof(EleHdrStruct);
 
-    return cmdQueue_SendCommand (pCmdBld->hCmdQueue, CMD_CONFIGURE, pCfg, sizeof(*pCfg), fCb, hCb, NULL);
+    status = cmdQueue_SendCommand (pCmdBld->hCmdQueue, CMD_CONFIGURE, pCfg, sizeof(*pCfg), fCb, hCb, NULL);
+    os_memoryFree(pCmdBld->hOs, pCfg, sizeof(ACXStatistics_t));
+    return status;
 }
 
 
@@ -1850,42 +1855,53 @@ TI_STATUS cmdBld_CfgIeSetBaSession (TI_HANDLE hCmdBld,
 TI_STATUS cmdBld_CfgIeRadioParams (TI_HANDLE hCmdBld, IniFileRadioParam *pIniFileRadioParams, void *fCb, TI_HANDLE hCb)
 {
     TCmdBld *pCmdBld = (TCmdBld *)hCmdBld;
-    TTestCmd TestCmd;
-    TTestCmd *pTestCmd = &TestCmd;
+    TI_STATUS status = TI_NOK;
+    TTestCmd *pTestCmd;
+
+    pTestCmd = os_memoryAlloc(pCmdBld->hOs, sizeof(TTestCmd));
+    if (!pTestCmd)
+        return status;
 
     pTestCmd->testCmdId = TEST_CMD_INI_FILE_RADIO_PARAM;
     
     os_memoryCopy(pCmdBld->hOs, &pTestCmd->testCmd_u.IniFileRadioParams, pIniFileRadioParams, sizeof(IniFileRadioParam));
 
    
-    return cmdQueue_SendCommand (pCmdBld->hCmdQueue, 
+    status = cmdQueue_SendCommand (pCmdBld->hCmdQueue, 
                              CMD_TEST, 
                              (void *)pTestCmd, 
                              sizeof(IniFileRadioParam) + 4,
                              fCb, 
                              hCb, 
-                             (void*)pTestCmd);   
+                             (void*)pTestCmd);
+    os_memoryFree(pCmdBld->hOs, pTestCmd, sizeof(TTestCmd));
+    return status;
 }
 
 
 TI_STATUS cmdBld_CfgPlatformGenParams (TI_HANDLE hCmdBld, IniFileGeneralParam *pGenParams, void *fCb, TI_HANDLE hCb)
 {
     TCmdBld *pCmdBld = (TCmdBld *)hCmdBld;
-    TTestCmd TestCmd;
-    TTestCmd *pTestCmd = &TestCmd;
+    TI_STATUS status = TI_NOK;
+    TTestCmd *pTestCmd;
+
+    pTestCmd = os_memoryAlloc(pCmdBld->hOs, sizeof(TTestCmd));
+    if (!pTestCmd)
+        return status;
 
     pTestCmd->testCmdId = TEST_CMD_INI_FILE_GENERAL_PARAM;
     
     os_memoryCopy(pCmdBld->hOs, &pTestCmd->testCmd_u.IniFileGeneralParams, pGenParams, sizeof(IniFileGeneralParam));
 
-    return cmdQueue_SendCommand (pCmdBld->hCmdQueue, 
+    status = cmdQueue_SendCommand (pCmdBld->hCmdQueue, 
                               CMD_TEST, 
                               (void *)pTestCmd, 
                               sizeof(IniFileGeneralParam),
                               fCb, 
                               hCb, 
                               (void*)pTestCmd);    
-
+    os_memoryFree(pCmdBld->hOs, pTestCmd, sizeof(TTestCmd));
+    return status;
 }
 
 

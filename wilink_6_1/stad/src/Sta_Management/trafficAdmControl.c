@@ -1024,7 +1024,7 @@ RETURN:     TI_OK on success, TI_NOK otherwise
 TI_STATUS trafficAdmCtrl_buildFrameHeader(trafficAdmCtrl_t *pTrafficAdmCtrl, TTxCtrlBlk *pPktCtrlBlk)
 {
    	TI_STATUS			status;
-	paramInfo_t		    daParam, saParam;
+	TMacAddr		    daBssid, saBssid;
 	dot11_mgmtHeader_t *pdot11Header;
 	ScanBssType_e		currBssType;
 	TMacAddr    		currBssId;
@@ -1032,16 +1032,14 @@ TI_STATUS trafficAdmCtrl_buildFrameHeader(trafficAdmCtrl_t *pTrafficAdmCtrl, TTx
 	pdot11Header = (dot11_mgmtHeader_t *)(pPktCtrlBlk->aPktHdr);
 	
     /* Get the Destination MAC address */
-	daParam.paramType = CTRL_DATA_CURRENT_BSSID_PARAM;
-	status = ctrlData_getParam(pTrafficAdmCtrl->hCtrlData, &daParam);
+	status = ctrlData_getParamBssid(pTrafficAdmCtrl->hCtrlData, CTRL_DATA_CURRENT_BSSID_PARAM, daBssid);
 	if (status != TI_OK)
 	{
 		return TI_NOK;
 	}
 
     /* Get the Source MAC address */
-	saParam.paramType = CTRL_DATA_MAC_ADDRESS;
-	status = ctrlData_getParam(pTrafficAdmCtrl->hCtrlData, &saParam);
+	status = ctrlData_getParamBssid(pTrafficAdmCtrl->hCtrlData, CTRL_DATA_MAC_ADDRESS, saBssid);
 	if (status != TI_OK)
 	{
 		return TI_NOK;
@@ -1061,9 +1059,9 @@ TRACE0(pTrafficAdmCtrl->hReport, REPORT_SEVERITY_ERROR, "trafficAdmCtrl_buildFra
 	/* copy BSSID */
 	MAC_COPY (pdot11Header->BSSID, currBssId);
 	/* copy source mac address */
-	MAC_COPY (pdot11Header->SA, saParam.content.ctrlDataCurrentBSSID);
+	MAC_COPY (pdot11Header->SA, saBssid);
 	/* copy destination mac address */
-	MAC_COPY (pdot11Header->DA, daParam.content.ctrlDataCurrentBSSID);
+	MAC_COPY (pdot11Header->DA, daBssid);
 
 	/* set frame ctrl to mgmt action frame an to DS */
 	pdot11Header->fc = ENDIAN_HANDLE_WORD(DOT11_FC_ACTION | DOT11_FC_TO_DS);

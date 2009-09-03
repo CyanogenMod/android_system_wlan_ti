@@ -231,6 +231,50 @@ TI_STATUS ctrlData_unLoad(TI_HANDLE hCtrlData)
     return TI_OK;
 }
 
+TI_STATUS ctrlData_getParamProtType(TI_HANDLE hCtrlData, erpProtectionType_e *protType)
+{ /* CTRL_DATA_CURRENT_IBSS_PROTECTION_PARAM */
+    ctrlData_t *pCtrlData = (ctrlData_t *)hCtrlData;
+
+    *protType = pCtrlData->ctrlDataIbssProtectionType;
+    return TI_OK;
+}
+
+TI_STATUS ctrlData_getParamPreamble(TI_HANDLE hCtrlData, EPreamble *preamble)
+{ /* CTRL_DATA_CURRENT_PREAMBLE_TYPE_PARAM */
+    ctrlData_t *pCtrlData = (ctrlData_t *)hCtrlData;
+
+    *preamble = pCtrlData->ctrlDataCurrentPreambleType;
+    return TI_OK;
+}
+
+/***************************************************************************
+*                           ctrlData_getParamBssid                         *
+****************************************************************************
+* DESCRIPTION:  get a specific parameter related to Bssid
+* 
+* INPUTS:       hCtrlData - the object
+*               paramVal  - type of parameter
+*               
+*       
+* OUTPUT:       bssid
+* 
+* RETURNS:      TI_OK
+*               TI_NOK
+***************************************************************************/
+TI_STATUS ctrlData_getParamBssid(TI_HANDLE hCtrlData, EInternalParam paramVal, TMacAddr bssid)
+{
+    ctrlData_t *pCtrlData = (ctrlData_t *)hCtrlData;
+
+    if (paramVal == CTRL_DATA_CURRENT_BSSID_PARAM) {
+        MAC_COPY (bssid, pCtrlData->ctrlDataCurrentBSSID);
+    }
+    else if (paramVal == CTRL_DATA_MAC_ADDRESS) {
+        TFwInfo *pFwInfo = TWD_GetFWInfo (pCtrlData->hTWD);
+        MAC_COPY (bssid, pFwInfo->macAddress); 
+    }
+
+    return TI_OK;
+}
 
 /***************************************************************************
 *                           ctrlData_getParam                              *
@@ -298,7 +342,7 @@ TI_STATUS ctrlData_getParam(TI_HANDLE hCtrlData, paramInfo_t *pParamInfo)
         break;
 
     default:
-TRACE0(pCtrlData->hReport, REPORT_SEVERITY_ERROR, " ctrlData_getParam() : PARAMETER NOT SUPPORTED \n");
+        TRACE0(pCtrlData->hReport, REPORT_SEVERITY_ERROR, " ctrlData_getParam() : PARAMETER NOT SUPPORTED \n");
 		return (PARAM_NOT_SUPPORTED);
     }
 

@@ -756,7 +756,15 @@ TI_UINT8 qosMngr_evalSite(TI_HANDLE hQosMngr, TI_BOOL siteAPSDSupport)
    return 0;
 }
 
+TI_STATUS qosMngr_getParamsActiveProtocol(TI_HANDLE hQosMngr, EQosProtocol *actProt)
+{
+    qosMngr_t *pQosMngr = (qosMngr_t *)hQosMngr;
 
+	if (pQosMngr == NULL)
+		return TI_NOK;
+    *actProt = pQosMngr->activeProtocol;
+    return TI_OK;
+}
 
 /************************************************************************
  *                        qosMngr_getACparams           			    *
@@ -781,7 +789,7 @@ TI_STATUS qosMngr_getParams(TI_HANDLE  hQosMngr,paramInfo_t *pParamInfo)
 	if(pQosMngr == NULL)
 		return TI_NOK;
 
-TRACE1(pQosMngr->hReport, REPORT_SEVERITY_INFORMATION, "qosMngr_getParams: %x\n", pParamInfo->paramType);
+    TRACE1(pQosMngr->hReport, REPORT_SEVERITY_INFORMATION, "qosMngr_getParams: %x\n", pParamInfo->paramType);
 
 	switch(pParamInfo->paramType)
 	{
@@ -807,8 +815,7 @@ TRACE1(pQosMngr->hReport, REPORT_SEVERITY_INFORMATION, "qosMngr_getParams: %x\n"
 		pParamInfo->content.TspecConfigure.voiceTspecConfigure = (TI_UINT8)pQosMngr->voiceTspecConfigured;
         pParamInfo->content.TspecConfigure.videoTspecConfigure = (TI_UINT8)pQosMngr->videoTspecConfigured;
 
-
-TRACE1(pQosMngr->hReport, REPORT_SEVERITY_INFORMATION, "qosMngr_getParams: QOS_MNGR_VOICE_RE_NEGOTIATE_TSPEC=%d\n", pQosMngr->voiceTspecConfigured);
+        TRACE1(pQosMngr->hReport, REPORT_SEVERITY_INFORMATION, "qosMngr_getParams: QOS_MNGR_VOICE_RE_NEGOTIATE_TSPEC=%d\n", pQosMngr->voiceTspecConfigured);
 
 		if (pQosMngr->voiceTspecConfigured == TI_TRUE) 
 		{
@@ -865,16 +872,16 @@ TRACE1(pQosMngr->hReport, REPORT_SEVERITY_INFORMATION, "qosMngr_getParams: QOS_M
    			case TI_OK:
       			return TI_OK;
 			case NOT_CONNECTED:
-TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "Not connected to an AP...\n");
+                TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "Not connected to an AP...\n");
 				break;
    			case NO_QOS_AP:
-      TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "AP does not support QOS...\n");
+                TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "AP does not support QOS...\n");
       			break;
    			case TI_NOK:
-      TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "Invalid parameter...\n");
+                TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "Invalid parameter...\n");
       			break;
    			default:
-      TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "Unknown return value...\n");
+                TRACE0(pQosMngr->hReport, REPORT_SEVERITY_ERROR, "Unknown return value...\n");
       			break;			
    		}
 		return TI_NOK;

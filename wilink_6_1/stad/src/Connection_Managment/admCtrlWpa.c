@@ -527,12 +527,11 @@ TI_STATUS admCtrlWpa_getInfoElement(admCtrl_t *pAdmCtrl, TI_UINT8 *pIe, TI_UINT3
     wpaIePacket_t   *pWpaIePacket;
     TI_UINT8        length;
     TI_UINT16       tempInt;
-    paramInfo_t     param;
     TI_STATUS       status;
+    TIWLN_SIMPLE_CONFIG_MODE wscMode;
 
     /* Get Simple-Config state */
-    param.paramType = SITE_MGR_SIMPLE_CONFIG_MODE;
-    status = siteMgr_getParam(pAdmCtrl->pRsn->hSiteMgr, &param);
+    status = siteMgr_getParamWSC(pAdmCtrl->pRsn->hSiteMgr, &wscMode); /* SITE_MGR_SIMPLE_CONFIG_MODE */
 
     if (pIe==NULL)
     {
@@ -540,7 +539,7 @@ TI_STATUS admCtrlWpa_getInfoElement(admCtrl_t *pAdmCtrl, TI_UINT8 *pIe, TI_UINT3
         return TI_NOK;
     }
 
-    if ((param.content.siteMgrWSCMode.WSCMode != TIWLN_SIMPLE_CONFIG_OFF) && 
+    if ((wscMode != TIWLN_SIMPLE_CONFIG_OFF) && 
         (pAdmCtrl->broadcastSuite == TWD_CIPHER_NONE) && 
         (pAdmCtrl->unicastSuite == TWD_CIPHER_NONE))
     {
@@ -704,7 +703,7 @@ TI_STATUS admCtrlWpa_getInfoElement(admCtrl_t *pAdmCtrl, TI_UINT8 *pIe, TI_UINT3
 TI_STATUS admCtrlWpa_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *pAssocIe, TI_UINT8 *pAssocIeLen)
 {
     TI_STATUS           status;
-    paramInfo_t         param;
+    paramInfo_t         *pParam;
     TTwdParamInfo       tTwdParam;
     wpaIeData_t         wpaData;
     ECipherSuite        encryptionStatus;
@@ -718,19 +717,19 @@ TI_STATUS admCtrlWpa_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *
     {
         return TI_NOK;
     }
+
+    pParam = (paramInfo_t *)os_memoryAlloc(pAdmCtrl->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
+
     if (pRsnData->pIe==NULL)
     {
 		/* configure the MLME module with the 802.11 OPEN authentication suite, 
 			THe MLME will configure later the authentication module */
-		param.paramType = MLME_LEGACY_TYPE_PARAM;
-		param.content.mlmeLegacyAuthType = AUTH_LEGACY_OPEN_SYSTEM;
-		status = mlme_setParam(pAdmCtrl->hMlme, &param);
-		if (status != TI_OK)
-		{
-			return status;
-		}
-
-        return TI_OK;
+        pParam->paramType = MLME_LEGACY_TYPE_PARAM;
+        pParam->content.mlmeLegacyAuthType = AUTH_LEGACY_OPEN_SYSTEM;
+        status = mlme_setParam(pAdmCtrl->hMlme, pParam);
+        goto adm_ctrl_wpa_end;
     }
 
 #ifdef XCC_MODULE_INCLUDED
@@ -747,25 +746,26 @@ TI_STATUS admCtrlWpa_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *
         {
            status = admCtrlWpa2_setSite(pAdmCtrl, pRsnData,  pAssocIe, pAssocIeLen);
            if(status == TI_OK)
-               return status;
+               goto adm_ctrl_wpa_end;
         }
     }
     
 	status = admCtrl_parseIe(pAdmCtrl, pRsnData, &pWpaIe, WPA_IE_ID);
 	if (status != TI_OK)                                                         
 	{                                                                                    
-		return status;                                                        
+        goto adm_ctrl_wpa_end;
 	}
     status = admCtrlWpa_parseIe(pAdmCtrl, pWpaIe, &wpaData);
     if (status != TI_OK)
     {
-        return status;
+        goto adm_ctrl_wpa_end;
     }
     if ((wpaData.unicastSuite[0]>=MAX_WPA_CIPHER_SUITE) ||
         (wpaData.broadcastSuite>=MAX_WPA_CIPHER_SUITE) ||
         (pAdmCtrl->unicastSuite>=MAX_WPA_CIPHER_SUITE))
     {
-        return TI_NOK;
+        status = TI_NOK;
+        goto adm_ctrl_wpa_end;
     }
 
     pAdmCtrl->encrInSw = wpaData.XCCKp;
@@ -776,8 +776,10 @@ TI_STATUS admCtrlWpa_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *
     {
         pAdmCtrl->getCipherSuite(pAdmCtrl, &encryptionStatus);
 	/*Funk supplicant can support CCKM only if it configures the driver to TKIP encryption. */
-        if (encryptionStatus != TWD_CIPHER_TKIP) 
-            return TI_NOK;
+        if (encryptionStatus != TWD_CIPHER_TKIP) {
+            status = TI_NOK;
+            goto adm_ctrl_wpa_end;
+        }
         if (pAdmCtrl->encrInSw)
             pAdmCtrl->XCCSupport = TI_TRUE;
     }
@@ -786,7 +788,8 @@ TI_STATUS admCtrlWpa_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *
         /* Check validity of Group suite */
         if (!broadcastCipherSuiteValidity[pAdmCtrl->networkMode][wpaData.broadcastSuite])
         {   /* check Group suite validity */                                          
-            return TI_NOK;
+            status = TI_NOK;
+            goto adm_ctrl_wpa_end;
         }
 
         pAdmCtrl->getCipherSuite(pAdmCtrl, &encryptionStatus);
@@ -799,9 +802,10 @@ TI_STATUS admCtrlWpa_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *
             }
         }
 
-        if (pAdmCtrlWpa_validity->status !=TI_OK)
+        if (pAdmCtrlWpa_validity->status != TI_OK)
         {
-            return pAdmCtrlWpa_validity->status;
+            status = pAdmCtrlWpa_validity->status;
+            goto adm_ctrl_wpa_end;
         }
    
         /* set cipher suites */
@@ -837,13 +841,12 @@ TI_STATUS admCtrlWpa_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *
         pAdmCtrl->externalAuthMode = RSN_EXT_AUTH_MODE_OPEN;
         break;
     }
-
       
 
 #ifdef XCC_MODULE_INCLUDED
-	param.paramType = XCC_CCKM_EXISTS;
-	param.content.XCCCckmExists = (wpaData.KeyMngSuite[0]==WPA_IE_KEY_MNG_CCKM) ? TI_TRUE : TI_FALSE;
-	XCCMngr_setParam(pAdmCtrl->hXCCMngr, &param);
+	pParam->paramType = XCC_CCKM_EXISTS;
+	pParam->content.XCCCckmExists = (wpaData.KeyMngSuite[0]==WPA_IE_KEY_MNG_CCKM) ? TI_TRUE : TI_FALSE;
+	XCCMngr_setParam(pAdmCtrl->hXCCMngr, pParam);
 #endif
     /* set replay counter */
     pAdmCtrl->replayCnt = wpaData.replayCounters;
@@ -857,31 +860,31 @@ TI_STATUS admCtrlWpa_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *
 
     /* Now we configure the MLME module with the 802.11 legacy authentication suite, 
         THe MLME will configure later the authentication module */
-    param.paramType = MLME_LEGACY_TYPE_PARAM;
+    pParam->paramType = MLME_LEGACY_TYPE_PARAM;
 #ifdef XCC_MODULE_INCLUDED
 	if (pAdmCtrl->networkEapMode!=OS_XCC_NETWORK_EAP_OFF)
     {
-        param.content.mlmeLegacyAuthType = AUTH_LEGACY_RESERVED1;
+        pParam->content.mlmeLegacyAuthType = AUTH_LEGACY_RESERVED1;
     }
 	else
 #endif
 	{
-		param.content.mlmeLegacyAuthType = AUTH_LEGACY_OPEN_SYSTEM;
+		pParam->content.mlmeLegacyAuthType = AUTH_LEGACY_OPEN_SYSTEM;
 	}
     
     
-    status = mlme_setParam(pAdmCtrl->hMlme, &param);
+    status = mlme_setParam(pAdmCtrl->hMlme, pParam);
     if (status != TI_OK)
     {
-        return status;
+        goto adm_ctrl_wpa_end;
     }
 
-    param.paramType = RX_DATA_EAPOL_DESTINATION_PARAM;
-    param.content.rxDataEapolDestination = OS_ABS_LAYER;
-    status = rxData_setParam(pAdmCtrl->hRx, &param);
+    pParam->paramType = RX_DATA_EAPOL_DESTINATION_PARAM;
+    pParam->content.rxDataEapolDestination = OS_ABS_LAYER;
+    status = rxData_setParam(pAdmCtrl->hRx, pParam);
     if (status != TI_OK)
     {
-        return status;
+        goto adm_ctrl_wpa_end;
     }
 
 	/* Configure privacy status in HAL so that HW is prepared to recieve keys */
@@ -890,7 +893,7 @@ TI_STATUS admCtrlWpa_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *
 	status = TWD_SetParam(pAdmCtrl->pRsn->hTWD, &tTwdParam);
 	if (status != TI_OK)
 	{
-		return status;
+        goto adm_ctrl_wpa_end;		
 	}
 
 #ifdef XCC_MODULE_INCLUDED
@@ -901,7 +904,7 @@ TI_STATUS admCtrlWpa_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *
     status = TWD_SetParam(pAdmCtrl->pRsn->hTWD, &tTwdParam);
     if (status != TI_OK)
     {
-        return status;
+        goto adm_ctrl_wpa_end;
     }
     tTwdParam.paramType = TWD_RSN_XCC_MIC_FIELD_ENABLE_PARAM_ID; 
     tTwdParam.content.rsnXCCMicFieldFlag = wpaData.XCCMic;
@@ -909,7 +912,7 @@ TI_STATUS admCtrlWpa_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *
     
     if (status != TI_OK)
     {
-        return status;
+        goto adm_ctrl_wpa_end;        
     }
 #endif /*XCC_MODULE_INCLUDED*/
 
@@ -917,10 +920,10 @@ TI_STATUS admCtrlWpa_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *
     status = admCtrlWpa_dynamicConfig(pAdmCtrl,&wpaData);
     if (status != TI_OK)
     {
-        return status;
+        goto adm_ctrl_wpa_end;
     }
-
-
+adm_ctrl_wpa_end:
+    os_memoryFree(pAdmCtrl->hOs, pParam, sizeof(paramInfo_t));
     return status;
 }
 
@@ -952,13 +955,12 @@ TI_STATUS admCtrlWpa_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSiteP
     wpaIeData_t             wpaData;
     admCtrlWpa_validity_t   admCtrlWpa_validity;
     ECipherSuite            encryptionStatus;
+    TIWLN_SIMPLE_CONFIG_MODE wscMode;
     TI_UINT8                *pWpaIe;
     TI_UINT8                index;
-    paramInfo_t             param;
 
 	/* Get Simple-Config state */
-    param.paramType = SITE_MGR_SIMPLE_CONFIG_MODE;
-    status          = siteMgr_getParam(pAdmCtrl->pRsn->hSiteMgr, &param);
+    status = siteMgr_getParamWSC(pAdmCtrl->pRsn->hSiteMgr, &wscMode); /* SITE_MGR_SIMPLE_CONFIG_MODE */
 
 	*pEvaluation = 0;
 
@@ -966,7 +968,7 @@ TI_STATUS admCtrlWpa_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSiteP
     {
         return TI_NOK;
     }
-    if ((pRsnData->pIe==NULL) && (param.content.siteMgrWSCMode.WSCMode == TIWLN_SIMPLE_CONFIG_OFF))
+    if ((pRsnData->pIe==NULL) && (wscMode == TIWLN_SIMPLE_CONFIG_OFF))
     {
         return TI_NOK;
     }
@@ -993,7 +995,7 @@ TI_STATUS admCtrlWpa_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSiteP
     }
 
 	status = admCtrl_parseIe(pAdmCtrl, pRsnData, &pWpaIe, WPA_IE_ID);
-	if ((status != TI_OK) && (param.content.siteMgrWSCMode.WSCMode == TIWLN_SIMPLE_CONFIG_OFF))                                                        
+	if ((status != TI_OK) && (wscMode == TIWLN_SIMPLE_CONFIG_OFF))                                                        
 	{                                                                                    
 		return status;                                                        
 	}
@@ -1024,7 +1026,7 @@ TI_STATUS admCtrlWpa_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSiteP
     case WPA_IE_KEY_MNG_PSK_801_1X:
        TRACE0(pAdmCtrl->hReport, REPORT_SEVERITY_INFORMATION, "admCtrlWpa_evalSite: KeyMngSuite[0]=WPA_IE_KEY_MNG_PSK_801_1X\n");
         status = ((pAdmCtrl->externalAuthMode == RSN_EXT_AUTH_MODE_WPAPSK) ||
-					(param.content.siteMgrWSCMode.WSCMode && (pAdmCtrl->externalAuthMode == RSN_EXT_AUTH_MODE_WPA))) ? TI_OK : TI_NOK;        		
+					(wscMode && (pAdmCtrl->externalAuthMode == RSN_EXT_AUTH_MODE_WPA))) ? TI_OK : TI_NOK;        		
         break;
     default:
         status = TI_NOK;
@@ -1088,7 +1090,7 @@ TI_STATUS admCtrlWpa_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSiteP
     else
     {
        TRACE0(pAdmCtrl->hReport, REPORT_SEVERITY_INFORMATION, "didn't find WPA IE\n");
-       if (param.content.siteMgrWSCMode.WSCMode == TIWLN_SIMPLE_CONFIG_OFF)
+       if (wscMode == TIWLN_SIMPLE_CONFIG_OFF)
           return TI_NOK;
        TRACE0(pAdmCtrl->hReport, REPORT_SEVERITY_INFORMATION, "metric is 1\n");
        *pEvaluation = 1;

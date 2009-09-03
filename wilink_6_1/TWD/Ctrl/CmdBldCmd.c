@@ -519,7 +519,7 @@ TI_STATUS cmdBld_StartPeriodicScan (TI_HANDLE hCmdBld, TPeriodicScanParams *pPer
 {
     TCmdBld                         *pCmdBld = (TCmdBld *)hCmdBld;
     ConnScanParameters_t            tFWPeriodicScanParams;
-    ConnScanSSIDList_t              tFWSsidList;
+    ConnScanSSIDList_t              *pFWSsidList;
     PeriodicScanTag                 tScanStart;
     TI_UINT32                       uIndex;
     TI_STATUS                       tStatus;
@@ -548,28 +548,33 @@ TI_STATUS cmdBld_StartPeriodicScan (TI_HANDLE hCmdBld, TPeriodicScanParams *pPer
         break;
 
     default: /* More than one SSID - copy SSIDs to SSID list command */
+        pFWSsidList = os_memoryAlloc(pCmdBld->hOs, sizeof(ConnScanSSIDList_t));
+        if (!pFWSsidList)
+            return TI_NOK;
+
         if ((TI_UINT8)pPeriodicScanParams->uSsidListFilterEnabled == 1)
 	        tFWPeriodicScanParams.ssidFilterType = (ScanSsidFilterType_e)SCAN_SSID_FILTER_TYPE_LIST;
 		else
 	        tFWPeriodicScanParams.ssidFilterType = (ScanSsidFilterType_e)SCAN_SSID_FILTER_TYPE_LIST_FILTER_DISABLED;
         tFWPeriodicScanParams.ssidLength = 0;
-        tFWSsidList.numOfSSIDEntries = (TI_UINT8)pPeriodicScanParams->uSsidNum;
+        pFWSsidList->numOfSSIDEntries = (TI_UINT8)pPeriodicScanParams->uSsidNum;
         for (uIndex = 0; uIndex < pPeriodicScanParams->uSsidNum; uIndex++)
         {
-            tFWSsidList.SSIDList[ uIndex ].ssidType = 
+            pFWSsidList->SSIDList[ uIndex ].ssidType = 
                 (TI_UINT8)pPeriodicScanParams->tDesiredSsid[ uIndex ].eVisability;
-            tFWSsidList.SSIDList[ uIndex ].ssidLength = 
+            pFWSsidList->SSIDList[ uIndex ].ssidLength = 
                 (TI_UINT8)pPeriodicScanParams->tDesiredSsid[ uIndex ].tSsid.len;
-            os_memoryCopy (pCmdBld->hOs, (void*)&(tFWSsidList.SSIDList[ uIndex ].ssid[ 0 ]),
+            os_memoryCopy (pCmdBld->hOs, (void*)&(pFWSsidList->SSIDList[ uIndex ].ssid[ 0 ]),
                            (void*)&(pPeriodicScanParams->tDesiredSsid[ uIndex ].tSsid.str[ 0 ]),
-                           tFWSsidList.SSIDList[ uIndex ].ssidLength);
+                           pFWSsidList->SSIDList[ uIndex ].ssidLength);
         }
 
         /* print the SSID list parameters */
-        cmdBld_debugPrintPeriodicScanSsidList (hCmdBld, &tFWSsidList);
+        cmdBld_debugPrintPeriodicScanSsidList (hCmdBld, pFWSsidList);
 
         /* send the SSID list command */
-        tStatus = cmdBld_CmdIeScanSsidList (hCmdBld, &tFWSsidList, NULL, NULL);
+        tStatus = cmdBld_CmdIeScanSsidList (hCmdBld, pFWSsidList, NULL, NULL);
+        os_memoryFree(pCmdBld->hOs, pFWSsidList, sizeof(ConnScanSSIDList_t));
         if (TI_OK != tStatus)
         {
             TRACE1(pCmdBld->hReport, REPORT_SEVERITY_ERROR , "cmdBld_StartPeriodicScan: status %d when configuring SSID list", tStatus);
@@ -612,7 +617,8 @@ TI_STATUS cmdBld_StartPeriodicScan (TI_HANDLE hCmdBld, TPeriodicScanParams *pPer
 
     /* send the periodic scan start command */
     tScanStart.scanTag = eScanTag;
-    return cmdBld_CmdIeStartPeriodicScan (hCmdBld, &tScanStart, fScanCommandResponseCB, hCb);
+    tStatus = cmdBld_CmdIeStartPeriodicScan (hCmdBld, &tScanStart, fScanCommandResponseCB, hCb);
+    return tStatus;
 }
 
 /** 
@@ -1667,5 +1673,4 @@ TI_STATUS cmdBld_CmdTest (TI_HANDLE hCmdBld, void *fCb, TI_HANDLE hCb, TTestCmd*
 {
     return cmdBld_CmdIeTest (hCmdBld, fCb, hCb, pTestCmd);
 }
-
 

@@ -605,14 +605,18 @@ TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_INFORMATION, "regulatoryDomai
         /* if a country was found for either band */
         if ((pRegulatoryDomain->country_2_4_WasFound) || (pRegulatoryDomain->country_5_WasFound))
         {
-            paramInfo_t tParam;
+            paramInfo_t *tParam;
             TI_STATUS   connStatus;
             TI_UINT32   uCurrentTS = os_timeStampMs (pRegulatoryDomain->hOs);
 
-            /* Get connection status */
-            tParam.paramType = SITE_MGR_CURRENT_SSID_PARAM;
-            connStatus = siteMgr_getParam (pRegulatoryDomain->hSiteMgr, &tParam);    
+            tParam = (paramInfo_t *)os_memoryAlloc(pRegulatoryDomain->hOs, sizeof(paramInfo_t));
+            if (!tParam)
+                return TI_NOK;
 
+            /* Get connection status */
+            tParam->paramType = SITE_MGR_CURRENT_SSID_PARAM;
+            connStatus = siteMgr_getParam (pRegulatoryDomain->hSiteMgr, tParam);
+            os_memoryFree(pRegulatoryDomain->hOs, tParam, sizeof(paramInfo_t));
             /* if we are connected, return 0 */
             if (connStatus != NO_SITE_SELECTED_YET)
             {
@@ -1104,15 +1108,15 @@ static TI_STATUS regulatoryDomain_getChannelCapability(regulatoryDomain_t *pRegu
 													   channelCapabilityRet_t *channelCapabilityRet)
 {
 	channelCapability_t		*pSupportedChannels;
-	TI_UINT8					channelIndex;
+	TI_UINT8				channelIndex;
 	TI_BOOL					bCountryWasFound, bServingChannel;
-	paramInfo_t				tParamInfo;
+	paramInfo_t				*pParam;
 
 	if ((pRegulatoryDomain == NULL) || (channelCapabilityRet == NULL))
 	{
 		return TI_NOK;
 	}
-	
+
 	channelCapabilityRet->channelValidity = TI_FALSE;
 	channelCapabilityRet->maxTxPowerDbm = 0;
 	if ((channelCapabilityReq.channelNum==0 ) || (channelCapabilityReq.channelNum > A_5G_BAND_MAX_CHANNEL))
@@ -1163,22 +1167,28 @@ static TI_STATUS regulatoryDomain_getChannelCapability(regulatoryDomain_t *pRegu
 		}
 		else
 		{
-        channelCapabilityRet->channelValidity = pSupportedChannels[channelIndex].channelValidityActive;
+
+            pParam = (paramInfo_t *)os_memoryAlloc(pRegulatoryDomain->hOs, sizeof(paramInfo_t));
+            if (!pParam)
+                return TI_NOK;
+
+            channelCapabilityRet->channelValidity = pSupportedChannels[channelIndex].channelValidityActive;
 			/*
 			 * Set Maximum Tx power for the channel - only for active scanning
 			 */ 
 
 			/* Get current channel and check if we are using the same one */
-			tParamInfo.paramType = SITE_MGR_CURRENT_CHANNEL_PARAM;
-			siteMgr_getParam(pRegulatoryDomain->hSiteMgr, &tParamInfo);
+			pParam->paramType = SITE_MGR_CURRENT_CHANNEL_PARAM;
+			siteMgr_getParam(pRegulatoryDomain->hSiteMgr, pParam);
 
-			bServingChannel = ( tParamInfo.content.siteMgrCurrentChannel == channelCapabilityReq.channelNum ?
+			bServingChannel = ( pParam->content.siteMgrCurrentChannel == channelCapabilityReq.channelNum ?
 								TI_TRUE : TI_FALSE );
 
 			channelCapabilityRet->maxTxPowerDbm = regulatoryDomain_getMaxPowerAllowed(pRegulatoryDomain, 
 				channelCapabilityReq.channelNum, 
 				channelCapabilityReq.band, 
 				bServingChannel);
+            os_memoryFree(pRegulatoryDomain->hOs, pParam, sizeof(paramInfo_t));
 		}
 	}
 	else	/* Passive scanning */
@@ -1269,52 +1279,55 @@ RETURN:     TI_OK - New value was configured to TWD, TI_NOK - Can't configure va
 ************************************************************************/
 static TI_STATUS regulatoryDomain_updateCurrTxPower(regulatoryDomain_t	*pRegulatoryDomain)
 {
-	TI_UINT8				uCurrChannel, uNewTxPower;
-	TTwdParamInfo		param;
-	paramInfo_t			tParamInfo;
+	paramInfo_t			*pParam;
 	TI_STATUS			eStatus;
+	TTwdParamInfo		ttparam;
+	TI_UINT8    		uCurrChannel, uNewTxPower;
+
+    pParam = (paramInfo_t *)os_memoryAlloc(pRegulatoryDomain->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
 
 	/* Get the current channel, and update TWD with the changed */
-	tParamInfo.paramType = SITE_MGR_CURRENT_CHANNEL_PARAM;
-	eStatus = siteMgr_getParam(pRegulatoryDomain->hSiteMgr, &tParamInfo);
+	pParam->paramType = SITE_MGR_CURRENT_CHANNEL_PARAM;
+	eStatus = siteMgr_getParam(pRegulatoryDomain->hSiteMgr, pParam);
 
 	if ( eStatus != TI_OK )
 	{
 		/* We are not joined yet - no meaning for new Tx power */
-TRACE0(pRegulatoryDomain->hReport, REPORT_SEVERITY_INFORMATION, "regulatoryDomain_updateCurrTxPower, No site selected yet\n");
-
+        TRACE0(pRegulatoryDomain->hReport, REPORT_SEVERITY_INFORMATION, "regulatoryDomain_updateCurrTxPower, No site selected yet\n");
+        os_memoryFree(pRegulatoryDomain->hOs, pParam, sizeof(paramInfo_t));
 		return TI_NOK;
 	}
 	/* Save current channel */
-	uCurrChannel = tParamInfo.content.siteMgrCurrentChannel;
+	uCurrChannel = pParam->content.siteMgrCurrentChannel;
 
 	/* Get the current channel, and update TWD with the changed */
-	tParamInfo.paramType = 	SITE_MGR_RADIO_BAND_PARAM;
-	siteMgr_getParam(pRegulatoryDomain->hSiteMgr, &tParamInfo);
+	pParam->paramType = 	SITE_MGR_RADIO_BAND_PARAM;
+	siteMgr_getParam(pRegulatoryDomain->hSiteMgr, pParam);
 
 	/* Calculate maximum Tx power for the serving channel */
 	uNewTxPower = regulatoryDomain_getMaxPowerAllowed(pRegulatoryDomain, uCurrChannel, 
-													  tParamInfo.content.siteMgrRadioBand, TI_TRUE);
-	
+													  pParam->content.siteMgrRadioBand, TI_TRUE);
+    os_memoryFree(pRegulatoryDomain->hOs, pParam, sizeof(paramInfo_t));	
 	/* Verify that the Temporary TX Power Control doesn't violate the TX Power Constraint */
 	pRegulatoryDomain->uTemporaryTxPower = TI_MIN(pRegulatoryDomain->uDesiredTemporaryTxPower, uNewTxPower);
 
+    TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_INFORMATION, "regulatoryDomain_updateCurrTxPower, Write to TWD = %d \n", uNewTxPower);
 
-TRACE1(pRegulatoryDomain->hReport, REPORT_SEVERITY_INFORMATION, "regulatoryDomain_updateCurrTxPower, Write to TWD = %d \n", uNewTxPower);
-
-    param.paramType = TWD_TX_POWER_PARAM_ID;
+    ttparam.paramType = TWD_TX_POWER_PARAM_ID;
 
     /* set TWD according to Temporary Tx Power Enable flag */
     if (TI_TRUE == pRegulatoryDomain->bTemporaryTxPowerEnable)
     {
-        param.content.halCtrlTxPowerDbm = pRegulatoryDomain->uTemporaryTxPower;
+        ttparam.content.halCtrlTxPowerDbm = pRegulatoryDomain->uTemporaryTxPower;
     }
     else
     {
-	param.content.halCtrlTxPowerDbm = uNewTxPower;
+        ttparam.content.halCtrlTxPowerDbm = uNewTxPower;
     }
-
-	return TWD_SetParam(pRegulatoryDomain->hTWD, &param);
+    eStatus = TWD_SetParam(pRegulatoryDomain->hTWD, &ttparam);
+	return eStatus;
 }
 
 /***********************************************************************
@@ -1334,15 +1347,18 @@ RETURN:
 ************************************************************************/
 void regulatoryDomain_checkCountryCodeExpiry(regulatoryDomain_t *pRegulatoryDomain)
 {
-    paramInfo_t param;
+    paramInfo_t *pParam;
     TI_STATUS   connStatus;
-    TI_UINT32      uCurrentTS = os_timeStampMs(pRegulatoryDomain->hOs);
+    TI_UINT32   uCurrentTS = os_timeStampMs(pRegulatoryDomain->hOs);
 
     if ((pRegulatoryDomain->country_2_4_WasFound) || (pRegulatoryDomain->country_5_WasFound))
     {
+        pParam = (paramInfo_t *)os_memoryAlloc(pRegulatoryDomain->hOs, sizeof(paramInfo_t));
+        if (!pParam)
+            return;
         /* Get connection status */
-        param.paramType = SITE_MGR_CURRENT_SSID_PARAM;
-        connStatus      = siteMgr_getParam(pRegulatoryDomain->hSiteMgr, &param);    
+        pParam->paramType = SITE_MGR_CURRENT_SSID_PARAM;
+        connStatus      = siteMgr_getParam(pRegulatoryDomain->hSiteMgr, pParam);
 
          /* If (uTimeOutToResetCountryMs has elapsed && we are not connected)
                  delete the last country code received */
@@ -1357,7 +1373,8 @@ void regulatoryDomain_checkCountryCodeExpiry(regulatoryDomain_t *pRegulatoryDoma
             
             /* Restore default values of the scan control table */
             setSupportedChannelsAccording2ScanControlTable(pRegulatoryDomain); 
-        } 
+        }
+        os_memoryFree(pRegulatoryDomain->hOs, pParam, sizeof(paramInfo_t));
     }
 }
 

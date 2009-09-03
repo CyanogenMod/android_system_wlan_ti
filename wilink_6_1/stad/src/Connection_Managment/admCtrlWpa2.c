@@ -516,12 +516,12 @@ TI_STATUS admCtrlWpa2_config(admCtrl_t *pAdmCtrl)
 TI_STATUS admCtrlWpa2_getInfoElement(admCtrl_t *pAdmCtrl, TI_UINT8 *pIe, TI_UINT32 *pLength)
 {
     wpa2IePacket_t     *pWpa2IePacket;
-    TI_UINT8              length = 0;
-    TMacAddr       assocBssid;
-    paramInfo_t        param;
+    TI_UINT8           length = 0;
+    TMacAddr           assocBssid;
+    TMacAddr           pBssid;
     pmkidValue_t       pmkId;
     TI_STATUS          status;
-    TI_UINT8              index;
+    TI_UINT8           index;
 
     if (pIe==NULL)
     {
@@ -601,9 +601,8 @@ TI_STATUS admCtrlWpa2_getInfoElement(admCtrl_t *pAdmCtrl, TI_UINT8 *pIe, TI_UINT
         /* Init value of PMKID count is 0 */
         SET_WLAN_WORD(&pWpa2IePacket->pmkIdCnt,ENDIAN_HANDLE_WORD(0));
         length += 2;
-        param.paramType = CTRL_DATA_CURRENT_BSSID_PARAM;
-        status          = ctrlData_getParam(pAdmCtrl->pRsn->hCtrlData, &param);
-		MAC_COPY(assocBssid, param.content.ctrlDataCurrentBSSID);
+        status = ctrlData_getParamBssid(pAdmCtrl->pRsn->hCtrlData, CTRL_DATA_CURRENT_BSSID_PARAM, pBssid);
+		MAC_COPY(assocBssid, pBssid);
         TRACE0(pAdmCtrl->hReport, REPORT_SEVERITY_INFORMATION, "admCtrlWpa2_getInfoElement - find PMKID \n");
         status = admCtrlWpa2_findPMKID(pAdmCtrl, &assocBssid, &pmkId, &index);
         if(status == TI_OK)
@@ -645,13 +644,12 @@ TI_STATUS admCtrlWpa2_getInfoElement(admCtrl_t *pAdmCtrl, TI_UINT8 *pIe, TI_UINT
 TI_STATUS admCtrlWpa2_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 *pAssocIe, TI_UINT8 *pAssocIeLen)
 {
     TI_STATUS               status;
-    paramInfo_t             param;
+    paramInfo_t             *pParam;
     TTwdParamInfo           tTwdParam;
     wpa2IeData_t            wpa2Data;
     TRsnPaeConfig           paeConfig;
     TI_UINT8                *pWpa2Ie;
     ECipherSuite            uSuite, bSuite;
-
 
     *pAssocIeLen = 0;
 
@@ -659,19 +657,19 @@ TI_STATUS admCtrlWpa2_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 
     {
         return TI_NOK;
     }
+
+    pParam = (paramInfo_t *)os_memoryAlloc(pAdmCtrl->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
+
     if (pRsnData->pIe==NULL)
     {
         /* configure the MLME module with the 802.11 OPEN authentication suite, 
             THe MLME will configure later the authentication module */
-        param.paramType = MLME_LEGACY_TYPE_PARAM;
-        param.content.mlmeLegacyAuthType = AUTH_LEGACY_OPEN_SYSTEM;
-        status = mlme_setParam(pAdmCtrl->hMlme, &param);
-        if (status != TI_OK)
-        {
-            return status;
-        }
-
-        return TI_OK;
+        pParam->paramType = MLME_LEGACY_TYPE_PARAM;
+        pParam->content.mlmeLegacyAuthType = AUTH_LEGACY_OPEN_SYSTEM;
+        status = mlme_setParam(pAdmCtrl->hMlme, pParam);
+        goto adm_ctrl_wpa2_end;
     }
 
 #ifdef XCC_MODULE_INCLUDED
@@ -692,31 +690,33 @@ TI_STATUS admCtrlWpa2_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 
     
     status = admCtrl_parseIe(pAdmCtrl, pRsnData, &pWpa2Ie, RSN_IE_ID);
     if (status != TI_OK)                                                         
-    {                                                                                    
-        return status;                                                        
+    {
+        goto adm_ctrl_wpa2_end;
     }
     TRACE0(pAdmCtrl->hReport, REPORT_SEVERITY_INFORMATION, "admCtrlWpa2_setSite: RSN_IE=\n");
     TRACE_INFO_HEX(pAdmCtrl->hReport, pRsnData->pIe, pRsnData->ieLen);
     status = admCtrlWpa2_parseIe(pAdmCtrl, pWpa2Ie, &wpa2Data);
     if (status != TI_OK)
     {
-        return status;
+        goto adm_ctrl_wpa2_end;
     }
     if ((wpa2Data.unicastSuite[0]>=MAX_WPA2_CIPHER_SUITE) ||
         (wpa2Data.broadcastSuite>=MAX_WPA2_CIPHER_SUITE) ||
         (pAdmCtrl->unicastSuite>=MAX_WPA2_CIPHER_SUITE))
     {
-        return TI_NOK;
+        status = TI_NOK;
+        goto adm_ctrl_wpa2_end;
     }
     /* Check validity of Group suite */
     if (!broadcastCipherSuiteValidity[pAdmCtrl->networkMode][wpa2Data.broadcastSuite])
     {   /* check Group suite validity */                                          
-        return TI_NOK;
+        status = TI_NOK;
+        goto adm_ctrl_wpa2_end;
     }
 
-    
-    if(admCtrlWpa2_getCipherSuiteMetric (pAdmCtrl, &wpa2Data, NULL, &uSuite, &bSuite) != TI_OK)
-        return TI_NOK;
+    status = admCtrlWpa2_getCipherSuiteMetric (pAdmCtrl, &wpa2Data, NULL, &uSuite, &bSuite);
+    if (status != TI_OK)
+        goto adm_ctrl_wpa2_end;
 
     /* set replay counter */
     pAdmCtrl->replayCnt = wpa2Data.ptkReplayCounters;
@@ -739,13 +739,11 @@ TI_STATUS admCtrlWpa2_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 
           paeConfig.authProtocol   = RSN_EXT_AUTH_MODE_WPA2PSK;
     }
 
-
 #ifdef XCC_MODULE_INCLUDED
-    param.paramType = XCC_CCKM_EXISTS;
-    param.content.XCCCckmExists = (wpa2Data.KeyMngSuite[0]==WPA2_IE_KEY_MNG_CCKM) ? TI_TRUE : TI_FALSE;
-    XCCMngr_setParam(pAdmCtrl->hXCCMngr, &param);
+    pParam->paramType = XCC_CCKM_EXISTS;
+    pParam->content.XCCCckmExists = (wpa2Data.KeyMngSuite[0]==WPA2_IE_KEY_MNG_CCKM) ? TI_TRUE : TI_FALSE;
+    XCCMngr_setParam(pAdmCtrl->hXCCMngr, pParam);
 #endif
-
 
     paeConfig.keyExchangeProtocol = pAdmCtrl->keyMngSuite;
     paeConfig.unicastSuite        = uSuite;    /* Updated value */
@@ -754,41 +752,42 @@ TI_STATUS admCtrlWpa2_setSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TI_UINT8 
 
     if (status != TI_OK)
     {
-        return status;
+        goto adm_ctrl_wpa2_end;
     }
 
     /* Now we configure the MLME module with the 802.11 legacy authentication suite, 
         THe MLME will configure later the authentication module */
-    param.paramType = MLME_LEGACY_TYPE_PARAM;
+    pParam->paramType = MLME_LEGACY_TYPE_PARAM;
 #ifdef XCC_MODULE_INCLUDED
     if (pAdmCtrl->networkEapMode!=OS_XCC_NETWORK_EAP_OFF)
     {
-        param.content.mlmeLegacyAuthType = AUTH_LEGACY_RESERVED1;
+        pParam->content.mlmeLegacyAuthType = AUTH_LEGACY_RESERVED1;
     }
     else
 #endif
     {
-        param.content.mlmeLegacyAuthType = AUTH_LEGACY_OPEN_SYSTEM;
+        pParam->content.mlmeLegacyAuthType = AUTH_LEGACY_OPEN_SYSTEM;
     }
-    status = mlme_setParam(pAdmCtrl->hMlme, &param);
+    status = mlme_setParam(pAdmCtrl->hMlme, pParam);
     if (status != TI_OK)
     {
-        return status;
+        goto adm_ctrl_wpa2_end;
     }
 
-    param.paramType = RX_DATA_EAPOL_DESTINATION_PARAM;
-    param.content.rxDataEapolDestination = OS_ABS_LAYER;
-    status = rxData_setParam(pAdmCtrl->hRx, &param);
+    pParam->paramType = RX_DATA_EAPOL_DESTINATION_PARAM;
+    pParam->content.rxDataEapolDestination = OS_ABS_LAYER;
+    status = rxData_setParam(pAdmCtrl->hRx, pParam);
     if (status != TI_OK)
     {
-        return status;
+        goto adm_ctrl_wpa2_end;
     }
 
     /* Configure privacy status in HAL so that HW is prepared to recieve keys */
     tTwdParam.paramType = TWD_RSN_SECURITY_MODE_PARAM_ID;
     tTwdParam.content.rsnEncryptionStatus = (ECipherSuite)paeConfig.unicastSuite;
     status = TWD_SetParam(pAdmCtrl->pRsn->hTWD, &tTwdParam);
-
+adm_ctrl_wpa2_end:
+    os_memoryFree(pAdmCtrl->hOs, pParam, sizeof(paramInfo_t));
     return status;
 }
 
@@ -821,7 +820,7 @@ TI_STATUS admCtrlWpa2_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSite
     TI_UINT8                *pWpa2Ie;
     ECipherSuite            uSuite, bSuite,encryptionStatus;
     TI_UINT8                i = 0;
-	paramInfo_t             param;
+    TIWLN_SIMPLE_CONFIG_MODE  wscMode = TIWLN_SIMPLE_CONFIG_OFF;
 
     *pEvaluation = 0;
 
@@ -845,11 +844,8 @@ TI_STATUS admCtrlWpa2_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSite
 		TRACE0(pAdmCtrl->hReport, REPORT_SEVERITY_INFORMATION,"Dismiss AP - HT with TKIP is not valid");
         return TI_NOK; /* if the encyption is TKIP and the site does support HT(11n) the site can not be a candidate */
 	}
-
-	/* Get Simple-Config state */
-    param.paramType = SITE_MGR_SIMPLE_CONFIG_MODE;
-    status          = siteMgr_getParam(pAdmCtrl->pRsn->hSiteMgr, &param);
-
+    /* Get Simple-Config state */
+    siteMgr_getParamWSC(pAdmCtrl->pRsn->hSiteMgr, &wscMode); /* SITE_MGR_SIMPLE_CONFIG_MODE */
     status = admCtrl_parseIe(pAdmCtrl, pRsnData, &pWpa2Ie, RSN_IE_ID);
     if (status != TI_OK)                                                         
     {                                                                                    
@@ -895,7 +891,7 @@ TI_STATUS admCtrlWpa2_evalSite(admCtrl_t *pAdmCtrl, TRsnData *pRsnData, TRsnSite
              	else
              		/* Any-WPA mode is supported */
                 	status = ((pAdmCtrl->externalAuthMode == RSN_EXT_AUTH_MODE_WPA2PSK) ||
-                				(param.content.siteMgrWSCMode.WSCMode && (pAdmCtrl->externalAuthMode == RSN_EXT_AUTH_MODE_WPA)) ||
+                				(wscMode && (pAdmCtrl->externalAuthMode == RSN_EXT_AUTH_MODE_WPA)) ||
                     			(pAdmCtrl->externalAuthMode == RSN_EXT_AUTH_MODE_WPAPSK)) ? TI_OK : TI_NOK;					
 
 				if ((status == TI_NOK) && (wpa2Data.KeyMngSuiteCnt > 1) && (wpa2Data.KeyMngSuite[1] == WPA2_IE_KEY_MNG_801_1X) && (pAdmCtrl->externalAuthMode == RSN_EXT_AUTH_MODE_WPA2))
@@ -1674,34 +1670,40 @@ static void admCtrlWpa2_buildAndSendPMKIDCandList (TI_HANDLE hHandle, TBssidList
 {
 
     admCtrl_t         *pAdmCtrl = (admCtrl_t *)hHandle;
-    TI_UINT8             candIndex =0, apIndex = 0, size =0;
-    paramInfo_t       param;
+    TI_UINT8          candIndex =0, apIndex = 0, size =0;
+    paramInfo_t       *pParam;
     OS_802_11_PMKID_CANDIDATELIST  *pCandList;
-    TI_UINT8             memBuff[PMKID_CAND_LIST_MEMBUFF_SIZE + sizeof(TI_UINT32)];
+    TI_UINT8           memBuff[PMKID_CAND_LIST_MEMBUFF_SIZE + sizeof(TI_UINT32)];
     dot11_RSN_t       *rsnIE = 0;
     wpa2IeData_t      wpa2Data;
     TI_STATUS         status = TI_NOK;
 
-    /* Get SSID that the STA is accociated with    */
-    param.paramType = SME_DESIRED_SSID_ACT_PARAM;
-    status          = sme_GetParam (pAdmCtrl->pRsn->hSmeSm, &param);
-    if(status != TI_OK)
+    pParam = (paramInfo_t *)os_memoryAlloc(pAdmCtrl->hOs, sizeof(paramInfo_t));
+    if (!pParam)
         return;
+
+    /* Get SSID that the STA is accociated with    */
+    pParam->paramType = SME_DESIRED_SSID_ACT_PARAM;
+    status          = sme_GetParam (pAdmCtrl->pRsn->hSmeSm, pParam);
+    if(status != TI_OK) {
+        os_memoryFree(pAdmCtrl->hOs, pParam, sizeof(paramInfo_t));
+        return;
+    }
 
     /* If the existing PMKID cache contains information for not relevant */
     /* ssid (i.e. ssid was changed), clean up the PMKID cache and update */
     /* the ssid in the PMKID cache */
-    if ((pAdmCtrl->pmkid_cache.ssid.len != param.content.smeDesiredSSID.len) || 
+    if ((pAdmCtrl->pmkid_cache.ssid.len != pParam->content.smeDesiredSSID.len) || 
          (os_memoryCompare(pAdmCtrl->hOs, (TI_UINT8 *)pAdmCtrl->pmkid_cache.ssid.str,
-          (TI_UINT8 *) param.content.smeDesiredSSID.str,
+          (TI_UINT8 *)pParam->content.smeDesiredSSID.str,
                           pAdmCtrl->pmkid_cache.ssid.len) != 0))
     {
         admCtrlWpa2_resetPMKIDCache(pAdmCtrl);
 
         os_memoryCopy(pAdmCtrl->hOs, (void *)pAdmCtrl->pmkid_cache.ssid.str, 
-                      (void *)param.content.smeDesiredSSID.str,
-                      param.content.siteMgrCurrentSSID.len);
-        pAdmCtrl->pmkid_cache.ssid.len = param.content.smeDesiredSSID.len;
+                      (void *)pParam->content.smeDesiredSSID.str,
+                      pParam->content.siteMgrCurrentSSID.len);
+        pAdmCtrl->pmkid_cache.ssid.len = pParam->content.smeDesiredSSID.len;
     }
 
     /* Get list of APs of the SSID that the STA is associated with*/
@@ -1710,6 +1712,7 @@ static void admCtrlWpa2_buildAndSendPMKIDCandList (TI_HANDLE hHandle, TBssidList
                                       &param.content.siteMgrCurrentSSID,
                                       &apList);
     */
+    os_memoryFree(pAdmCtrl->hOs, pParam, sizeof(paramInfo_t));
     if((apList == NULL) || (apList->NumOfItems == 0))
         return;
         
@@ -1831,10 +1834,7 @@ static void admCtrlWpa2_buildAndSendPMKIDCandList (TI_HANDLE hHandle, TBssidList
     /* Send PRE-AUTH start event to External Application */
     admCtrl_notifyPreAuthStatus (pAdmCtrl, RSN_PRE_AUTH_START);
     TRACE1(pAdmCtrl->hReport, REPORT_SEVERITY_INFORMATION, "RSN:  PMKID Candidate List with %d entries has been built and sent for ssid  \n", candIndex);
-
-    
     return;
-
 }
 
 /**

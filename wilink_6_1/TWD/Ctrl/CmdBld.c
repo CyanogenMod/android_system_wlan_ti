@@ -2120,8 +2120,8 @@ static TI_STATUS cmdBld_ReadMibTxRatePolicy (TI_HANDLE hCmdBld, TI_HANDLE hCb, v
 {
     TMib* pMib = (TMib*)pCb;
     TCmdQueueInterrogateCb RetFunc = (TCmdQueueInterrogateCb)fCb;
-    TTwdParamInfo param;
     TI_STATUS status = TI_OK;
+    TTwdParamInfo param;
 
     param.paramType = TWD_TX_RATE_CLASS_PARAM_ID;
     cmdBld_GetParam (hCmdBld, &param);
@@ -2152,7 +2152,7 @@ TI_STATUS cmdBld_ReadMib (TI_HANDLE hCmdBld, TI_HANDLE hCb, void* fCb, void* pCb
     {
     case MIB_dot11MaxReceiveLifetime:
         {
-            TTwdParamInfo ParamInfo; 
+            TTwdParamInfo ParamInfo;
             ParamInfo.paramType = TWD_MAX_RX_MSDU_LIFE_TIME_PARAM_ID;
             ParamInfo.paramLength = sizeof(ParamInfo.content.halCtrlMaxRxMsduLifetime);
             Status = cmdBld_GetParam (hCmdBld, &ParamInfo);
@@ -2176,7 +2176,7 @@ TI_STATUS cmdBld_ReadMib (TI_HANDLE hCmdBld, TI_HANDLE hCb, void* fCb, void* pCb
         
     case MIB_ctsToSelf:
         {
-            TTwdParamInfo ParamInfo;          
+            TTwdParamInfo ParamInfo;
             ParamInfo.paramType = TWD_CTS_TO_SELF_PARAM_ID;
             ParamInfo.paramLength = sizeof(ParamInfo.content.halCtrlCtsToSelf);
             Status = cmdBld_GetParam (hCmdBld, &ParamInfo);

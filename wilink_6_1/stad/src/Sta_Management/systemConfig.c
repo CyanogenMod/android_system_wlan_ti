@@ -131,7 +131,9 @@ typedef enum
 
 } matric_e;
 
-#define MAX_GB_MODE_CHANEL		14
+#define MAX_GB_MODE_CHANEL      14
+
+#define MAX_RSN_DATA_SIZE       256
 
 /* RSSI values boundaries and metric values for best, good, etc  signals */
 #define SELECT_RSSI_BEST_LEVEL      (-22)
@@ -223,7 +225,6 @@ siteEntry_t *addSelfSite(TI_HANDLE hSiteMgr)
 	pSite->siteType = SITE_SELF;
 
 	return pSite;
-	
 }
 
 /***********************************************************************
@@ -243,7 +244,7 @@ RETURN:     TI_OK
 static TI_STATUS sendProbeResponse(siteMgr_t *pSiteMgr, TMacAddr *pBssid)
 {
 	mlmeFrameInfo_t		frame;
-	paramInfo_t			param;
+    ECipherSuite        rsnStatus;
 	dot11_SSID_t 		ssid;	   
 	dot11_RATES_t 		rates;	   
 	dot11_FH_PARAMS_t 	FHParamsSet;	   
@@ -274,9 +275,8 @@ static TI_STATUS sendProbeResponse(siteMgr_t *pSiteMgr, TMacAddr *pBssid)
 		frame.content.iePacket.capabilities |= (TI_TRUE << CAP_PREAMBLE_SHIFT);
 
 	/* call RSN to get the privacy desired */
-	param.paramType = RSN_ENCRYPTION_STATUS_PARAM;
-	rsn_getParam(pSiteMgr->hRsn, &param);
-	if (param.content.rsnEncryptionStatus == TWD_CIPHER_NONE)
+    rsn_getParamEncryptionStatus(pSiteMgr->hRsn, &rsnStatus); /* RSN_ENCRYPTION_STATUS_PARAM */
+	if (rsnStatus == TWD_CIPHER_NONE)
 	{
 		frame.content.iePacket.capabilities |= (TI_FALSE << CAP_PRIVACY_SHIFT);
 	} else {
@@ -337,10 +337,9 @@ static TI_STATUS sendProbeResponse(siteMgr_t *pSiteMgr, TMacAddr *pBssid)
 
     if((pSiteMgr->siteMgrOperationalMode == DOT11_G_MODE) || (pSiteMgr->siteMgrOperationalMode == DOT11_DUAL_MODE)) 
     {
-        param.paramType = CTRL_DATA_CURRENT_IBSS_PROTECTION_PARAM;
-        ctrlData_getParam(pSiteMgr->hCtrlData, &param);
- 
-        frame.content.iePacket.useProtection = param.content.ctrlDataIbssProtecionType;
+        erpProtectionType_e protType;
+        ctrlData_getParamProtType(pSiteMgr->hCtrlData, &protType); /* CTRL_DATA_CURRENT_IBSS_PROTECTION_PARAM */
+        frame.content.iePacket.useProtection = protType;
     }
     else
     {
@@ -397,13 +396,13 @@ RETURN:     TI_OK
 ************************************************************************/
 TI_STATUS systemConfig(siteMgr_t *pSiteMgr)
 { 
-	paramInfo_t param;
+	paramInfo_t *pParam;
 	siteEntry_t *pPrimarySite = pSiteMgr->pSitesMgmtParams->pPrimarySite;
 	TRsnData	rsnData;
 	TI_UINT8	rsnAssocIeLen;
     dot11_RSN_t *pRsnIe;
     TI_UINT8    rsnIECount=0;
-    TI_UINT8    curRsnData[255];
+    TI_UINT8    *curRsnData;
     TI_UINT16   length;
     TI_UINT16   capabilities;
     TI_UINT16   PktLength=0;
@@ -419,6 +418,15 @@ TI_STATUS systemConfig(siteMgr_t *pSiteMgr)
 	TI_UINT32	StaTotalRates;
 	dot11_ACParameters_t *p_ACParametersDummy = NULL;
     TtxCtrlHtControl tHtControl;
+
+    curRsnData = os_memoryAlloc(pSiteMgr->hOs, MAX_RSN_DATA_SIZE);
+    if (!curRsnData)
+        return TI_NOK;
+    pParam = (paramInfo_t *)os_memoryAlloc(pSiteMgr->hOs, sizeof(paramInfo_t));
+    if (!pParam) {
+        os_memoryFree(pSiteMgr->hOs, curRsnData, MAX_RSN_DATA_SIZE);
+        return TI_NOK;
+    }
 
 	if (pPrimarySite->probeRecv)
 	{
@@ -509,21 +517,21 @@ TI_STATUS systemConfig(siteMgr_t *pSiteMgr)
 	pSiteMgr->currentDataModulation = pSiteMgr->chosenModulation;
 	/***************** Config Data CTRL *************************/
 	
-	param.paramType = CTRL_DATA_CURRENT_BSSID_PARAM;							/* Current BSSID */
-	MAC_COPY (param.content.ctrlDataCurrentBSSID, pPrimarySite->bssid);
-	ctrlData_setParam(pSiteMgr->hCtrlData, &param);
+	pParam->paramType = CTRL_DATA_CURRENT_BSSID_PARAM;							/* Current BSSID */
+	MAC_COPY (pParam->content.ctrlDataCurrentBSSID, pPrimarySite->bssid);
+	ctrlData_setParam(pSiteMgr->hCtrlData, pParam);
 
-	param.paramType = CTRL_DATA_CURRENT_BSS_TYPE_PARAM;							/* Current BSS Type */
-	param.content.ctrlDataCurrentBssType = pPrimarySite->bssType;
-	ctrlData_setParam(pSiteMgr->hCtrlData, &param);
+	pParam->paramType = CTRL_DATA_CURRENT_BSS_TYPE_PARAM;							/* Current BSS Type */
+	pParam->content.ctrlDataCurrentBssType = pPrimarySite->bssType;
+	ctrlData_setParam(pSiteMgr->hCtrlData, pParam);
 
-	param.paramType = CTRL_DATA_CURRENT_PREAMBLE_TYPE_PARAM;					/* Current Preamble Type */
+	pParam->paramType = CTRL_DATA_CURRENT_PREAMBLE_TYPE_PARAM;					/* Current Preamble Type */
 	if ((pSiteMgr->pDesiredParams->siteMgrDesiredPreambleType == PREAMBLE_SHORT) &&
 		(pPrimarySite->currentPreambleType == PREAMBLE_SHORT))
-		param.content.ctrlDataCurrentPreambleType = PREAMBLE_SHORT;
+		pParam->content.ctrlDataCurrentPreambleType = PREAMBLE_SHORT;
 	else
-		param.content.ctrlDataCurrentPreambleType = PREAMBLE_LONG;
-	ctrlData_setParam(pSiteMgr->hCtrlData, &param);
+		pParam->content.ctrlDataCurrentPreambleType = PREAMBLE_LONG;
+	ctrlData_setParam(pSiteMgr->hCtrlData, pParam);
 
     /* Mutual Rates Matching */
 	StaTotalRates = pSiteMgr->pDesiredParams->siteMgrCurrentDesiredRateMask.basicRateMask |
@@ -544,14 +552,14 @@ TI_STATUS systemConfig(siteMgr_t *pSiteMgr)
     /* set protection */
     if(BSS_INDEPENDENT == pPrimarySite->bssType)
     {
-        param.paramType = CTRL_DATA_CURRENT_IBSS_PROTECTION_PARAM;
+        pParam->paramType = CTRL_DATA_CURRENT_IBSS_PROTECTION_PARAM;
     }
     else
     {   
-        param.paramType = CTRL_DATA_CURRENT_PROTECTION_STATUS_PARAM;
+        pParam->paramType = CTRL_DATA_CURRENT_PROTECTION_STATUS_PARAM;
     }
-    param.content.ctrlDataProtectionEnabled = pPrimarySite->useProtection;
-    ctrlData_setParam(pSiteMgr->hCtrlData, &param);
+    pParam->content.ctrlDataProtectionEnabled = pPrimarySite->useProtection;
+    ctrlData_setParam(pSiteMgr->hCtrlData, pParam);
 
 	pbccAlgorithm(pSiteMgr);
 
@@ -561,29 +569,29 @@ TI_STATUS systemConfig(siteMgr_t *pSiteMgr)
 	 status = siteMgr_getWMEParamsSite(pSiteMgr,&p_ACParametersDummy);
 	 if(status == TI_OK)
 	 {
-		 param.content.qosSiteProtocol = QOS_WME;
+		 pParam->content.qosSiteProtocol = QOS_WME;
 	 }
 	 else
 	 {
-		 param.content.qosSiteProtocol = QOS_NONE;
+		 pParam->content.qosSiteProtocol = QOS_NONE;
 	 }
 
-     TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION, " systemConfigt() : param.content.qosSiteProtoco %d\n", param.content.qosSiteProtocol);
+     TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION, " systemConfigt() : pParam->content.qosSiteProtoco %d\n", pParam->content.qosSiteProtocol);
 
-	 param.paramType = QOS_MNGR_SET_SITE_PROTOCOL;
-	 qosMngr_setParams(pSiteMgr->hQosMngr,&param);
+	 pParam->paramType = QOS_MNGR_SET_SITE_PROTOCOL;
+	 qosMngr_setParams(pSiteMgr->hQosMngr, pParam);
 	 
      /* Set active protocol in qosMngr according to station desired mode and site capabilities 
-	Must be called BEFORE setting the "CURRENT_PS_MODE" into the QosMngr */
+	    Must be called BEFORE setting the "CURRENT_PS_MODE" into the QosMngr */
      qosMngr_selectActiveProtocol(pSiteMgr->hQosMngr);
 
 	 /* set PS capability parameter */
-	 param.paramType = QOS_MNGR_CURRENT_PS_MODE;
+	 pParam->paramType = QOS_MNGR_CURRENT_PS_MODE;
 	 if(pPrimarySite->APSDSupport == TI_TRUE)
-		 param.content.currentPsMode = PS_SCHEME_UPSD_TRIGGER;
+		 pParam->content.currentPsMode = PS_SCHEME_UPSD_TRIGGER;
 	 else
-		 param.content.currentPsMode = PS_SCHEME_LEGACY;
-      qosMngr_setParams(pSiteMgr->hQosMngr,&param);
+		 pParam->content.currentPsMode = PS_SCHEME_LEGACY;
+      qosMngr_setParams(pSiteMgr->hQosMngr, pParam);
 
      /* Set upsd/ps_poll configuration */
      /* Must be done AFTER setting the active Protocol */
@@ -622,7 +630,7 @@ TI_STATUS systemConfig(siteMgr_t *pSiteMgr)
 	/***************** Config RSN *************************/
     /* Get the RSN IE data */
     pRsnIe = pPrimarySite->pRsnIe;
-	length=0;
+	length = 0;
     rsnIECount = 0;
     while ((length < pPrimarySite->rsnIeLen) && (pPrimarySite->rsnIeLen < 255) 
            && (rsnIECount < MAX_RSN_IE))
@@ -639,7 +647,7 @@ TI_STATUS systemConfig(siteMgr_t *pSiteMgr)
         TRACE2(pSiteMgr->hReport, REPORT_SEVERITY_ERROR, "siteMgr_selectSiteFromTable, RSN IE is too long: rsnIeLen=%d, MAX_RSN_IE=%d\n", pPrimarySite->rsnIeLen, MAX_RSN_IE);
     }
 
-	rsnData.pIe = (pPrimarySite->rsnIeLen==0) ? NULL :curRsnData;
+	rsnData.pIe = (pPrimarySite->rsnIeLen==0) ? NULL : curRsnData;
 	rsnData.ieLen = pPrimarySite->rsnIeLen;
     rsnData.privacy = pPrimarySite->privacy; 
     
@@ -652,9 +660,9 @@ TI_STATUS systemConfig(siteMgr_t *pSiteMgr)
 	if(XCC_ParseClientTP(pSiteMgr->hOs,pPrimarySite,&ExternTxPower,pIeBuffer,PktLength) == TI_OK)
     {
         TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION, "Select XCC_ParseClientTP == OK: Dbm = %d\n",ExternTxPower);
-    param.paramType = REGULATORY_DOMAIN_EXTERN_TX_POWER_PREFERRED;
-    param.content.ExternTxPowerPreferred = ExternTxPower;
-    regulatoryDomain_setParam(pSiteMgr->hRegulatoryDomain,&param);
+        pParam->paramType = REGULATORY_DOMAIN_EXTERN_TX_POWER_PREFERRED;
+        pParam->content.ExternTxPowerPreferred = ExternTxPower;
+        regulatoryDomain_setParam(pSiteMgr->hRegulatoryDomain, pParam);
     }
 	/* Parse and save the XCC Version Number if exists */
 	XCCMngr_parseXCCVer(pSiteMgr->hXCCMngr, pIeBuffer, PktLength);
@@ -664,9 +672,9 @@ TI_STATUS systemConfig(siteMgr_t *pSiteMgr)
 	/* Note: TX Power Control adjustment is now done through siteMgr_assocReport() */
 	if (pPrimarySite->powerConstraint>0)
 	{	/* setting power constraint */
-		param.paramType = REGULATORY_DOMAIN_SET_POWER_CONSTRAINT_PARAM;
-		param.content.powerConstraint = pPrimarySite->powerConstraint;
-		regulatoryDomain_setParam(pSiteMgr->hRegulatoryDomain,&param);
+		pParam->paramType = REGULATORY_DOMAIN_SET_POWER_CONSTRAINT_PARAM;
+		pParam->content.powerConstraint = pPrimarySite->powerConstraint;
+		regulatoryDomain_setParam(pSiteMgr->hRegulatoryDomain, pParam);
 	}
 
 
@@ -676,11 +684,8 @@ TI_STATUS systemConfig(siteMgr_t *pSiteMgr)
     /* Updating the Measurement Module Mode */
     measurementMgr_setMeasurementMode(pSiteMgr->hMeasurementMgr, capabilities, 
 									pIeBuffer, PktLength);
-
-
-
-    
+    os_memoryFree(pSiteMgr->hOs, curRsnData, MAX_RSN_DATA_SIZE);
+    os_memoryFree(pSiteMgr->hOs, pParam, sizeof(paramInfo_t));
 	return TI_OK;
 }
-
 

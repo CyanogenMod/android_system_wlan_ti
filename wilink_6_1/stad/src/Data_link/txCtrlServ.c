@@ -71,7 +71,6 @@ TI_STATUS txCtrlServ_buildNullFrame(TI_HANDLE hTxCtrl, TI_UINT8* pFrame, TI_UINT
     EHeaderConvertMode  qosMode = pTxCtrl->headerConverMode;
     dot11_header_t      *pHeader; /* Note : there is no body for null frame */
     TI_STATUS           status;
-    paramInfo_t         daParam, saParam;
     TI_UINT16           fc;
 
     pHeader = (dot11_header_t*)(pFrame);
@@ -94,28 +93,22 @@ TI_STATUS txCtrlServ_buildNullFrame(TI_HANDLE hTxCtrl, TI_UINT8* pFrame, TI_UINT
         fc = DOT11_FC_DATA_NULL_FUNCTION | DOT11_FC_TO_DS;
     COPY_WLAN_WORD(&pHeader->fc, &fc); /* copy with endianess handling. */
 
-    daParam.paramType = CTRL_DATA_CURRENT_BSSID_PARAM;
-    status = ctrlData_getParam(pTxCtrl->hCtrlData, &daParam);
-    if (status != TI_OK)
-    {
-        return TI_NOK;
-    }
-
     /* copy destination mac address */
-    MAC_COPY (pHeader->address3, daParam.content.ctrlDataCurrentBSSID);
-
-    saParam.paramType = CTRL_DATA_MAC_ADDRESS;
-    status = ctrlData_getParam(pTxCtrl->hCtrlData, &saParam);
+    status = ctrlData_getParamBssid(pTxCtrl->hCtrlData, CTRL_DATA_CURRENT_BSSID_PARAM, pHeader->address3);
     if (status != TI_OK)
     {
         return TI_NOK;
     }
 
     /* copy source mac address */
-    MAC_COPY (pHeader->address2, saParam.content.ctrlDataCurrentBSSID);
+    status = ctrlData_getParamBssid(pTxCtrl->hCtrlData, CTRL_DATA_MAC_ADDRESS, pHeader->address2);
+    if (status != TI_OK)
+    {
+        return TI_NOK;
+    }
 
     /* copy BSSID (destination mac address) */
-    MAC_COPY (pHeader->address1, daParam.content.ctrlDataCurrentBSSID);
+    MAC_COPY (pHeader->address1, pHeader->address3);
 
     return status;
 }
@@ -136,7 +129,9 @@ TI_STATUS txCtrlServ_buildWlanHeader(TI_HANDLE hTxCtrl, TI_UINT8* pFrame, TI_UIN
 {
     txCtrl_t         *pTxCtrl = (txCtrl_t *)hTxCtrl;
     TI_STATUS        status;
-    paramInfo_t      daParam, saParam, param;
+    TMacAddr         daBssid;
+    TMacAddr         saBssid;
+    EQosProtocol     qosProt;
     ScanBssType_e    currBssType;
     TMacAddr         currBssId;
     TI_UINT32        headerLength;
@@ -152,10 +147,9 @@ TI_STATUS txCtrlServ_buildWlanHeader(TI_HANDLE hTxCtrl, TI_UINT8* pFrame, TI_UIN
      * Note that the header length doesn't include it, so the txCtrl detects the pad existence
      *   by checking if the header-length is a multiple of 4. 
      */
-    param.paramType = QOS_MNGR_ACTIVE_PROTOCOL;
-    qosMngr_getParams(pTxCtrl->hQosMngr, &param);
+    qosMngr_getParamsActiveProtocol(pTxCtrl->hQosMngr, &qosProt);
 
-    if (param.content.qosSiteProtocol == QOS_WME)  
+    if (qosProt == QOS_WME)  
     {
         headerLength = WLAN_QOS_HDR_LEN;
         headerFlags  = DOT11_FC_DATA_QOS | DOT11_FC_TO_DS;
@@ -184,16 +178,14 @@ TI_STATUS txCtrlServ_buildWlanHeader(TI_HANDLE hTxCtrl, TI_UINT8* pFrame, TI_UIN
     COPY_WLAN_WORD (&pDot11Header->fc, &headerFlags); /* copy with endianess handling. */
 
     /* Get the Destination MAC address */
-    daParam.paramType = CTRL_DATA_CURRENT_BSSID_PARAM;
-    status = ctrlData_getParam (pTxCtrl->hCtrlData, &daParam);
+    status = ctrlData_getParamBssid (pTxCtrl->hCtrlData, CTRL_DATA_CURRENT_BSSID_PARAM, daBssid);
     if (status != TI_OK)
     {
         return TI_NOK;
     }
 
     /* Get the Source MAC address */
-    saParam.paramType = CTRL_DATA_MAC_ADDRESS;
-    status = ctrlData_getParam (pTxCtrl->hCtrlData, &saParam);
+    status = ctrlData_getParamBssid (pTxCtrl->hCtrlData, CTRL_DATA_MAC_ADDRESS, saBssid);
     if (status != TI_OK)
     {
         return TI_NOK;
@@ -209,9 +201,9 @@ TI_STATUS txCtrlServ_buildWlanHeader(TI_HANDLE hTxCtrl, TI_UINT8* pFrame, TI_UIN
     /* copy BSSID */
     MAC_COPY (pDot11Header->address1, currBssId);
     /* copy source mac address */
-    MAC_COPY (pDot11Header->address2, saParam.content.ctrlDataCurrentBSSID);
+    MAC_COPY (pDot11Header->address2, saBssid);
     /* copy destination mac address*/
-    MAC_COPY (pDot11Header->address3, daParam.content.ctrlDataCurrentBSSID);
+    MAC_COPY (pDot11Header->address3, daBssid);
 
 
     /* Set the SNAP header pointer right after the other header parts handled above. */
