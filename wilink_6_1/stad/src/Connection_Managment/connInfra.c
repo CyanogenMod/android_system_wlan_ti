@@ -147,7 +147,7 @@ RETURN:     TI_OK on success, TI_NOK otherwise
 ************************************************************************/
 TI_STATUS conn_infraConfig(conn_t *pConn)
 {
-    fsm_actionCell_t    smMatrix[CONN_INFRA_NUM_STATES][CONN_INFRA_NUM_EVENTS] =
+    static fsm_actionCell_t    smMatrix[CONN_INFRA_NUM_STATES][CONN_INFRA_NUM_EVENTS] =
     {
         /* next state and actions for IDLE state */
         {   {STATE_CONN_INFRA_SCR_WAIT_CONN, connInfra_ScrWait},        /* "EVENT_CONNECT"  */
@@ -318,25 +318,30 @@ static TI_STATUS ScrWait_to_JoinWait(void *pData)
 static TI_STATUS JoinWait_to_mlmeWait(void *pData)
 {
     TI_STATUS status;
-    paramInfo_t param;
+    paramInfo_t *pParam;
     conn_t *pConn = (conn_t *)pData;
+
+    pParam = (paramInfo_t *)os_memoryAlloc(pConn->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
 
     /* Set the BA session policies to the FW */
     qosMngr_SetBaPolicies(pConn->hQosMngr);
 
-    param.paramType = SITE_MGR_CURRENT_CHANNEL_PARAM;
-    siteMgr_getParam(pConn->hSiteMgr, &param);
+    pParam->paramType = SITE_MGR_CURRENT_CHANNEL_PARAM;
+    siteMgr_getParam(pConn->hSiteMgr, pParam);
 
-    param.paramType = REGULATORY_DOMAIN_TX_POWER_AFTER_SELECTION_PARAM;
-    param.content.channel = param.content.siteMgrCurrentChannel;
-    regulatoryDomain_setParam(pConn->hRegulatoryDomain, &param);
+    pParam->paramType = REGULATORY_DOMAIN_TX_POWER_AFTER_SELECTION_PARAM;
+    pParam->content.channel = pParam->content.siteMgrCurrentChannel;
+    regulatoryDomain_setParam(pConn->hRegulatoryDomain, pParam);
 
-    param.paramType = RX_DATA_PORT_STATUS_PARAM;
-    param.content.rxDataPortStatus = OPEN_NOTIFY;
-    status = rxData_setParam(pConn->hRxData, &param);
+    pParam->paramType = RX_DATA_PORT_STATUS_PARAM;
+    pParam->content.rxDataPortStatus = OPEN_NOTIFY;
+    status = rxData_setParam(pConn->hRxData, pParam);
     if (status != TI_OK)
     {
         TRACE1( pConn->hReport, REPORT_SEVERITY_FATAL_ERROR, "JoinWait_to_mlmeWait: rxData_setParam return 0x%x.\n", status);
+        os_memoryFree(pConn->hOs, pParam, sizeof(paramInfo_t));
         return status;
     }
 
@@ -346,20 +351,20 @@ static TI_STATUS JoinWait_to_mlmeWait(void *pData)
     /* 
      * Set the reassociation flag in the association logic.
      */ 
-    param.paramType = MLME_RE_ASSOC_PARAM;
+    pParam->paramType = MLME_RE_ASSOC_PARAM;
 
     if( pConn->connType == CONN_TYPE_ROAM )
-        param.content.mlmeReAssoc = TI_TRUE;
+        pParam->content.mlmeReAssoc = TI_TRUE;
     else 
-        param.content.mlmeReAssoc = TI_FALSE;
+        pParam->content.mlmeReAssoc = TI_FALSE;
 
-    status = mlme_setParam(pConn->hMlmeSm, &param);
+    status = mlme_setParam(pConn->hMlmeSm, pParam);
 
     if (status != TI_OK)
     {
         TRACE1( pConn->hReport, REPORT_SEVERITY_FATAL_ERROR, "JoinWait_to_mlmeWait: mlme_setParam return 0x%x.\n", status);
     }
-
+    os_memoryFree(pConn->hOs, pParam, sizeof(paramInfo_t));
     return mlme_start(pConn->hMlmeSm);
 }
 
@@ -368,17 +373,20 @@ static TI_STATUS JoinWait_to_mlmeWait(void *pData)
 static TI_STATUS mlmeWait_to_WaitDisconnect(void *pData)
 {
     TI_STATUS   status;
-    paramInfo_t param;
+    paramInfo_t *pParam;
     conn_t      *pConn = (conn_t *)pData;
 
     status = mlme_stop( pConn->hMlmeSm, DISCONNECT_IMMEDIATE, pConn->disConnReasonToAP );
     if (status != TI_OK)
         return status;
 
-    param.paramType = RX_DATA_PORT_STATUS_PARAM;
-    param.content.rxDataPortStatus = CLOSE;
-    rxData_setParam(pConn->hRxData, &param);
+    pParam = (paramInfo_t *)os_memoryAlloc(pConn->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
 
+    pParam->paramType = RX_DATA_PORT_STATUS_PARAM;
+    pParam->content.rxDataPortStatus = CLOSE;
+    rxData_setParam(pConn->hRxData, pParam);
 
     /* Update TxMgmtQueue SM to close Tx path. */
     txMgmtQ_SetConnState (pConn->hTxMgmtQ, TX_CONN_STATE_CLOSE);
@@ -393,7 +401,7 @@ static TI_STATUS mlmeWait_to_WaitDisconnect(void *pData)
 #ifdef XCC_MODULE_INCLUDED
     XCCMngr_updateIappInformation(pConn->hXCCMngr, XCC_DISASSOC);
 #endif
-
+    os_memoryFree(pConn->hOs, pParam, sizeof(paramInfo_t));
     return TI_OK;
 }
 
@@ -417,24 +425,28 @@ static TI_STATUS JoinWait_to_WaitDisconnect(void *pData)
 static TI_STATUS mlmeWait_to_rsnWait(void *pData)
 {
     TI_STATUS status;
-    paramInfo_t param;
+    paramInfo_t *pParam;
     conn_t *pConn = (conn_t *)pData;
 
-    param.paramType = RX_DATA_PORT_STATUS_PARAM;
-    param.content.rxDataPortStatus = OPEN_EAPOL;
-    status = rxData_setParam(pConn->hRxData, &param);
+    pParam = (paramInfo_t *)os_memoryAlloc(pConn->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
+
+    pParam->paramType = RX_DATA_PORT_STATUS_PARAM;
+    pParam->content.rxDataPortStatus = OPEN_EAPOL;
+    status = rxData_setParam(pConn->hRxData, pParam);
+    os_memoryFree(pConn->hOs, pParam, sizeof(paramInfo_t));
     if (status != TI_OK)
         return status;
-
     /* Update TxMgmtQueue SM to enable EAPOL packets. */
     txMgmtQ_SetConnState (((conn_t *)pData)->hTxMgmtQ, TX_CONN_STATE_EAPOL);
-
+    
     /*
      *  Notify that the driver is associated to the supplicant\IP stack. 
      */
     EvHandlerSendEvent(pConn->hEvHandler, IPC_EVENT_ASSOCIATED, NULL,0);
-
-    return rsn_start(pConn->hRsn);
+    status = rsn_start(pConn->hRsn);
+    return status;
 }
 
 
@@ -443,16 +455,21 @@ static TI_STATUS mlmeWait_to_rsnWait(void *pData)
 static TI_STATUS rsnWait_to_disconnect(void *pData)
 {
     TI_STATUS status;
-    paramInfo_t param;
+    paramInfo_t *pParam;
     conn_t *pConn = (conn_t *)pData;
 
     status = rsn_stop(pConn->hRsn, pConn->disConEraseKeys);
     if (status != TI_OK)
         return status;
 
-    param.paramType = RX_DATA_PORT_STATUS_PARAM;
-    param.content.rxDataPortStatus = CLOSE;
-    status = rxData_setParam(pConn->hRxData, &param);
+    pParam = (paramInfo_t *)os_memoryAlloc(pConn->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
+
+    pParam->paramType = RX_DATA_PORT_STATUS_PARAM;
+    pParam->content.rxDataPortStatus = CLOSE;
+    status = rxData_setParam(pConn->hRxData, pParam);
+    os_memoryFree(pConn->hOs, pParam, sizeof(paramInfo_t));
     if (status != TI_OK)
         return status;
 
@@ -475,73 +492,77 @@ static TI_STATUS rsnWait_to_disconnect(void *pData)
 static TI_STATUS configHW_to_disconnect(void *pData)
 {
     TI_STATUS status;
-    paramInfo_t param;
+    paramInfo_t *pParam;
     conn_t *pConn = (conn_t *)pData;
 
     status = rsn_stop(pConn->hRsn, pConn->disConEraseKeys );
     if (status != TI_OK)
         return status;
 
-    param.paramType = RX_DATA_PORT_STATUS_PARAM;
-    param.content.rxDataPortStatus = CLOSE;
-    status = rxData_setParam(pConn->hRxData, &param);
-    if (status != TI_OK)
-        return status;
+    pParam = (paramInfo_t *)os_memoryAlloc(pConn->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
 
-    /* Update TxMgmtQueue SM to close Tx path for all except Mgmt packets. */
-    txMgmtQ_SetConnState (pConn->hTxMgmtQ, TX_CONN_STATE_MGMT);
-
-    status = mlme_stop( pConn->hMlmeSm, DISCONNECT_IMMEDIATE, pConn->disConnReasonToAP );
-    if (status != TI_OK)
-        return status;
-
-    param.paramType = REGULATORY_DOMAIN_DISCONNECT_PARAM;
-    regulatoryDomain_setParam(pConn->hRegulatoryDomain, &param);
-
-    /* Must be called AFTER mlme_stop. since De-Auth packet should be sent with the
-        supported rates, and stopModules clears all rates. */
-    stopModules(pConn, TI_TRUE);
-
-    /* send disconnect command to firmware */
-    prepare_send_disconnect(pData);
-
-    return TI_OK;
+    pParam->paramType = RX_DATA_PORT_STATUS_PARAM;
+    pParam->content.rxDataPortStatus = CLOSE;
+    status = rxData_setParam(pConn->hRxData, pParam);
+    if (status == TI_OK) {
+        /* Update TxMgmtQueue SM to close Tx path for all except Mgmt packets. */
+        txMgmtQ_SetConnState(pConn->hTxMgmtQ, TX_CONN_STATE_MGMT);
+    
+        status = mlme_stop(pConn->hMlmeSm, DISCONNECT_IMMEDIATE, pConn->disConnReasonToAP);
+        if (status == TI_OK) {
+            pParam->paramType = REGULATORY_DOMAIN_DISCONNECT_PARAM;
+            regulatoryDomain_setParam(pConn->hRegulatoryDomain, pParam);
+        
+            /* Must be called AFTER mlme_stop. since De-Auth packet should be sent with the
+                supported rates, and stopModules clears all rates. */
+            stopModules(pConn, TI_TRUE);
+        
+            /* send disconnect command to firmware */
+            prepare_send_disconnect(pData);
+        }
+    }
+    os_memoryFree(pConn->hOs, pParam, sizeof(paramInfo_t));
+    return status;
 }
 
 static TI_STATUS connInfra_ScrWaitDisconn_to_disconnect(void *pData)
 {
     TI_STATUS status;
-    paramInfo_t param;
+    paramInfo_t *pParam;
     conn_t *pConn = (conn_t *)pData;
     
     status = rsn_stop(pConn->hRsn, pConn->disConEraseKeys);
     if (status != TI_OK)
         return status;
 
-    param.paramType = RX_DATA_PORT_STATUS_PARAM;
-    param.content.rxDataPortStatus = CLOSE;
-    status = rxData_setParam(pConn->hRxData, &param);
-    if (status != TI_OK)
-        return status;
+    pParam = (paramInfo_t *)os_memoryAlloc(pConn->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
 
-    /* Update TxMgmtQueue SM to close Tx path for all except Mgmt packets. */
-    txMgmtQ_SetConnState (pConn->hTxMgmtQ, TX_CONN_STATE_MGMT);
-
-    param.paramType = REGULATORY_DOMAIN_DISCONNECT_PARAM;
-    regulatoryDomain_setParam(pConn->hRegulatoryDomain, &param);
-
-    status = mlme_stop( pConn->hMlmeSm, DISCONNECT_IMMEDIATE, pConn->disConnReasonToAP );
-    if (status != TI_OK)
-        return status;
-
-    /* Must be called AFTER mlme_stop. since De-Auth packet should be sent with the
-        supported rates, and stopModules clears all rates. */
-    stopModules(pConn, TI_TRUE);
-
-    /* send disconnect command to firmware */
-    prepare_send_disconnect(pData);
-
-    return TI_OK;
+    pParam->paramType = RX_DATA_PORT_STATUS_PARAM;
+    pParam->content.rxDataPortStatus = CLOSE;
+    status = rxData_setParam(pConn->hRxData, pParam);
+    if (status == TI_OK) {
+        /* Update TxMgmtQueue SM to close Tx path for all except Mgmt packets. */
+        txMgmtQ_SetConnState(pConn->hTxMgmtQ, TX_CONN_STATE_MGMT);
+    
+        pParam->paramType = REGULATORY_DOMAIN_DISCONNECT_PARAM;
+        regulatoryDomain_setParam(pConn->hRegulatoryDomain, pParam);
+    
+        status = mlme_stop(pConn->hMlmeSm, DISCONNECT_IMMEDIATE, pConn->disConnReasonToAP);
+        if (status == TI_OK) {
+            /* Must be called AFTER mlme_stop. since De-Auth packet should be sent with the
+                supported rates, and stopModules clears all rates. */
+            stopModules(pConn, TI_TRUE);
+        
+            /* send disconnect command to firmware */
+            prepare_send_disconnect(pData);
+        }
+    }
+    os_memoryFree(pConn->hOs, pParam, sizeof(paramInfo_t));
+    return status;
 
 }
 
@@ -550,14 +571,19 @@ static TI_STATUS rsnWait_to_configHW(void *pData)
 {
     conn_t *pConn=(conn_t *)pData;
     TI_STATUS status;
-    paramInfo_t     param;
+    paramInfo_t *pParam;
+
+    pParam = (paramInfo_t *)os_memoryAlloc(pConn->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
 
     /* Open the RX to DATA */
-    param.paramType = RX_DATA_PORT_STATUS_PARAM;
-    param.content.rxDataPortStatus = OPEN;
-    status = rxData_setParam(pConn->hRxData, &param);
+    pParam->paramType = RX_DATA_PORT_STATUS_PARAM;
+    pParam->content.rxDataPortStatus = OPEN;
+    status = rxData_setParam(pConn->hRxData, pParam);
+    os_memoryFree(pConn->hOs, pParam, sizeof(paramInfo_t));
     if (status != TI_OK)
-        return status;
+         return status;
 
     status = qosMngr_connect(pConn->hQosMngr);
     if (status != TI_OK)
@@ -568,17 +594,17 @@ static TI_STATUS rsnWait_to_configHW(void *pData)
 
     status = measurementMgr_connected(pConn->hMeasurementMgr);
     if (status != TI_OK)
-      {
+    {
          TRACE2(pConn->hReport, REPORT_SEVERITY_ERROR, "Infra Conn status=%d, have to return (%d)\n",status,__LINE__);
          return status;
-      }
+    }
 
     status = TrafficMonitor_Start(pConn->hTrafficMonitor);
     if (status != TI_OK)
-      {
+    {
          TRACE2(pConn->hReport, REPORT_SEVERITY_ERROR, "Infra Conn status=%d, have to return (%d)\n",status,__LINE__);
          return status;
-      }
+    }
 
     healthMonitor_setState(pConn->hHealthMonitor, HEALTH_MONITOR_STATE_CONNECTED);
 

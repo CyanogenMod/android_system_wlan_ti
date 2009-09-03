@@ -559,7 +559,7 @@ void currBSS_updateBSSLoss(currBSS_t   *pCurrBSS)
     
     roamingTriggersParams.BssLossTimeout = NO_BEACON_DEFAULT_TIMEOUT;
     
-TRACE2(pCurrBSS->hReport, REPORT_SEVERITY_INFORMATION, ": SG=%d, Band=%d\n", pCurrBSS->bUseSGParams, pCurrBSS->currAPInfo.band);
+    TRACE2(pCurrBSS->hReport, REPORT_SEVERITY_INFORMATION, ": SG=%d, Band=%d\n", pCurrBSS->bUseSGParams, pCurrBSS->currAPInfo.band);
 
 
     /* if Soft Gemini is enabled - increase the BSSLoss value (because BT activity might over-run beacons) */
@@ -654,17 +654,22 @@ TI_STATUS currBSS_probRespReceivedCallb(TI_HANDLE hCurrBSS,
                                         TI_UINT16 bufLength)
 {
     currBSS_t   *pCurrBSS = (currBSS_t *)hCurrBSS;
-    paramInfo_t param;
-    
-    param.paramType = SITE_MGR_CURRENT_BSSID_PARAM;
-    siteMgr_getParam(pCurrBSS->hSiteMgr, &param);    
+    paramInfo_t *pParam;
 
-    if (pCurrBSS->isConnected && MAC_EQUAL (param.content.siteMgrDesiredBSSID, *bssid))
+    pParam = (paramInfo_t *)os_memoryAlloc(pCurrBSS->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
+
+    pParam->paramType = SITE_MGR_CURRENT_BSSID_PARAM;
+    siteMgr_getParam(pCurrBSS->hSiteMgr, pParam);    
+
+    if (pCurrBSS->isConnected && MAC_EQUAL (pParam->content.siteMgrDesiredBSSID, *bssid))
     {
         siteMgr_updateSite(pCurrBSS->hSiteMgr, bssid, pFrameInfo, pRxAttr->channel, (ERadioBand)pRxAttr->band, TI_FALSE);
         /* Save the IE part of the Probe Response buffer in the site table */
         siteMgr_saveProbeRespBuffer(pCurrBSS->hSiteMgr, bssid, (TI_UINT8 *)dataBuffer, bufLength);
     }
+    os_memoryFree(pCurrBSS->hOs, pParam, sizeof(paramInfo_t));
     return TI_OK;
 }
 
@@ -698,14 +703,18 @@ TI_STATUS currBSS_beaconReceivedCallb(TI_HANDLE hCurrBSS,
                                       TI_UINT16 bufLength)
 {
     currBSS_t           *pCurrBSS = (currBSS_t *)hCurrBSS;
-    paramInfo_t         param;
+    paramInfo_t         *pParam;
     ScanBssType_enum    bssType;
 
-    bssType = ((pFrameInfo->content.iePacket.capabilities >> CAP_ESS_SHIFT) & CAP_ESS_MASK) ? BSS_INFRASTRUCTURE : BSS_INDEPENDENT;
-    param.paramType = SITE_MGR_CURRENT_BSSID_PARAM;
-    siteMgr_getParam(pCurrBSS->hSiteMgr, &param);    
+    pParam = (paramInfo_t *)os_memoryAlloc(pCurrBSS->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
 
-    if (pCurrBSS->isConnected && MAC_EQUAL(param.content.siteMgrDesiredBSSID, *bssid))
+    bssType = ((pFrameInfo->content.iePacket.capabilities >> CAP_ESS_SHIFT) & CAP_ESS_MASK) ? BSS_INFRASTRUCTURE : BSS_INDEPENDENT;
+    pParam->paramType = SITE_MGR_CURRENT_BSSID_PARAM;
+    siteMgr_getParam(pCurrBSS->hSiteMgr, pParam);    
+
+    if (pCurrBSS->isConnected && MAC_EQUAL(pParam->content.siteMgrDesiredBSSID, *bssid))
     {
         siteMgr_updateSite(pCurrBSS->hSiteMgr, bssid, pFrameInfo, pRxAttr->channel, (ERadioBand)pRxAttr->band, TI_FALSE);
         /* Save the IE part of the beacon buffer in the site table */
@@ -713,11 +722,11 @@ TI_STATUS currBSS_beaconReceivedCallb(TI_HANDLE hCurrBSS,
     }
 	else if(pCurrBSS->isConnected && (bssType==BSS_INDEPENDENT))
     {
-		siteMgr_IbssMerge(pCurrBSS->hSiteMgr, param.content.siteMgrDesiredBSSID, *bssid,
+		siteMgr_IbssMerge(pCurrBSS->hSiteMgr, pParam->content.siteMgrDesiredBSSID, *bssid,
 						  pFrameInfo, pRxAttr->channel, (ERadioBand)pRxAttr->band);
 		siteMgr_saveBeaconBuffer(pCurrBSS->hSiteMgr, bssid, (TI_UINT8 *)dataBuffer, bufLength);
 	}
-
+    os_memoryFree(pCurrBSS->hOs, pParam, sizeof(paramInfo_t));
     return TI_OK;
 }
 
@@ -745,7 +754,6 @@ TI_STATUS currBSS_beaconReceivedCallb(TI_HANDLE hCurrBSS,
 void currBSS_updateConnectedState(TI_HANDLE hCurrBSS, TI_BOOL isConnected, ScanBssType_e type)
 {
     currBSS_t   *pCurrBSS = (currBSS_t *)hCurrBSS;
-    paramInfo_t  param;
 
     pCurrBSS->type = type;
     pCurrBSS->isConnected = isConnected;
@@ -753,53 +761,58 @@ void currBSS_updateConnectedState(TI_HANDLE hCurrBSS, TI_BOOL isConnected, ScanB
     if (isConnected) 
     {
         /*** Store the info of current AP ***/
+        paramInfo_t  *pParam;
+
+        pParam = (paramInfo_t *)os_memoryAlloc(pCurrBSS->hOs, sizeof(paramInfo_t));
+        if (!pParam)
+            return;
 
         /* BSSID */
-        param.paramType = SITE_MGR_CURRENT_BSSID_PARAM;
-        siteMgr_getParam(pCurrBSS->hSiteMgr, &param);    
-        MAC_COPY (pCurrBSS->currAPInfo.BSSID, param.content.siteMgrDesiredBSSID);
+        pParam->paramType = SITE_MGR_CURRENT_BSSID_PARAM;
+        siteMgr_getParam(pCurrBSS->hSiteMgr, pParam);    
+        MAC_COPY (pCurrBSS->currAPInfo.BSSID, pParam->content.siteMgrDesiredBSSID);
 
         /* Rx rate */
-        param.paramType = SITE_MGR_LAST_RX_RATE_PARAM;
-        siteMgr_getParam(pCurrBSS->hSiteMgr, &param);               
-        pCurrBSS->currAPInfo.rxRate = param.content.ctrlDataCurrentBasicRate;
+        pParam->paramType = SITE_MGR_LAST_RX_RATE_PARAM;
+        siteMgr_getParam(pCurrBSS->hSiteMgr, pParam);               
+        pCurrBSS->currAPInfo.rxRate = pParam->content.ctrlDataCurrentBasicRate;
 
         /* Band */
-        param.paramType = SITE_MGR_RADIO_BAND_PARAM;
-        siteMgr_getParam(pCurrBSS->hSiteMgr, &param);               
-        pCurrBSS->currAPInfo.band = param.content.siteMgrRadioBand;
+        pParam->paramType = SITE_MGR_RADIO_BAND_PARAM;
+        siteMgr_getParam(pCurrBSS->hSiteMgr, pParam);               
+        pCurrBSS->currAPInfo.band = pParam->content.siteMgrRadioBand;
 
         /* Channel */
-        param.paramType = SITE_MGR_CURRENT_CHANNEL_PARAM;
-        siteMgr_getParam(pCurrBSS->hSiteMgr, &param);               
-        pCurrBSS->currAPInfo.channel = param.content.siteMgrCurrentChannel;
+        pParam->paramType = SITE_MGR_CURRENT_CHANNEL_PARAM;
+        siteMgr_getParam(pCurrBSS->hSiteMgr, pParam);               
+        pCurrBSS->currAPInfo.channel = pParam->content.siteMgrCurrentChannel;
 
         /* Last Rx Tsf */
-        param.paramType = SITE_MGR_CURRENT_TSF_TIME_STAMP;
-        siteMgr_getParam(pCurrBSS->hSiteMgr, &param);               
+        pParam->paramType = SITE_MGR_CURRENT_TSF_TIME_STAMP;
+        siteMgr_getParam(pCurrBSS->hSiteMgr, pParam);               
         os_memoryCopy(pCurrBSS->hOs, &pCurrBSS->currAPInfo.lastRxTSF, 
-                      param.content.siteMgrCurrentTsfTimeStamp, sizeof(pCurrBSS->currAPInfo.lastRxTSF));
+                      pParam->content.siteMgrCurrentTsfTimeStamp, sizeof(pCurrBSS->currAPInfo.lastRxTSF));
 
         /* Beacon interval */
-        param.paramType = SITE_MGR_BEACON_INTERVAL_PARAM;
-        siteMgr_getParam(pCurrBSS->hSiteMgr, &param);               
-        pCurrBSS->currAPInfo.beaconInterval = param.content.beaconInterval;
+        pParam->paramType = SITE_MGR_BEACON_INTERVAL_PARAM;
+        siteMgr_getParam(pCurrBSS->hSiteMgr, pParam);               
+        pCurrBSS->currAPInfo.beaconInterval = pParam->content.beaconInterval;
 
         /* Capability */
-        param.paramType = SITE_MGR_SITE_CAPABILITY_PARAM;
-        siteMgr_getParam(pCurrBSS->hSiteMgr,&param);
-        pCurrBSS->currAPInfo.capabilities = param.content.siteMgrSiteCapability;
-        param.paramType = SITE_MGR_CURRENT_TSF_TIME_STAMP;
-        siteMgr_getParam(pCurrBSS->hSiteMgr, &param);    
+        pParam->paramType = SITE_MGR_SITE_CAPABILITY_PARAM;
+        siteMgr_getParam(pCurrBSS->hSiteMgr,pParam);
+        pCurrBSS->currAPInfo.capabilities = pParam->content.siteMgrSiteCapability;
+        pParam->paramType = SITE_MGR_CURRENT_TSF_TIME_STAMP;
+        siteMgr_getParam(pCurrBSS->hSiteMgr, pParam);    
 
         /* pCurrBSS->currAPInfo.lastRxHostTimestamp = *((TI_UINT64 *)(pIEs->TimeStamp));*/ /* TBD*/
-        os_memoryCopy(pCurrBSS->hOs, &pCurrBSS->currAPInfo.lastRxHostTimestamp, param.content.siteMgrCurrentTsfTimeStamp, sizeof(TI_UINT32));
+        os_memoryCopy(pCurrBSS->hOs, &pCurrBSS->currAPInfo.lastRxHostTimestamp, pParam->content.siteMgrCurrentTsfTimeStamp, sizeof(TI_UINT32));
 
-        param.paramType = SITE_MGR_LAST_BEACON_BUF_PARAM;
-        siteMgr_getParam(pCurrBSS->hSiteMgr, &param);               
-        pCurrBSS->currAPInfo.pBuffer = param.content.siteMgrLastBeacon.buffer;
-        pCurrBSS->currAPInfo.bufferLength = param.content.siteMgrLastBeacon.bufLength;
-        pCurrBSS->currAPInfo.resultType = (param.content.siteMgrLastBeacon.isBeacon) ? SCAN_RFT_BEACON : SCAN_RFT_PROBE_RESPONSE;
+        pParam->paramType = SITE_MGR_LAST_BEACON_BUF_PARAM;
+        siteMgr_getParam(pCurrBSS->hSiteMgr, pParam);               
+        pCurrBSS->currAPInfo.pBuffer = pParam->content.siteMgrLastBeacon.buffer;
+        pCurrBSS->currAPInfo.bufferLength = pParam->content.siteMgrLastBeacon.bufLength;
+        pCurrBSS->currAPInfo.resultType = (pParam->content.siteMgrLastBeacon.isBeacon) ? SCAN_RFT_BEACON : SCAN_RFT_PROBE_RESPONSE;
 
         /* Set BSS Loss to Fw - note that it depends on the Connection type - (Infa/IBSS) */
         currBSS_updateBSSLoss(pCurrBSS);
@@ -841,6 +854,7 @@ void currBSS_updateConnectedState(TI_HANDLE hCurrBSS, TI_BOOL isConnected, ScanB
                 TWD_CfgKeepAlive (pCurrBSS->hTWD, &tKeepAliveParams);
             }
         }        
+        os_memoryFree(pCurrBSS->hOs, pParam, sizeof(paramInfo_t));
     }
     else
     {
@@ -1060,7 +1074,7 @@ static void currBSS_BackgroundScanQuality(TI_HANDLE hCurrBSS,
 {
     currBSS_t *pCurrBSS = (currBSS_t *)hCurrBSS;
     TI_UINT8 averageRssi = *data;
-    paramInfo_t param;
+    paramInfo_t *pParam;
 
     TRACE1(pCurrBSS->hReport, REPORT_SEVERITY_INFORMATION, "BackgroundScanQuality Event: RSSI = %d\n", averageRssi );
 
@@ -1078,10 +1092,13 @@ static void currBSS_BackgroundScanQuality(TI_HANDLE hCurrBSS,
     pCurrBSS->currAPInfo.RSSI = averageRssi;
 
     /* Update Site Table in order to represent the RSSI of current AP correctly in the utility */
-    param.paramType = SITE_MGR_CURRENT_SIGNAL_PARAM;
-    param.content.siteMgrCurrentSignal.rssi = averageRssi;
-    siteMgr_setParam(pCurrBSS->hSiteMgr, &param);
-
+    pParam = (paramInfo_t *)os_memoryAlloc(pCurrBSS->hOs, sizeof(paramInfo_t));
+    if (!pParam)
+        return;
+    pParam->paramType = SITE_MGR_CURRENT_SIGNAL_PARAM;
+    pParam->content.siteMgrCurrentSignal.rssi = averageRssi;
+    siteMgr_setParam(pCurrBSS->hSiteMgr, pParam);
+    os_memoryFree(pCurrBSS->hOs, pParam, sizeof(paramInfo_t));
 }
 
 /* EMP specific functions - lior*/

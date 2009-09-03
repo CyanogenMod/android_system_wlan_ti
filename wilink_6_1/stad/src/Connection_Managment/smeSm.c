@@ -240,9 +240,8 @@ void smeSm_Stop (TI_HANDLE hSme)
  */ 
 void smeSm_PreConnect (TI_HANDLE hSme)
 {
-    TSme    *pSme = (TSme*)hSme;
-    paramInfo_t	        param;
-
+    TSme *pSme = (TSme *)hSme;
+    paramInfo_t	*pParam;
 
     /* set the connection mode with which this connection attempt is starting */
     pSme->eLastConnectMode = pSme->eConnectMode;
@@ -282,42 +281,50 @@ void smeSm_PreConnect (TI_HANDLE hSme)
 			/* for IBSS or any, if no entries where found, add the self site */
 			if (pSme->eBssType == BSS_INFRASTRUCTURE)
             {
-            /* makr whether we need to stop the attempt connection in manual mode */
-            pSme->bConnectRequired = TI_FALSE;
+                /* makr whether we need to stop the attempt connection in manual mode */
+                pSme->bConnectRequired = TI_FALSE;
 
 				TRACE0(pSme->hReport, REPORT_SEVERITY_INFORMATION , "smeSm_PreConnect: No candidate available, sending connect failure\n");
-            /* manual mode and no connection candidate is available - connection failed */
-            genSM_Event (pSme->hSmeSm, SME_SM_EVENT_CONNECT_FAILURE, hSme);
+                /* manual mode and no connection candidate is available - connection failed */
+                genSM_Event (pSme->hSmeSm, SME_SM_EVENT_CONNECT_FAILURE, hSme);
 			}
 
 			else		/* IBSS */
 			{
-				TI_UINT8     uDesiredChannel;
+				TI_UINT8    uDesiredChannel;
+                TI_BOOL     channelValidity;
+
 		        pSme->bConnectRequired = TI_FALSE;
 
-				param.paramType = SITE_MGR_DESIRED_CHANNEL_PARAM;
-				siteMgr_getParam(pSme->hSiteMgr, &param);
-				uDesiredChannel = param.content.siteMgrDesiredChannel;
+                pParam = (paramInfo_t *)os_memoryAlloc(pSme->hOS, sizeof(paramInfo_t));
+                if (!pParam)
+                    return;
+
+				pParam->paramType = SITE_MGR_DESIRED_CHANNEL_PARAM;
+				siteMgr_getParam(pSme->hSiteMgr, pParam);
+				uDesiredChannel = pParam->content.siteMgrDesiredChannel;
 
 				if (uDesiredChannel >= SITE_MGR_CHANNEL_A_MIN)
 				{
-				   param.content.channelCapabilityReq.band = RADIO_BAND_5_0_GHZ;
+				   pParam->content.channelCapabilityReq.band = RADIO_BAND_5_0_GHZ;
 				}
 				else
 				{
-				   param.content.channelCapabilityReq.band = RADIO_BAND_2_4_GHZ;
+				   pParam->content.channelCapabilityReq.band = RADIO_BAND_2_4_GHZ;
 				}
 
 				/*
 				update the regulatory domain with the selected band
 				*/
 				/* Check if the selected channel is valid according to regDomain */
-				param.paramType = REGULATORY_DOMAIN_GET_SCAN_CAPABILITIES;
-				param.content.channelCapabilityReq.scanOption = ACTIVE_SCANNING;
-				param.content.channelCapabilityReq.channelNum = uDesiredChannel;
+				pParam->paramType = REGULATORY_DOMAIN_GET_SCAN_CAPABILITIES;
+				pParam->content.channelCapabilityReq.scanOption = ACTIVE_SCANNING;
+				pParam->content.channelCapabilityReq.channelNum = uDesiredChannel;
 
-				regulatoryDomain_getParam (pSme->hRegDomain,&param);
-				if (!param.content.channelCapabilityRet.channelValidity)
+				regulatoryDomain_getParam (pSme->hRegDomain, pParam);
+                channelValidity = pParam->content.channelCapabilityRet.channelValidity;
+                os_memoryFree(pSme->hOS, pParam, sizeof(paramInfo_t));
+				if (!channelValidity)
 				{
 				   TRACE0(pSme->hReport, REPORT_SEVERITY_INFORMATION , "IBSS SELECT FAILURE  - No channel !!!\n\n");
 
@@ -360,9 +367,9 @@ void smeSm_PreConnect (TI_HANDLE hSme)
  */ 
 void smeSm_Connect (TI_HANDLE hSme)
 {
-    TSme        *pSme = (TSme*)hSme;
+    TSme            *pSme = (TSme*)hSme;
     TI_STATUS       tStatus;
-    paramInfo_t     tParam;
+    paramInfo_t     *pParam;
 
     /* Sanity check - if no connection candidate was found so far */
     if (NULL == pSme->pCandidate)
@@ -372,6 +379,10 @@ void smeSm_Connect (TI_HANDLE hSme)
     }
     else
     {
+        pParam = (paramInfo_t *)os_memoryAlloc(pSme->hOS, sizeof(paramInfo_t));
+        if (!pParam)
+            return;
+
        /* set SCR group */
        if (BSS_INFRASTRUCTURE == pSme->pCandidate->bssType)
        {
@@ -379,19 +390,20 @@ void smeSm_Connect (TI_HANDLE hSme)
        }
 
        /***************** Config Connection *************************/
-       tParam.paramType = CONN_TYPE_PARAM;	
+       pParam->paramType = CONN_TYPE_PARAM;	
        if (BSS_INDEPENDENT == pSme->pCandidate->bssType)
            if (SITE_SELF == pSme->pCandidate->siteType)
            {
-               tParam.content.connType = CONNECTION_SELF;
+               pParam->content.connType = CONNECTION_SELF;
            }
            else
            {
-           tParam.content.connType = CONNECTION_IBSS;
+               pParam->content.connType = CONNECTION_IBSS;
            }
        else
-           tParam.content.connType = CONNECTION_INFRA;
-       conn_setParam(pSme->hConn, &tParam);
+           pParam->content.connType = CONNECTION_INFRA;
+       conn_setParam(pSme->hConn, pParam);
+       os_memoryFree(pSme->hOS, pParam, sizeof(paramInfo_t));
 
        /* start the connection process */
        tStatus = conn_start (pSme->hConn, CONN_TYPE_FIRST_CONN, sme_ReportConnStatus, hSme, TI_FALSE, TI_FALSE);
@@ -628,7 +640,7 @@ void smeSm_CheckStartConditions (TI_HANDLE hSme)
 TI_STATUS sme_StartScan (TI_HANDLE hSme)
 {
     TSme            *pSme = (TSme*)hSme;
-    paramInfo_t     tParam;
+    paramInfo_t     *pParam;
     TI_BOOL         bDEnabled, bCountryValid;
     TI_BOOL         bBandChannelExist[ RADIO_BAND_NUM_OF_BANDS ];
     TI_BOOL         bBandCountryFound[ RADIO_BAND_NUM_OF_BANDS ];
@@ -636,20 +648,25 @@ TI_STATUS sme_StartScan (TI_HANDLE hSme)
     TI_UINT32       uIndex;
 
     /* get 802.11d enable state */
-    tParam.paramType = REGULATORY_DOMAIN_ENABLED_PARAM;
-    regulatoryDomain_getParam (pSme->hRegDomain, &tParam);
-    bDEnabled = tParam.content.regulatoryDomainEnabled;
+    pParam = (paramInfo_t *)os_memoryAlloc(pSme->hOS, sizeof(paramInfo_t));
+    if (!pParam)
+        return TI_NOK;
 
-    tParam.paramType = REGULATORY_DOMAIN_IS_COUNTRY_FOUND;
+    pParam->paramType = REGULATORY_DOMAIN_ENABLED_PARAM;
+    regulatoryDomain_getParam (pSme->hRegDomain, pParam);
+    bDEnabled = pParam->content.regulatoryDomainEnabled;
+
+    pParam->paramType = REGULATORY_DOMAIN_IS_COUNTRY_FOUND;
     /* get country validity for all bands */
     for (uIndex = 0; uIndex < RADIO_BAND_NUM_OF_BANDS; uIndex++)
     {
-        tParam.content.eRadioBand = uIndex;
-        regulatoryDomain_getParam (pSme->hRegDomain, &tParam);
-        bBandCountryFound[ uIndex ] = tParam.content.bIsCountryFound;
+        pParam->content.eRadioBand = uIndex;
+        regulatoryDomain_getParam (pSme->hRegDomain, pParam);
+        bBandCountryFound[ uIndex ] = pParam->content.bIsCountryFound;
         /* also nullify the channel exist indication for this band */
         bBandChannelExist[ uIndex ] = TI_FALSE;
     }
+    os_memoryFree(pSme->hOS, pParam, sizeof(paramInfo_t));
 
     /* First fill the channels */
     for (uIndex = 0; uIndex < pSme->tInitParams.uChannelNum; uIndex++)
@@ -811,7 +828,7 @@ void sme_updateScanCycles (TI_HANDLE hSme,
 {
     TSme            *pSme = (TSme*)hSme;
     TI_UINT32       uIndex, uScanPeriodMs, uScanDurationMs;
-    paramInfo_t     tParam;
+    paramInfo_t     *pParam;
 
     /* 802.11d is disabled, or no country is valid */
     if ((TI_FALSE == bDEnabled) || (TI_FALSE == bCountryValid))
@@ -859,9 +876,13 @@ void sme_updateScanCycles (TI_HANDLE hSme,
     /* 802.11d is enabled, and country is valid on at least one band */
     else
     {
+        pParam = (paramInfo_t *)os_memoryAlloc(pSme->hOS, sizeof(paramInfo_t));
+        if (!pParam)
+            return;
+
         /* get country expiry time */
-        tParam.paramType = REGULATORY_DOMAIN_TIME_TO_COUNTRY_EXPIRY;
-        regulatoryDomain_getParam (pSme->hRegDomain, &tParam);
+        pParam->paramType = REGULATORY_DOMAIN_TIME_TO_COUNTRY_EXPIRY;
+        regulatoryDomain_getParam (pSme->hRegDomain, pParam);
 
         /* WSC PB mode is disabled */
         if (TI_FALSE == bConstantScan)
@@ -880,7 +901,7 @@ void sme_updateScanCycles (TI_HANDLE hSme,
             }
  
             /* set cycle number according to country expiry time */
-            sme_CalculateCyclesNumber (hSme, tParam.content.uTimeToCountryExpiryMs);
+            sme_CalculateCyclesNumber (hSme, pParam->content.uTimeToCountryExpiryMs);
         }
         /* WSC PB mode is enabled */
         else
@@ -889,7 +910,7 @@ void sme_updateScanCycles (TI_HANDLE hSme,
             pSme->bConstantScan = TI_FALSE;
 
             /* set scan period to minimum of WSC PB duration (2 minutes) and country expiry time */
-            uScanPeriodMs = TI_MIN (120000, tParam.content.uTimeToCountryExpiryMs);
+            uScanPeriodMs = TI_MIN (120000, pParam->content.uTimeToCountryExpiryMs);
 
             /* nullify all intervals */
             os_memoryZero (pSme->hOS, &(pSme->tScanParams.uCycleIntervalMsec[ 0 ]),
@@ -912,6 +933,7 @@ void sme_updateScanCycles (TI_HANDLE hSme,
                 pSme->tScanParams.uCycleNum = pSme->tInitParams.uCycleNum;
             }
         }
+        os_memoryFree(pSme->hOS, pParam, sizeof(paramInfo_t));
     }
 
     /* in case independent mode and to avoid supplicant send disconnect event after 60s */

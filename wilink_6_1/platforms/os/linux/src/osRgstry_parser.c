@@ -41,25 +41,23 @@
 
 extern void regReadLastDbgState(TWlanDrvIfObjPtr pAdapter);
 
-static char *init_file     = NULL;
-static int init_file_length= 0;
+static char *init_file      = NULL;
+static int init_file_length = 0;
 static PNDIS_CONFIGURATION_PARAMETER pNdisParm;
 
-extern int osInitTable_IniFile (TI_HANDLE hOs, TInitTable *InitTable, char *file_buf, int file_length)
+int osInitTable_IniFile (TI_HANDLE hOs, TInitTable *InitTable, char *file_buf, int file_length)
 {
     TWlanDrvIfObjPtr drv = (TWlanDrvIfObjPtr)hOs;
-    
-    NDIS_CONFIGURATION_PARAMETER parm;
-    
+    static NDIS_CONFIGURATION_PARAMETER vNdisParm;
+
     init_file         = file_buf;
     init_file_length  = file_length;
-    pNdisParm = &parm;
+    pNdisParm = &vNdisParm;
     
     regFillInitTable (drv, InitTable);
 #ifdef TI_DBG
     regReadLastDbgState(drv);
 #endif
-   
     return 0;
 }
 

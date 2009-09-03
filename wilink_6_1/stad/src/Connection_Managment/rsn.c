@@ -624,6 +624,18 @@ TI_STATUS rsn_stop (TI_HANDLE hRsn, TI_BOOL removeKeys)
     return status;
 }
 
+TI_STATUS rsn_getParamEncryptionStatus(TI_HANDLE hRsn, ECipherSuite *rsnStatus)
+{ /* RSN_ENCRYPTION_STATUS_PARAM */
+    rsn_t       *pRsn = (rsn_t *)hRsn;
+    TI_STATUS   status = TI_NOK;
+
+    if ( (NULL == pRsn) || (NULL == rsnStatus) )
+    {
+        return status;
+    }
+    status = pRsn->pAdmCtrl->getCipherSuite(pRsn->pAdmCtrl, rsnStatus);
+    return status;
+}
 
 /**
 *
@@ -646,11 +658,9 @@ TI_STATUS rsn_stop (TI_HANDLE hRsn, TI_BOOL removeKeys)
 */
 TI_STATUS rsn_getParam(TI_HANDLE hRsn, void *param)
 {
-    rsn_t       *pRsn;
-    paramInfo_t *pParam = (paramInfo_t*)param;
+    rsn_t       *pRsn = (rsn_t *)hRsn;
+    paramInfo_t *pParam = (paramInfo_t *)param;
     TI_STATUS   status = TI_OK;
-
-    pRsn = (rsn_t*)hRsn;
 
     if ( (NULL == pRsn) || (NULL == pParam) )
     {

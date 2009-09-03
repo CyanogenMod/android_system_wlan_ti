@@ -365,7 +365,7 @@ TI_STATUS siteMgr_SetDefaults (TI_HANDLE                hSiteMgr,
     siteMgr_t       *pSiteMgr = (siteMgr_t *)hSiteMgr;
     TI_UINT32       timestamp;
     ESlotTime       slotTime;
-    paramInfo_t     saParam;
+    TMacAddr        saBssid;
     TI_STATUS       status;
     RssiSnrTriggerCfg_t tTriggerCfg;
 
@@ -395,8 +395,7 @@ TI_STATUS siteMgr_SetDefaults (TI_HANDLE                hSiteMgr,
     os_memoryCopy(pSiteMgr->hOs, (void *)&(pSiteMgr->ibssBssid[2]), &timestamp, sizeof(TI_UINT32));
 
     /* Get the Source MAC address in order to use it for AD-Hoc BSSID, solving Conexant ST issue for WiFi test */
-    saParam.paramType = CTRL_DATA_MAC_ADDRESS;
-    status = ctrlData_getParam(pSiteMgr->hCtrlData, &saParam);
+    status = ctrlData_getParamBssid(pSiteMgr->hCtrlData, CTRL_DATA_MAC_ADDRESS, saBssid);
     if (status != TI_OK)
     {
         TRACE0(pSiteMgr->hReport, REPORT_SEVERITY_CONSOLE ,"\n ERROR !!! : siteMgr_config - Error in getting MAC address\n" );
@@ -404,9 +403,8 @@ TI_STATUS siteMgr_SetDefaults (TI_HANDLE                hSiteMgr,
         return TI_NOK;
     }
     pSiteMgr->ibssBssid[0] = 0x02;
-    pSiteMgr->ibssBssid[1] = saParam.content.ctrlDataDeviceMacAddress[1];
-    pSiteMgr->ibssBssid[2] = saParam.content.ctrlDataDeviceMacAddress[2];
-
+    pSiteMgr->ibssBssid[1] = saBssid[1];
+    pSiteMgr->ibssBssid[2] = saBssid[2];
 
     pSiteMgr->pDesiredParams->siteMgrSupportedBand = RADIO_BAND_DUAL;
 
@@ -942,6 +940,19 @@ TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION, "Setting SimpleConfig Mod
     return TI_OK;
 }
 
+TI_STATUS siteMgr_getParamWSC(TI_HANDLE hSiteMgr, TIWLN_SIMPLE_CONFIG_MODE *wscParam)
+{ /* SITE_MGR_SIMPLE_CONFIG_MODE: - Retrieving the WiFiSimpleConfig mode */
+    siteMgr_t       *pSiteMgr = (siteMgr_t *)hSiteMgr;
+
+	if (pSiteMgr == NULL)
+	{
+		return TI_NOK;
+	}
+
+    *wscParam = pSiteMgr->siteMgrWSCCurrMode;
+    return TI_OK;
+}
+
 /***********************************************************************
  *                        siteMgr_getParam
  ***********************************************************************
@@ -990,7 +1001,7 @@ TI_STATUS siteMgr_getParam(TI_HANDLE        hSiteMgr,
 	case SITE_MGR_SIMPLE_CONFIG_MODE: /* Retrieving the WiFiSimpleConfig mode */
 		pParam->content.siteMgrWSCMode.WSCMode = pSiteMgr->siteMgrWSCCurrMode;
 		
-TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION, "Retrieving the SimpleConfig Mode (%d) \n", pSiteMgr->siteMgrWSCCurrMode);
+        TRACE1(pSiteMgr->hReport, REPORT_SEVERITY_INFORMATION, "Retrieving the SimpleConfig Mode (%d) \n", pSiteMgr->siteMgrWSCCurrMode);
 		break;
 
     case SITE_MGR_DESIRED_SUPPORTED_RATE_SET_PARAM:
@@ -1431,8 +1442,7 @@ TI_STATUS siteMgr_join(TI_HANDLE    hSiteMgr)
     psPollTemplate_t        psPollTemplate;
     QosNullDataTemplate_t   QosNullDataTemplate;
     siteEntry_t             *pPrimarySite = pSiteMgr->pSitesMgmtParams->pPrimarySite;
-    paramInfo_t             param;
-
+    EPreamble               curPreamble;
 
     if (pPrimarySite == NULL)
     {
@@ -1473,10 +1483,9 @@ TI_STATUS siteMgr_join(TI_HANDLE    hSiteMgr)
         joinParams.basicRateSet = (TI_UINT16)pSiteMgr->pDesiredParams->siteMgrMatchedBasicRateMask;
     }
 
-    param.paramType = CTRL_DATA_CURRENT_PREAMBLE_TYPE_PARAM;
-    ctrlData_getParam(pSiteMgr->hCtrlData, &param);
+    ctrlData_getParamPreamble(pSiteMgr->hCtrlData, &curPreamble); /* CTRL_DATA_CURRENT_PREAMBLE_TYPE_PARAM */
     /* Set the preamble before the join */
-    TWD_CfgPreamble (pSiteMgr->hTWD, param.content.ctrlDataCurrentPreambleType);
+    TWD_CfgPreamble (pSiteMgr->hTWD, curPreamble);
 
     /* Now, Set templates to the HAL */
     templateStruct.uRateMask = RATE_MASK_UNSPECIFIED;

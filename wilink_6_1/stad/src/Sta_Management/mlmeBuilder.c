@@ -83,7 +83,7 @@ TI_STATUS mlmeBuilder_sendFrame(TI_HANDLE hMlme,
 	TI_STATUS		status;
     TTxCtrlBlk      *pPktCtrlBlk;
     TI_UINT8        *pPktBuffer;
-	paramInfo_t		daParam, saParam;
+	TMacAddr		daBssid, saBssid;
 	dot11_mgmtHeader_t	*pDot11Header;
 
 	/* Allocate a TxCtrlBlk and data buffer (large enough for the max management packet) */
@@ -107,8 +107,7 @@ TI_STATUS mlmeBuilder_sendFrame(TI_HANDLE hMlme,
 		return TI_NOK;
 	}
 
-	daParam.paramType = CTRL_DATA_CURRENT_BSSID_PARAM;
-	status = ctrlData_getParam (pHandle->hCtrlData, &daParam);
+    status = ctrlData_getParamBssid(pHandle->hCtrlData, CTRL_DATA_CURRENT_BSSID_PARAM, daBssid);
 	if (status != TI_OK)
 	{
         txCtrl_FreePacket (pHandle->hTxCtrl, pPktCtrlBlk, TI_NOK);
@@ -116,10 +115,9 @@ TI_STATUS mlmeBuilder_sendFrame(TI_HANDLE hMlme,
 	}
 
 	/* copy destination mac address */
-	MAC_COPY (pDot11Header->DA, daParam.content.ctrlDataCurrentBSSID);
+	MAC_COPY (pDot11Header->DA, daBssid);
 
-	saParam.paramType = CTRL_DATA_MAC_ADDRESS;
-	status = ctrlData_getParam (pHandle->hCtrlData, &saParam);
+    status = ctrlData_getParamBssid(pHandle->hCtrlData, CTRL_DATA_MAC_ADDRESS, saBssid);
 	if (status != TI_OK)
 	{
         txCtrl_FreePacket (pHandle->hTxCtrl, pPktCtrlBlk, TI_NOK);
@@ -127,10 +125,10 @@ TI_STATUS mlmeBuilder_sendFrame(TI_HANDLE hMlme,
 	}
 
 	/* copy source mac address */
-	MAC_COPY (pDot11Header->SA, saParam.content.ctrlDataCurrentBSSID);
+	MAC_COPY (pDot11Header->SA, saBssid);
 
 	/* copy BSSID (destination mac address) */
-	MAC_COPY (pDot11Header->BSSID, daParam.content.ctrlDataCurrentBSSID);
+	MAC_COPY (pDot11Header->BSSID, daBssid);
 
 	if (pDataBuff != NULL)
 	{

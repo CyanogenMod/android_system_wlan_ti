@@ -75,7 +75,6 @@ TSiteEntry *sme_Select (TI_HANDLE hSme)
     TSiteEntry      *pCurrentSite, *pSelectedSite = NULL;
     TI_INT8         iSelectedSiteRssi = -127; /* minimum RSSI */
     TI_BOOL         bWscPbAbort, pWscPbApFound = TI_FALSE;
-    paramInfo_t     param;
     int             apFoundCtr =0;
 
     TRACE0(pSme->hReport, REPORT_SEVERITY_INFORMATION , "sme_Select called\n");
@@ -83,15 +82,22 @@ TSiteEntry *sme_Select (TI_HANDLE hSme)
     /* on SG avalanche, select is not needed, send connect event automatically */
     if (TI_TRUE == pSme->bReselect)
     {
+        paramInfo_t *pParam;
+
         TRACE0(pSme->hReport, REPORT_SEVERITY_INFORMATION , "sme_Select: reselect flag is on, reselecting the current site\n");
+
+        pParam = (paramInfo_t *)os_memoryAlloc(pSme->hOS, sizeof(paramInfo_t));
+        if (!pParam)
+            return NULL;
 
         pSme->bReselect = TI_FALSE;
 
         /* Get Primary Site */
-        param.paramType = SITE_MGR_GET_PRIMARY_SITE;
-        siteMgr_getParam(pSme->hSiteMgr, &param);
-
-        return (TSiteEntry *)param.content.pPrimarySite;
+        pParam->paramType = SITE_MGR_GET_PRIMARY_SITE;
+        siteMgr_getParam(pSme->hSiteMgr, pParam);
+        pCurrentSite = pParam->content.pPrimarySite;
+        os_memoryFree(pSme->hOS, pParam, sizeof(paramInfo_t));
+        return pCurrentSite;
     }
 
     /* get the first site from the scan result table */
@@ -336,14 +342,11 @@ TI_BOOL sme_SelectWscMatch (TI_HANDLE hSme, TSiteEntry *pCurrentSite,
                             TI_BOOL *pbWscPbAbort, TI_BOOL *pbWscPbApFound)
 {
     TSme            *pSme = (TSme*)hSme;
-    paramInfo_t     tParam;
+    TIWLN_SIMPLE_CONFIG_MODE  wscMode;
 
-    /* get the WSC mode from site mgr */
-    tParam.paramType = SITE_MGR_SIMPLE_CONFIG_MODE;
-    siteMgr_getParam (pSme->hSiteMgr, &tParam);
-
+    siteMgr_getParamWSC(pSme->hSiteMgr, &wscMode); /* SITE_MGR_SIMPLE_CONFIG_MODE - get the WSC mode from site mgr */
     /* if simple config is off, site match */
-    if (TIWLN_SIMPLE_CONFIG_OFF == tParam.content.siteMgrWSCMode.WSCMode)
+    if (TIWLN_SIMPLE_CONFIG_OFF == wscMode)
     {
         return TI_TRUE;
     }
@@ -351,7 +354,7 @@ TI_BOOL sme_SelectWscMatch (TI_HANDLE hSme, TSiteEntry *pCurrentSite,
     /* if WSC is supported, and more than one AP with PB configuration is found - indicate to abort */
     if ((TI_TRUE == *pbWscPbApFound) && (TIWLN_SIMPLE_CONFIG_PBC_METHOD == pCurrentSite->WSCSiteMode))
     {
-        TRACE1(pSme->hReport, REPORT_SEVERITY_INFORMATION , "sme_SelectWscMatch: WSC mode is %d, and more than one AP with WSC PB found - aborting\n", tParam.content.siteMgrWSCMode.WSCMode);
+        TRACE1(pSme->hReport, REPORT_SEVERITY_INFORMATION , "sme_SelectWscMatch: WSC mode is %d, and more than one AP with WSC PB found - aborting\n", wscMode);
         *pbWscPbAbort = TI_TRUE;
         return TI_FALSE;
     }
@@ -362,7 +365,7 @@ TI_BOOL sme_SelectWscMatch (TI_HANDLE hSme, TSiteEntry *pCurrentSite,
     }
 
     /* if configured simple config mode equals site simple config mode, site match */
-    if (pCurrentSite->WSCSiteMode == tParam.content.siteMgrWSCMode.WSCMode)
+    if (pCurrentSite->WSCSiteMode == wscMode)
     {
         return TI_TRUE;
     }

@@ -93,15 +93,15 @@ extern int WMEQosTagToACTable[MAX_NUM_OF_802_1d_TAGS];
 
 TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
 {
-    TI_STATUS              status = TI_NOK;
-    mlme_t                 *pHandle;
+    TI_STATUS              status;
+    mlme_t                 *pHandle = (mlme_t *)hMlme;
     TI_UINT8               *pData;
     TI_INT32               bodyDataLen;
     TI_UINT32              readLen;
     dot11_eleHdr_t         *pEleHdr;
     dot11_mgmtFrame_t      *pMgmtFrame;
     dot11MgmtSubType_e     msgType;
-    paramInfo_t            param;
+    paramInfo_t            *pParam;
     TMacAddr               recvBssid;
     TMacAddr               recvSa;
     TI_UINT8               rsnIeIdx = 0;
@@ -118,8 +118,6 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
 		return TI_NOK;
     }
 
-    pHandle = (mlme_t*)hMlme;
-
     /* zero frame content */
 	os_memoryZero (pHandle->hOs, &(pHandle->tempFrameInfo), sizeof(mlmeIEParsingParams_t));
 
@@ -133,22 +131,28 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
         return TI_NOK;
     }
 
+    pParam = (paramInfo_t *)os_memoryAlloc(pHandle->hOs, sizeof(paramInfo_t));
+    if (!pParam) {
+        RxBufFree(pHandle->hOs, pBuffer);
+        return TI_NOK;
+    }
+
     pHandle->tempFrameInfo.frame.subType = msgType;
 
     /* We have to ignore management frames from other BSSIDs (except beacons & probe responses) */
-    param.paramType = CTRL_DATA_CURRENT_BSSID_PARAM;
-    ctrlData_getParam(pHandle->hCtrlData, &param);
+    pParam->paramType = CTRL_DATA_CURRENT_BSSID_PARAM;
+    ctrlData_getParam(pHandle->hCtrlData, pParam);
 
     MAC_COPY (recvBssid, pMgmtFrame->hdr.BSSID);
     MAC_COPY(recvSa, pMgmtFrame->hdr.SA);
 
-    if (MAC_EQUAL (param.content.ctrlDataCurrentBSSID, recvBssid))
+    if (MAC_EQUAL (pParam->content.ctrlDataCurrentBSSID, recvBssid))
         pHandle->tempFrameInfo.myBssid = TI_TRUE;
     else
         pHandle->tempFrameInfo.myBssid = TI_FALSE;
 
 
-    if (MAC_EQUAL (param.content.ctrlDataCurrentBSSID, recvSa))
+    if (MAC_EQUAL (pParam->content.ctrlDataCurrentBSSID, recvSa))
 		pHandle->tempFrameInfo.mySa = TI_TRUE;
 	else
 		pHandle->tempFrameInfo.mySa = TI_FALSE;
@@ -172,11 +176,11 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
         else
         {
             pHandle->tempFrameInfo.frame.extesion.destType = MSG_UNICAST;
-			param.paramType = CTRL_DATA_MAC_ADDRESS;
-		    ctrlData_getParam(pHandle->hCtrlData, &param);
+			pParam->paramType = CTRL_DATA_MAC_ADDRESS;
+		    ctrlData_getParam(pHandle->hCtrlData, pParam);
 
 			/* Verifying whether the received unicast packet is for the STA, if yes we set the flag to True */
-			if (MAC_EQUAL( (param.content.ctrlDataDeviceMacAddress), (pMgmtFrame->hdr.DA) ))
+			if (MAC_EQUAL( (pParam->content.ctrlDataDeviceMacAddress), (pMgmtFrame->hdr.DA) ))
 				pHandle->tempFrameInfo.myDst = TI_TRUE;
 
         }
@@ -234,8 +238,8 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
             if ((*pEleHdr)[1] > (bodyDataLen - 2))
             {
                 TRACE3(pHandle->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: IE %d with length %d out of bounds %d\n", (*pEleHdr)[0], (*pEleHdr)[1], (bodyDataLen - 2));
-                RxBufFree(pHandle->hOs, pBuffer);
-                return TI_NOK;
+                status = TI_NOK;
+                goto mlme_recv_end;
             }
 
             switch ((*pEleHdr)[0])
@@ -247,8 +251,7 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
                 if (status != TI_OK)
                 {
                     TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: error reading RATES\n");
-                    RxBufFree(pHandle->hOs, pBuffer);
-                    return TI_NOK;
+                    goto mlme_recv_end;
                 }
                 break;
 
@@ -258,9 +261,8 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
                 status = mlmeParser_readRates(pHandle, pData, bodyDataLen, &readLen, &(pHandle->tempFrameInfo.extRates));
                 if (status != TI_OK)
                 {
-                    RxBufFree(pHandle->hOs, pBuffer);
                     TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: error reading RATES\n");
-                    return TI_NOK;
+                    goto mlme_recv_end;
                 }
                 break;
 
@@ -288,8 +290,7 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
                     if (status != TI_OK)
                     {
                         TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: error reading WME parameters\n");
-                        RxBufFree(pHandle->hOs, pBuffer);
-                        return TI_NOK;
+                        goto mlme_recv_end;
                     }
                 }
 #ifdef XCC_MODULE_INCLUDED
@@ -315,8 +316,7 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
                 if (status != TI_OK)
                 {
                     TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: error reading XCC EXT1 IE\n");
-                    RxBufFree(pHandle->hOs, pBuffer);
-                    return TI_NOK;
+                    goto mlme_recv_end;
                 }
     
                 pHandle->tempFrameInfo.frame.content.assocRsp.rsnIeLen += readLen;
@@ -331,8 +331,7 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
                 if (status != TI_OK)
                 {
                     TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: error reading RSN IP ADDR IE\n");
-                    RxBufFree(pHandle->hOs, pBuffer);
-                    return TI_NOK;
+                    goto mlme_recv_end;
                 }
     
                 pHandle->tempFrameInfo.frame.content.assocRsp.rsnIeLen += readLen;
@@ -345,9 +344,8 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
                                                         &(pHandle->tempFrameInfo.QosCapParams));
                 if (status != TI_OK)
                 {
-                    RxBufFree(pHandle->hOs, pBuffer);
                     TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: error reading QOS\n");
-                    return TI_NOK;
+                    goto mlme_recv_end;
                 }
                 break;
 
@@ -358,9 +356,8 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
 
                 if (status != TI_OK)
                 {
-                    RxBufFree(pHandle->hOs, pBuffer);
                     TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: error reading HT Capabilities IE\n");
-                    return TI_NOK;
+                    goto mlme_recv_end;
                 }
                 break;
 
@@ -370,9 +367,8 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
                                                          &(pHandle->tempFrameInfo.tHtInformation));
                 if (status != TI_OK)
                 {
-                    RxBufFree(pHandle->hOs, pBuffer);
                     TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: error reading HT Information IE\n");
-                    return TI_NOK;
+                    goto mlme_recv_end;
                 }
                 break;
 
@@ -409,13 +405,13 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
         if(RX_BUF_LEN(pBuffer)-WLAN_HDR_LEN-TIME_STAMP_LEN-4 > MAX_BEACON_BODY_LENGTH)
         {
             TRACE3(pHandle->hReport, REPORT_SEVERITY_ERROR, "mlmeParser_recv: probe response length out of range. length=%d, band=%d, channel=%d\n", RX_BUF_LEN(pBuffer)-WLAN_HDR_LEN-TIME_STAMP_LEN-4, pRxAttr->band, pRxAttr->channel);
-            RxBufFree(pHandle->hOs, pBuffer);
             if ((pRxAttr->eScanTag > SCAN_RESULT_TAG_CURENT_BSS) && (pRxAttr->eScanTag != SCAN_RESULT_TAG_MEASUREMENT))
             {
                 /* Notify the result CB of an invalid frame (to update the result counter) */
                 scanCncn_MlmeResultCB( pHandle->hScanCncn, NULL, NULL, pRxAttr, NULL, 0);
             }
-            return TI_NOK;
+            status = TI_NOK;
+            goto mlme_recv_end;
         }
 
         /* init frame fields */
@@ -444,40 +440,38 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
         {
             TRACE2(pHandle->hReport, REPORT_SEVERITY_ERROR, "mlmeParser_recv, band=%d, channel=%d\n", pRxAttr->band, pRxAttr->channel);
             /* Error in parsing Probe response packet - exit */
-            RxBufFree(pHandle->hOs, pBuffer);
             if ((pRxAttr->eScanTag > SCAN_RESULT_TAG_CURENT_BSS) && (pRxAttr->eScanTag != SCAN_RESULT_TAG_MEASUREMENT))
             {
                 /* Notify the result CB of an invalid frame (to update the result counter) */
                 scanCncn_MlmeResultCB( pHandle->hScanCncn, NULL, NULL, pRxAttr, NULL, 0);
             }
-            return TI_NOK;
-
+            status = TI_NOK;
+            goto mlme_recv_end;
         }
         else if ((pRxAttr->band == RADIO_BAND_5_0_GHZ) && (pRxAttr->channel <= NUM_OF_CHANNELS_24))
         {
             TRACE2(pHandle->hReport, REPORT_SEVERITY_ERROR, "mlmeParser_recv, band=%d, channel=%d\n", pRxAttr->band, pRxAttr->channel);
             /* Error in parsing Probe response packet - exit */
-            RxBufFree(pHandle->hOs, pBuffer);
             if ((pRxAttr->eScanTag > SCAN_RESULT_TAG_CURENT_BSS) && (pRxAttr->eScanTag != SCAN_RESULT_TAG_MEASUREMENT))
             {
                 /* Notify the result CB of an invalid frame (to update the result counter) */
                 scanCncn_MlmeResultCB( pHandle->hScanCncn, NULL, NULL, pRxAttr, NULL, 0);
             }
-            return TI_NOK;
-
+            status = TI_NOK;
+            goto mlme_recv_end;
         }
         if (mlmeParser_parseIEs(hMlme, pData, bodyDataLen, &(pHandle->tempFrameInfo)) != TI_OK)
         {
             TRACE0(pHandle->hReport, REPORT_SEVERITY_ERROR, "mlmeParser_recv: Error in parsing Probe response packet\n");
 
             /* Error in parsing Probe response packet - exit */
-            RxBufFree(pHandle->hOs, pBuffer);
             if ((pRxAttr->eScanTag > SCAN_RESULT_TAG_CURENT_BSS) && (pRxAttr->eScanTag != SCAN_RESULT_TAG_MEASUREMENT))
             {
                 /* Notify the result CB of an invalid frame (to update the result counter) */
                 scanCncn_MlmeResultCB( pHandle->hScanCncn, NULL, NULL, pRxAttr, NULL, 0);
             }
-            return TI_NOK;
+            status = TI_NOK;
+            goto mlme_recv_end;
         }
 
         /* updating CountryIE  */
@@ -486,9 +480,9 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
         {
             /* set the country info in the regulatory domain - If a different code was detected earlier
                the regDomain will ignore it */
-            param.paramType = REGULATORY_DOMAIN_COUNTRY_PARAM;
-            param.content.pCountry = (TCountry *)pHandle->tempFrameInfo.frame.content.iePacket.country;
-            regulatoryDomain_setParam (pHandle->hRegulatoryDomain, &param);
+            pParam->paramType = REGULATORY_DOMAIN_COUNTRY_PARAM;
+            pParam->content.pCountry = (TCountry *)pHandle->tempFrameInfo.frame.content.iePacket.country;
+            regulatoryDomain_setParam (pHandle->hRegulatoryDomain, pParam);
         }
 
         /* if tag = MSR, forward to the MSR module.  */
@@ -539,13 +533,13 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
         if(RX_BUF_LEN(pBuffer)-WLAN_HDR_LEN-TIME_STAMP_LEN-4 > MAX_BEACON_BODY_LENGTH)
         {
             TRACE3(pHandle->hReport, REPORT_SEVERITY_ERROR, "mlmeParser_recv: beacon length out of range. length=%d, band=%d, channel=%d\n", RX_BUF_LEN(pBuffer)-WLAN_HDR_LEN-TIME_STAMP_LEN-4, pRxAttr->band, pRxAttr->channel);
-            RxBufFree(pHandle->hOs, pBuffer);
             if ((pRxAttr->eScanTag > SCAN_RESULT_TAG_CURENT_BSS) && (pRxAttr->eScanTag != SCAN_RESULT_TAG_MEASUREMENT))
             {
 			    /* Notify the result CB of an invalid frame (to update the result counter) */
 			    scanCncn_MlmeResultCB( pHandle->hScanCncn, NULL, NULL, pRxAttr, NULL, 0);
             }
-            return TI_NOK;
+            status = TI_NOK;
+            goto mlme_recv_end;
         }
 
         /* init frame fields */
@@ -571,25 +565,25 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
         {
             TRACE2(pHandle->hReport, REPORT_SEVERITY_ERROR, "mlmeParser_recv, band=%d, channel=%d\n", pRxAttr->band, pRxAttr->channel);
             /* Error in parsing Probe response packet - exit */
-            RxBufFree(pHandle->hOs, pBuffer);
             if ((pRxAttr->eScanTag > SCAN_RESULT_TAG_CURENT_BSS) && (pRxAttr->eScanTag != SCAN_RESULT_TAG_MEASUREMENT))
             {
                 /* Notify the result CB of an invalid frame (to update the result counter) */
                 scanCncn_MlmeResultCB( pHandle->hScanCncn, NULL, NULL, pRxAttr, NULL, 0);
             }
-            return TI_NOK;
+            status = TI_NOK;
+            goto mlme_recv_end;
         }
         else if ((pRxAttr->band == RADIO_BAND_5_0_GHZ) && (pRxAttr->channel <= NUM_OF_CHANNELS_24))
         {
             TRACE2(pHandle->hReport, REPORT_SEVERITY_ERROR, "mlmeParser_recv, band=%d, channel=%d\n", pRxAttr->band, pRxAttr->channel);
             /* Error in parsing Probe response packet - exit */
-            RxBufFree(pHandle->hOs, pBuffer);
             if ((pRxAttr->eScanTag > SCAN_RESULT_TAG_CURENT_BSS) && (pRxAttr->eScanTag != SCAN_RESULT_TAG_MEASUREMENT))
             {
                 /* Notify the result CB of an invalid frame (to update the result counter) */
                 scanCncn_MlmeResultCB( pHandle->hScanCncn, NULL, NULL, pRxAttr, NULL, 0);
             }
-            return TI_NOK;
+            status = TI_NOK;
+            goto mlme_recv_end;
         }
 		pHandle->tempFrameInfo.band = pRxAttr->band;
 		pHandle->tempFrameInfo.rxChannel = pRxAttr->channel;
@@ -598,13 +592,13 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
         {
             TRACE0(pHandle->hReport, REPORT_SEVERITY_WARNING, "mlmeParser_parseIEs - Error in parsing Beacon \n");
             /* Error in parsing Probe response packet - exit */
-            RxBufFree(pHandle->hOs, pBuffer);
             if ((pRxAttr->eScanTag > SCAN_RESULT_TAG_CURENT_BSS) && (pRxAttr->eScanTag != SCAN_RESULT_TAG_MEASUREMENT))
             {
                 /* Notify the result CB of an invalid frame (to update the result counter) */
                 scanCncn_MlmeResultCB( pHandle->hScanCncn, NULL, NULL, pRxAttr, NULL, 0);
             }
-            return TI_NOK;
+            status = TI_NOK;
+            goto mlme_recv_end;
         }
 
         /* updating CountryIE  */
@@ -613,9 +607,9 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
         {
             /* set the country info in the regulatory domain - If a different code was detected earlier
                the regDomain will ignore it */
-            param.paramType = REGULATORY_DOMAIN_COUNTRY_PARAM;
-            param.content.pCountry = (TCountry *)pHandle->tempFrameInfo.frame.content.iePacket.country;
-            regulatoryDomain_setParam (pHandle->hRegulatoryDomain, &param);
+            pParam->paramType = REGULATORY_DOMAIN_COUNTRY_PARAM;
+            pParam->content.pCountry = (TCountry *)pHandle->tempFrameInfo.frame.content.iePacket.country;
+            regulatoryDomain_setParam (pHandle->hRegulatoryDomain, pParam);
         }
 
 
@@ -734,11 +728,11 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
         break;
 
     case ACTION:
-		param.paramType = CTRL_DATA_CURRENT_BSS_TYPE_PARAM;
-		ctrlData_getParam(pHandle->hCtrlData, &param);
+		pParam->paramType = CTRL_DATA_CURRENT_BSS_TYPE_PARAM;
+		ctrlData_getParam(pHandle->hCtrlData, pParam);
 
         if ((!pHandle->tempFrameInfo.myBssid) || 
-			((!pHandle->tempFrameInfo.mySa) && (param.content.ctrlDataCurrentBssType == BSS_INFRASTRUCTURE)))
+			((!pHandle->tempFrameInfo.mySa) && (pParam->content.ctrlDataCurrentBssType == BSS_INFRASTRUCTURE)))
             break;
 
 		/* if the action frame is unicast and not directed to our STA, we should ignore it */
@@ -804,12 +798,11 @@ TI_STATUS mlmeParser_recv(TI_HANDLE hMlme, void *pBuffer, TRxAttr* pRxAttr)
 						break;
 						
 					default:
-TRACE1(pHandle->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: Error, category is invalid for action management frame %d \n",							pHandle->tempFrameInfo.frame.content.action.category );
+                        TRACE1(pHandle->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: Error, category is invalid for action management frame %d \n",							pHandle->tempFrameInfo.frame.content.action.category );
 						break;
 				}
 				
 				break;
-
 				
 			default:
 				status = TI_NOK;
@@ -818,9 +811,12 @@ TRACE1(pHandle->hReport, REPORT_SEVERITY_ERROR, "MLME_PARSER: Error, category is
 		}
     }
 
+mlme_recv_end:
     /* release BUF */
+    os_memoryFree(pHandle->hOs, pParam, sizeof(paramInfo_t));
 	RxBufFree(pHandle->hOs, pBuffer);
-
+    if (status != TI_OK)
+        return TI_NOK;
     return TI_OK;
 }
 

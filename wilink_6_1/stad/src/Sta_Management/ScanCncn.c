@@ -339,9 +339,14 @@ EScanCncnResultStatus scanCncn_Start1ShotScan (TI_HANDLE hScanCncn,
                                           TScanParams* pScanParams)
 {
     TScanCncn           *pScanCncn = (TScanCncn*)hScanCncn;
-    paramInfo_t         tParam;
+    paramInfo_t         *pParam;
 
     TRACE1(pScanCncn->hReport, REPORT_SEVERITY_INFORMATION , "scanCncn_Start1ShotScan: Received scan request from client %d\n", eClient);
+
+    pParam = (paramInfo_t *)os_memoryAlloc(pScanCncn->hOS, sizeof(paramInfo_t));
+    if (!pParam) {
+        return SCAN_CRS_SCAN_FAILED;
+    }
 
     /* copy scan parameters to local buffer */
     os_memoryCopy (pScanCncn->hOS, &(pScanCncn->pScanClients[ eClient ]->uScanParams.tOneShotScanParams), 
@@ -356,14 +361,15 @@ EScanCncnResultStatus scanCncn_Start1ShotScan (TI_HANDLE hScanCncn,
         if (0 != pScanParams->desiredSsid.len)
         {
             /* set the SSID of the current AP */
-            tParam.paramType = SME_DESIRED_SSID_ACT_PARAM;
-            sme_GetParam (pScanCncn->hSme, &tParam);
+            pParam->paramType = SME_DESIRED_SSID_ACT_PARAM;
+            sme_GetParam (pScanCncn->hSme, pParam);
             os_memoryCopy (pScanCncn->hOS, 
                            &(pScanCncn->pScanClients[ eClient ]->uScanParams.tOneShotScanParams.desiredSsid),
-                           &(tParam.content.smeDesiredSSID),
+                           &(pParam->content.smeDesiredSSID),
                            sizeof(TSsid));
         }
     }
+    os_memoryFree(pScanCncn->hOS, pParam, sizeof(paramInfo_t));
 
     /* ask the reg domain which channels are allowed for the requested scan type */
     scanCncn_VerifyChannelsWithRegDomain (hScanCncn, &(pScanCncn->pScanClients[ eClient ]->uScanParams), TI_FALSE);
@@ -1062,8 +1068,14 @@ void scanCncn_ScrDriverCB (TI_HANDLE hScanCncn, EScrClientRequestStatus eRequest
 void scanCncn_VerifyChannelsWithRegDomain (TI_HANDLE hScanCncn, UScanParams *puScanParams, TI_BOOL bPeriodicScan)
 {
     TScanCncn           *pScanCncn = (TScanCncn*)hScanCncn;
-    paramInfo_t         tParam, tDfsParam;
+    paramInfo_t         *pParam;
+    paramInfo_t         tDfsParam;
     TI_UINT8            i, uChannelNum;
+
+    pParam = (paramInfo_t *)os_memoryAlloc(pScanCncn->hOS, sizeof(paramInfo_t));
+    if (!pParam) {
+        return;
+    }
 
     /* get channel number according to scan type */
     if (TI_TRUE == bPeriodicScan)
@@ -1080,14 +1092,14 @@ void scanCncn_VerifyChannelsWithRegDomain (TI_HANDLE hScanCncn, UScanParams *puS
         { /* Note that i is only increased when channel is valid - if channel is invalid, another 
              channel is copied in its place, and thus the same index should be checked again. However,
              since the number of channels is decreased, the loop end condition is getting nearer! */
-        tParam.paramType = REGULATORY_DOMAIN_GET_SCAN_CAPABILITIES;
+        pParam->paramType = REGULATORY_DOMAIN_GET_SCAN_CAPABILITIES;
         if (TI_TRUE == bPeriodicScan)
         {
             /* set band and scan type for periodic scan */
-            tParam.content.channelCapabilityReq.band = puScanParams->tPeriodicScanParams.tChannels[ i ].eBand;
+            pParam->content.channelCapabilityReq.band = puScanParams->tPeriodicScanParams.tChannels[ i ].eBand;
             if (puScanParams->tPeriodicScanParams.tChannels[ i ].eScanType == SCAN_TYPE_NORMAL_PASSIVE)
             {
-                tParam.content.channelCapabilityReq.scanOption = PASSIVE_SCANNING;
+                pParam->content.channelCapabilityReq.scanOption = PASSIVE_SCANNING;
             }
             else
             {
@@ -1104,7 +1116,7 @@ void scanCncn_VerifyChannelsWithRegDomain (TI_HANDLE hScanCncn, UScanParams *puS
                      * DFS channels are first scanned passive and than active, so reg. domain can only validate
                      * these channels for pasiive scanning at the moment
                      */
-                    tParam.content.channelCapabilityReq.scanOption = PASSIVE_SCANNING;
+                    pParam->content.channelCapabilityReq.scanOption = PASSIVE_SCANNING;
 
                     /* set the channel scan type to DFS */
                     puScanParams->tPeriodicScanParams.tChannels[ i ].eScanType = SCAN_TYPE_PACTSIVE;
@@ -1112,15 +1124,15 @@ void scanCncn_VerifyChannelsWithRegDomain (TI_HANDLE hScanCncn, UScanParams *puS
                 }
                 else
                 {
-                    tParam.content.channelCapabilityReq.scanOption = ACTIVE_SCANNING;
+                    pParam->content.channelCapabilityReq.scanOption = ACTIVE_SCANNING;
                 }
             }
 
             /* set channel for periodic scan */
-            tParam.content.channelCapabilityReq.channelNum =
+            pParam->content.channelCapabilityReq.channelNum =
                 puScanParams->tPeriodicScanParams.tChannels[ i ].uChannel;
-            regulatoryDomain_getParam (pScanCncn->hRegulatoryDomain, &tParam);
-            if (TI_FALSE == tParam.content.channelCapabilityRet.channelValidity)
+            regulatoryDomain_getParam (pScanCncn->hRegulatoryDomain, pParam);
+            if (TI_FALSE == pParam->content.channelCapabilityRet.channelValidity)
             {   /* channel not allowed - copy the rest of the channel in its place */
                 os_memoryCopy (pScanCncn->hOS, &(puScanParams->tPeriodicScanParams.tChannels[ i ]),
                                &(puScanParams->tPeriodicScanParams.tChannels[ i + 1 ]),
@@ -1132,7 +1144,7 @@ void scanCncn_VerifyChannelsWithRegDomain (TI_HANDLE hScanCncn, UScanParams *puS
             {
                 /* also set the power level to the minimumm between requested power and allowed power */
                 puScanParams->tPeriodicScanParams.tChannels[ i ].uTxPowerLevelDbm = 
-                        TI_MIN( tParam.content.channelCapabilityRet.maxTxPowerDbm, 
+                        TI_MIN( pParam->content.channelCapabilityRet.maxTxPowerDbm, 
                                 puScanParams->tPeriodicScanParams.tChannels[ i ].uTxPowerLevelDbm ); 
 
                 i += 1;
@@ -1141,25 +1153,25 @@ void scanCncn_VerifyChannelsWithRegDomain (TI_HANDLE hScanCncn, UScanParams *puS
         else
         {
             /* set band and scan type for one-shot scan */
-            tParam.content.channelCapabilityReq.band = puScanParams->tOneShotScanParams.band;
+            pParam->content.channelCapabilityReq.band = puScanParams->tOneShotScanParams.band;
             if ((puScanParams->tOneShotScanParams.scanType == SCAN_TYPE_NORMAL_PASSIVE) ||
                 (puScanParams->tOneShotScanParams.scanType == SCAN_TYPE_TRIGGERED_PASSIVE) ||
                 (puScanParams->tOneShotScanParams.scanType == SCAN_TYPE_SPS))
             {
-                tParam.content.channelCapabilityReq.scanOption = PASSIVE_SCANNING;
+                pParam->content.channelCapabilityReq.scanOption = PASSIVE_SCANNING;
             }
             else
             {
-                tParam.content.channelCapabilityReq.scanOption = ACTIVE_SCANNING;
+                pParam->content.channelCapabilityReq.scanOption = ACTIVE_SCANNING;
             }
         
             /* set channel for one-shot scan - SPS */
             if (SCAN_TYPE_SPS == puScanParams->tOneShotScanParams.scanType)
             {
-                tParam.content.channelCapabilityReq.channelNum = 
+                pParam->content.channelCapabilityReq.channelNum = 
                     puScanParams->tOneShotScanParams.channelEntry[ i ].SPSChannelEntry.channel;
-                regulatoryDomain_getParam (pScanCncn->hRegulatoryDomain, &tParam);
-                if (TI_FALSE == tParam.content.channelCapabilityRet.channelValidity)
+                regulatoryDomain_getParam (pScanCncn->hRegulatoryDomain, pParam);
+                if (TI_FALSE == pParam->content.channelCapabilityRet.channelValidity)
                 {   /* channel not allowed - copy the rest of the channel in its place */
                     os_memoryCopy (pScanCncn->hOS, &(puScanParams->tOneShotScanParams.channelEntry[ i ]),
                                    &(puScanParams->tOneShotScanParams.channelEntry[ i + 1 ]), 
@@ -1176,10 +1188,10 @@ void scanCncn_VerifyChannelsWithRegDomain (TI_HANDLE hScanCncn, UScanParams *puS
             /* set channel for one-shot scan - all other scan types */
             else
             {
-                tParam.content.channelCapabilityReq.channelNum = 
+                pParam->content.channelCapabilityReq.channelNum = 
                     puScanParams->tOneShotScanParams.channelEntry[ i ].normalChannelEntry.channel;
-                regulatoryDomain_getParam (pScanCncn->hRegulatoryDomain, &tParam);
-                if (TI_FALSE == tParam.content.channelCapabilityRet.channelValidity)
+                regulatoryDomain_getParam (pScanCncn->hRegulatoryDomain, pParam);
+                if (TI_FALSE == pParam->content.channelCapabilityRet.channelValidity)
                 {   /* channel not allowed - copy the rest of the channel in its place */
                     os_memoryCopy (pScanCncn->hOS, &(puScanParams->tOneShotScanParams.channelEntry[ i ]),
                                    &(puScanParams->tOneShotScanParams.channelEntry[ i + 1 ]), 
@@ -1190,13 +1202,14 @@ void scanCncn_VerifyChannelsWithRegDomain (TI_HANDLE hScanCncn, UScanParams *puS
                 else
                 {
                     puScanParams->tOneShotScanParams.channelEntry[i].normalChannelEntry.txPowerDbm = 
-                            TI_MIN (tParam.content.channelCapabilityRet.maxTxPowerDbm, 
+                            TI_MIN (pParam->content.channelCapabilityRet.maxTxPowerDbm, 
                                     puScanParams->tOneShotScanParams.channelEntry[i].normalChannelEntry.txPowerDbm);
                     i += 1;
                 }
             }
         }
     }
+    os_memoryFree(pScanCncn->hOS, pParam, sizeof(paramInfo_t));
 }
 
 /** 
