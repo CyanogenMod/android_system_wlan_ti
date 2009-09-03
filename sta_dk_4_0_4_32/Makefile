@@ -173,6 +173,6 @@ clean:
 $(OUTPUT_FILE):
 	$(MAKE) -C $(KERNEL_DIR) M=`pwd` ARCH=arm CROSS_COMPILE=$(CROSS_COMPILE) modules
 	@$(CROSS_COMPILE)$(AR) rcs $@ $(DK_OBJS) $(OS_OBJS)
-
+	$(CROSS_COMPILE)strip --strip-unneeded wlan.ko
 
 endif	# ifneq ($(KERNELRELEASE),)
