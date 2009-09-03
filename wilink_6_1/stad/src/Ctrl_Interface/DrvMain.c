@@ -735,11 +735,6 @@ TI_STATUS drvMain_Destroy (TI_HANDLE  hDrvMain)
         cmdDispatch_Destroy (pDrvMain->tStadHandles.hCmdDispatch);
     }
 
-    if (pDrvMain->tStadHandles.hContext != NULL)
-    {
-        context_Destroy (pDrvMain->tStadHandles.hContext);
-    }
-
     /* Note: The Timer module must be destroyed last, so all created timers are already destroyed!! */
     if (pDrvMain->tStadHandles.hTimer != NULL)
     {
@@ -750,6 +745,12 @@ TI_STATUS drvMain_Destroy (TI_HANDLE  hDrvMain)
     if (pDrvMain->hWatchdogTimer != NULL)
     {
         os_timerDestroy (pDrvMain->tStadHandles.hOs, pDrvMain->hWatchdogTimer);
+    }
+
+    /* Note: Moved after timers for locks */
+    if (pDrvMain->tStadHandles.hContext != NULL)
+    {
+        context_Destroy (pDrvMain->tStadHandles.hContext);
     }
 
      if (pDrvMain->tStadHandles.hStaCap != NULL)
