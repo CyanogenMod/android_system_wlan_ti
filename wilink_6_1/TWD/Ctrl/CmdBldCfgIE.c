@@ -1854,43 +1854,35 @@ TI_STATUS cmdBld_CfgIeSetBaSession (TI_HANDLE hCmdBld,
  */ 
 TI_STATUS cmdBld_CfgIeRadioParams (TI_HANDLE hCmdBld, IniFileRadioParam *pIniFileRadioParams, void *fCb, TI_HANDLE hCb)
 {
+    static TTestCmd TestCmd;
     TCmdBld *pCmdBld = (TCmdBld *)hCmdBld;
     TI_STATUS status = TI_NOK;
-    TTestCmd *pTestCmd;
-
-    pTestCmd = os_memoryAlloc(pCmdBld->hOs, sizeof(TTestCmd));
-    if (!pTestCmd)
-        return status;
+    TTestCmd *pTestCmd = &TestCmd;
 
     pTestCmd->testCmdId = TEST_CMD_INI_FILE_RADIO_PARAM;
-    
+
     os_memoryCopy(pCmdBld->hOs, &pTestCmd->testCmd_u.IniFileRadioParams, pIniFileRadioParams, sizeof(IniFileRadioParam));
 
-   
     status = cmdQueue_SendCommand (pCmdBld->hCmdQueue, 
                              CMD_TEST, 
                              (void *)pTestCmd, 
                              sizeof(IniFileRadioParam) + 4,
                              fCb, 
                              hCb, 
-                             (void*)pTestCmd);
-    os_memoryFree(pCmdBld->hOs, pTestCmd, sizeof(TTestCmd));
+                             (void *)pTestCmd);
     return status;
 }
 
 
 TI_STATUS cmdBld_CfgPlatformGenParams (TI_HANDLE hCmdBld, IniFileGeneralParam *pGenParams, void *fCb, TI_HANDLE hCb)
 {
+    static TTestCmd TestCmd;
     TCmdBld *pCmdBld = (TCmdBld *)hCmdBld;
     TI_STATUS status = TI_NOK;
-    TTestCmd *pTestCmd;
-
-    pTestCmd = os_memoryAlloc(pCmdBld->hOs, sizeof(TTestCmd));
-    if (!pTestCmd)
-        return status;
+    TTestCmd *pTestCmd = &TestCmd;
 
     pTestCmd->testCmdId = TEST_CMD_INI_FILE_GENERAL_PARAM;
-    
+
     os_memoryCopy(pCmdBld->hOs, &pTestCmd->testCmd_u.IniFileGeneralParams, pGenParams, sizeof(IniFileGeneralParam));
 
     status = cmdQueue_SendCommand (pCmdBld->hCmdQueue, 
@@ -1899,12 +1891,9 @@ TI_STATUS cmdBld_CfgPlatformGenParams (TI_HANDLE hCmdBld, IniFileGeneralParam *p
                               sizeof(IniFileGeneralParam),
                               fCb, 
                               hCb, 
-                              (void*)pTestCmd);    
-    os_memoryFree(pCmdBld->hOs, pTestCmd, sizeof(TTestCmd));
+                              (void *)pTestCmd);
     return status;
 }
-
-
 
 
 /****************************************************************************
@@ -1915,7 +1904,7 @@ TI_STATUS cmdBld_CfgPlatformGenParams (TI_HANDLE hCmdBld, IniFileGeneralParam *p
  * INPUTS:  hCmdBld     - handle to command builder object
  *          bEnabled    - is enabled flag
  *          fCB         - callback function for command complete
- *          hCb         - handle to be apssed to callback function    
+ *          hCb         - handle to be apssed to callback function
  *
  * OUTPUT:  None
  *
@@ -1928,7 +1917,7 @@ TI_STATUS cmdBld_CfgIeBurstMode (TI_HANDLE hCmdBld, TI_BOOL bEnabled, void *fCb,
 	AcxBurstMode *pCfg = &tAcxBurstMode;
 
 	/* set IE header */
-    pCfg->EleHdr.id = ACX_BURST_MODE;
+	pCfg->EleHdr.id = ACX_BURST_MODE;
 	pCfg->EleHdr.len = sizeof(*pCfg) - sizeof(EleHdrStruct);
 
 	/* set burst mode value */
@@ -2034,5 +2023,4 @@ TI_STATUS cmdBld_CfgIeSRDebug (TI_HANDLE hCmdBld, ACXSmartReflexDebugParams_t *p
 
     /* send the command to the FW */
     return cmdQueue_SendCommand (pCmdBld->hCmdQueue, CMD_CONFIGURE, pCfg, sizeof(*pCfg), fCb, hCb, NULL);
-
 }

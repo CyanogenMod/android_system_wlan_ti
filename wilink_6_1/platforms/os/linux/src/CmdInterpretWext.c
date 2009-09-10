@@ -71,7 +71,7 @@ static const char *ieee80211_modes[] = {
 typedef struct
 {
 
-   TI_UINT8        *assocRespBuffer;
+    TI_UINT8        *assocRespBuffer;
     TI_UINT32       assocRespLen;
 } cckm_assocInformation_t;
 
@@ -110,7 +110,7 @@ TI_HANDLE cmdInterpret_Create (TI_HANDLE hOs)
 /* Deinitialize the cmdInterpreter module */
 TI_STATUS cmdInterpret_Destroy (TI_HANDLE hCmdInterpret, TI_HANDLE hEvHandler)
 {
-    cmdInterpret_t * pCmdInterpret = (cmdInterpret_t *)hCmdInterpret;
+    cmdInterpret_t *pCmdInterpret = (cmdInterpret_t *)hCmdInterpret;
 
     /* Unregister events */
     cmdInterpret_unregisterEvents ((TI_HANDLE)pCmdInterpret, hEvHandler);
@@ -1369,14 +1369,14 @@ static int cmdInterpret_initEvents(TI_HANDLE hCmdInterpret)
 
     for (i=0; i<IPC_EVENT_MAX; i++)
     {
-        evParams.uDeliveryType      = DELIVERY_PUSH;
-        evParams.uProcessID         = 0;
-        evParams.uEventID           = 0;
-        evParams.hUserParam         = hCmdInterpret;
-        evParams.pfEventCallback    = cmdInterpret_Event;
-        evParams.uEventType = i;
+        evParams.uDeliveryType    = DELIVERY_PUSH;
+        evParams.uProcessID       = 0;
+        evParams.uEventID         = 0;
+        evParams.hUserParam       = hCmdInterpret;
+        evParams.pfEventCallback  = cmdInterpret_Event;
+        evParams.uEventType       = i;
         EvHandlerRegisterEvent (pCmdInterpret->hEvHandler, (TI_UINT8*) &evParams, sizeof(IPC_EVENT_PARAMS));
-        pCmdInterpret->hEvents[i]   = evParams.uEventID;
+        pCmdInterpret->hEvents[i] = evParams.uEventID;
     }
 
     return TI_OK;
