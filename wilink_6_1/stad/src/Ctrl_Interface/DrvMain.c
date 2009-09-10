@@ -550,7 +550,6 @@ TI_STATUS drvMain_Create (TI_HANDLE  hOs,
     return TI_OK;
 }
 
-
 /* 
  * \fn     drvMain_Destroy
  * \brief  Destroy driver
@@ -663,11 +662,6 @@ TI_STATUS drvMain_Destroy (TI_HANDLE  hDrvMain)
         txnQ_Destroy (pDrvMain->tStadHandles.hTxnQ);
     }
 
-    if (pDrvMain->tStadHandles.hEvHandler != NULL)
-    {
-         EvHandlerUnload (pDrvMain->tStadHandles.hEvHandler);
-    }
-
     if (pDrvMain->tStadHandles.hRsn != NULL)
     {
         rsn_unload (pDrvMain->tStadHandles.hRsn);
@@ -733,6 +727,11 @@ TI_STATUS drvMain_Destroy (TI_HANDLE  hDrvMain)
     if (pDrvMain->tStadHandles.hCmdHndlr && pDrvMain->tStadHandles.hEvHandler)
     {
         cmdHndlr_Destroy (pDrvMain->tStadHandles.hCmdHndlr, pDrvMain->tStadHandles.hEvHandler);
+    }
+
+    if (pDrvMain->tStadHandles.hEvHandler != NULL)
+    {
+         EvHandlerUnload (pDrvMain->tStadHandles.hEvHandler);
     }
 
     if (pDrvMain->tStadHandles.hCmdDispatch) 
