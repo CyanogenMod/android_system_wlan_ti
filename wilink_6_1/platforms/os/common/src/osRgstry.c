@@ -998,7 +998,6 @@ regFillInitTable(
     /*TI_UINT8 defBeaconIETableSize = 0 ;*/
     static    TI_UINT8 defBeaconIETable[] = "00 01 01 01 32 01 2a 01 03 01 06 01 07 01 20 01 25 01 23 01 30 01 28 01 2e 01 3d 01 85 01 dd 01 00 52 f2 02 00 01";
     /*TI_UINT8 tmpIeTable[BEACON_FILTER_TABLE_MAX_SIZE] ;*/
-    static    TI_UINT8 staBeaconFilterIETable[BEACON_FILTER_STRING_MAX_LEN] ;
     static    TI_UINT8 tmpIeTableSize = 37;
     static    TI_UINT8 strSize = 113;
 
@@ -1093,11 +1092,17 @@ regFillInitTable(
     strSize = tmpIeTableSize*2 +tmpIeTableSize - 1 ; /*includes spaces between bytes*/
     if ( ( tmpIeTableSize  > 0 ) && ( tmpIeTableSize <= BEACON_FILTER_IE_TABLE_MAX_SIZE) )
     {
-        regReadStringParameter(pAdapter, &STRBeaconIETable ,
+        TI_UINT8 *staBeaconFilterIETable;
+
+        staBeaconFilterIETable = os_memoryAlloc(pAdapter, BEACON_FILTER_STRING_MAX_LEN);
+        if (staBeaconFilterIETable) {
+            regReadStringParameter(pAdapter, &STRBeaconIETable ,
                             (TI_INT8*)(defBeaconIETable), strSize,
                             (TI_UINT8*)staBeaconFilterIETable, &strSize);
 
-        regConvertStringtoBeaconIETable(staBeaconFilterIETable , (TI_UINT8*)&p->siteMgrInitParams.beaconFilterParams.IETable[0]/*(TI_UINT8*)&(tmpIeTable[0] )*/ , tmpIeTableSize);
+            regConvertStringtoBeaconIETable(staBeaconFilterIETable , (TI_UINT8*)&p->siteMgrInitParams.beaconFilterParams.IETable[0]/*(TI_UINT8*)&(tmpIeTable[0] )*/, tmpIeTableSize);
+            os_memoryFree(pAdapter, staBeaconFilterIETable, BEACON_FILTER_STRING_MAX_LEN);
+        }
     }
 
     /* MAC ADDRESSES FILTER*/
@@ -1114,8 +1119,6 @@ regFillInitTable(
                             (TI_UINT8*) &p->twdInitParams.tMacAddrFilter.numOfMacAddresses);
 
     /*printk("\nOsRgstry Num Of Group Addr:%d \n" , p->twdInitParams.tMacAddrFilter.numOfMacAddresses) ;*/
-#if 0
-/* Dm: There is no loop here anyway to handle more than 1 address */
     {
         TI_UINT8 defStaMacAddress1[]= "11 11 12 13 14 15";
         TI_UINT8 defStaMacAddress2[]= "12 21 22 23 24 25";
@@ -1206,7 +1209,6 @@ regFillInitTable(
             --macIndex;
             }
 
-
         case 0:
             {
 
@@ -1215,8 +1217,6 @@ regFillInitTable(
                                 (TI_UINT8*)staMACAddress, &regMACstrLen);
 
             regConvertStringtoMACAddress(staMACAddress,(TI_UINT8*) &p->twdInitParams.tMacAddrFilter.macAddrTable[0]);
-
-
             }
 
         default:
@@ -1225,13 +1225,6 @@ regFillInitTable(
             }
         }
     }
-#else
-    regReadStringParameter(pAdapter, &STRGroup_addr0,
-                        (TI_INT8*)(defStaMacAddress0), REG_MAC_ADDR_STR_LEN,
-                        (TI_UINT8*)staMACAddress, &regMACstrLen);
-
-    regConvertStringtoMACAddress(staMACAddress,(TI_UINT8*) &p->twdInitParams.tMacAddrFilter.macAddrTable[0]);
-#endif
 
     /************************/
     /* Read severity table */
@@ -5238,11 +5231,10 @@ Return Value:
 static void regConvertStringtoBeaconIETable(TI_UINT8 *staIpAddressString,TI_UINT8 *IpAddressArray, TI_UINT8 size)
 {
 
-char *ptr;
-TI_UINT8 *tmpIpAddr;
-TI_UINT8 value=0,value_l,value_h,add_value;
-int i;
-
+    char *ptr;
+    TI_UINT8 *tmpIpAddr;
+    TI_UINT8 value=0,value_l,value_h,add_value;
+    int i;
 
     /* Take the pointer to the string MAC Address to convert it to the Array MAC Address */
     ptr=(char *)staIpAddressString;
