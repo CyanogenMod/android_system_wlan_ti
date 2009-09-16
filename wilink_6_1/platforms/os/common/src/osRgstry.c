@@ -1089,7 +1089,7 @@ regFillInitTable(
                             (TI_UINT8*)(&p->siteMgrInitParams.beaconFilterParams.numOfElements) );
 
     /*printk("\n  OsRgstr tmpIeTableSize = %d numOfElems = %d" , tmpIeTableSize , p->siteMgrInitParams.beaconFilterParams.numOfElements) ;*/
-    strSize = tmpIeTableSize*2 +tmpIeTableSize - 1 ; /*includes spaces between bytes*/
+    strSize = 3 * tmpIeTableSize - 1 ; /*includes spaces between bytes*/
     if ( ( tmpIeTableSize  > 0 ) && ( tmpIeTableSize <= BEACON_FILTER_IE_TABLE_MAX_SIZE) )
     {
         TI_UINT8 *staBeaconFilterIETable;
@@ -1100,7 +1100,7 @@ regFillInitTable(
                             (TI_INT8*)(defBeaconIETable), strSize,
                             (TI_UINT8*)staBeaconFilterIETable, &strSize);
 
-            regConvertStringtoBeaconIETable(staBeaconFilterIETable , (TI_UINT8*)&p->siteMgrInitParams.beaconFilterParams.IETable[0]/*(TI_UINT8*)&(tmpIeTable[0] )*/, tmpIeTableSize);
+            regConvertStringtoBeaconIETable(staBeaconFilterIETable, (TI_UINT8*)&p->siteMgrInitParams.beaconFilterParams.IETable[0]/*(TI_UINT8*)&(tmpIeTable[0] )*/, tmpIeTableSize);
             os_memoryFree(pAdapter, staBeaconFilterIETable, BEACON_FILTER_STRING_MAX_LEN);
         }
     }
@@ -5228,25 +5228,28 @@ Return Value:
     None
 
 -----------------------------------------------------------------------------*/
-static void regConvertStringtoBeaconIETable(TI_UINT8 *staIpAddressString,TI_UINT8 *IpAddressArray, TI_UINT8 size)
+static void regConvertStringtoBeaconIETable(TI_UINT8 *staIpAddressString, TI_UINT8 *IpAddressArray, TI_UINT8 size)
 {
-
     char *ptr;
     TI_UINT8 *tmpIpAddr;
-    TI_UINT8 value=0,value_l,value_h,add_value;
-    int i;
+    TI_UINT8 value = 0, value_l, value_h, add_value;
+    int i, str_len;
 
     /* Take the pointer to the string MAC Address to convert it to the Array MAC Address */
-    ptr=(char *)staIpAddressString;
+    ptr = (char *)staIpAddressString;
     tmpIpAddr = IpAddressArray;
+    str_len = 3 * size - 1;
 
-    for(i=0 ; i<size ; ptr++)
+    for(i=0;(i < size);ptr++,str_len--)
     {
-
-        /* The value can be or "0-9" or from "a-f" */
-        value_l = (*ptr-'0');
-        value_h = (*ptr - 'a');
-
+        if (str_len > 0) {
+            /* The value can be or "0-9" or from "a-f" */
+            value_l = (*ptr - '0');
+            value_h = (*ptr - 'a');
+        }
+        else { /* last element */
+            value_l = value_h = 16;
+        }
         /*PRINTF(DBG_REGISTRY,("value_l [%d] value_h [%d] *ptr %c value %d\n",value_l,value_h,*ptr,value));*/
 
         if( (value_l <= 9) || (value_h <= 15 ) )
@@ -5260,18 +5263,16 @@ static void regConvertStringtoBeaconIETable(TI_UINT8 *staIpAddressString,TI_UINT
             /* Check if a-f */
             else
             {
-                /* 'a' is in fact 10 decimal in hexa */
-                add_value = value_h + 10;
+               /* 'a' is in fact 10 decimal in hexa */
+               add_value = value_h + 10;
             }
-            value = value*16 + add_value;
-        /*  PRINTF(DBG_REGISTRY,("value %d add_value %d  \n",value,add_value));*/
-
-
+            value = value * 16 + add_value;
+            /*PRINTF(DBG_REGISTRY,("value %d add_value %d  \n",value,add_value));*/
         }
         else
         {
             tmpIpAddr[i] = value;
-        /*  PRINTF(DBG_REGISTRY,("tmpMacAddr[%d]  is %x\n",i,tmpMacAddr[i]));*/
+            /*PRINTF(DBG_REGISTRY,("tmpMacAddr[%d]  is %x\n",i,tmpMacAddr[i]));*/
             value = 0;
             i++;
         }
@@ -5300,16 +5301,18 @@ static void regConvertStringtoCoexActivityTable(TI_UINT8 *strCoexActivityTable, 
 {
     char *ptr;
     TI_UINT16 tmpArray[NUM_OF_COEX_ACTIVITY_PARAMS_IN_SG];
-    TI_UINT16 value=0,value_l,value_h,add_value;
+    TI_UINT16 value = 0, value_l, value_h, add_value;
     TI_UINT32 i;
     int entry = 0;
 
+    /* Note: Currently it is not in use, but it has potential buffer overrun
+             problem if buffer is not ended with blank (Dm) */
+
     /* Take the pointer to the string MAC Address to convert it to the Array MAC Address */
-    ptr=(char *)strCoexActivityTable;
+    ptr = (char *)strCoexActivityTable;
 
-    for (i=0 ;i < numOfElements*NUM_OF_COEX_ACTIVITY_PARAMS_IN_SG ;ptr++)
+    for (i=0;(i < numOfElements*NUM_OF_COEX_ACTIVITY_PARAMS_IN_SG);ptr++)
     {
-
         /* The value can be or "0-9" or from "a-f" */
         value_l = (*ptr - '0');
         value_h = (*ptr - 'a');
@@ -5330,10 +5333,8 @@ static void regConvertStringtoCoexActivityTable(TI_UINT8 *strCoexActivityTable, 
                 /* 'a' is in fact 10 decimal in hexa */
                 add_value = value_h + 10;
             }
-            value = value*16 + add_value;
-        /*  PRINTF(DBG_REGISTRY,("value %d add_value %d  \n",value,add_value));*/
-
-
+            value = value * 16 + add_value;
+            /*  PRINTF(DBG_REGISTRY,("value %d add_value %d  \n",value,add_value));*/
         }
         else
         {
@@ -5351,9 +5352,7 @@ static void regConvertStringtoCoexActivityTable(TI_UINT8 *strCoexActivityTable, 
                 entry++;
             }
         }
-
     }
-
 }
 
 static void parse_hex_string(char * pString, TI_UINT8 StrLength, TI_UINT8 * pBuffer, TI_UINT8 * Length)
