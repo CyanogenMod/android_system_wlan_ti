@@ -501,9 +501,10 @@ ETxnStatus sdioAdapt_TransactBytes (unsigned int  uFuncId,
                                     unsigned int  bDirection,
                                     unsigned int  bMore)
 {
+    static unsigned int lastMore = 0;
     int iStatus;
 
-    if (bMore == 1)
+    if ((bMore == 1) || (lastMore == bMore))
     {
         sdioDrv_clk_enable();
     }
@@ -522,6 +523,7 @@ ETxnStatus sdioAdapt_TransactBytes (unsigned int  uFuncId,
     {
         sdioDrv_clk_disable();
     }
+    lastMore = bMore;
 
     /* If failed return ERROR, if succeeded return COMPLETE */
     if (iStatus) 
