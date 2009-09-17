@@ -470,6 +470,19 @@ static void busDrv_SendTxnParts (TBusDrvObj *pBusDrv)
                                                pTxnPart->uLength,
                                                TXN_PARAM_GET_DIRECTION(pTxn),
                                                pTxnPart->bMore);
+
+            /* If first write failed try once again (may happen once upon chip wakeup) */
+            if (eStatus == TXN_STATUS_ERROR)
+            {
+                /* Overwrite the function id with function 0 - for ELP register !!!! */
+                eStatus = sdioAdapt_TransactBytes (TXN_FUNC_ID_CTRL,
+                                                   pTxnPart->uHwAddr,
+                                                   pTxnPart->pHostAddr,
+                                                   pTxnPart->uLength,
+                                                   TXN_PARAM_GET_DIRECTION(pTxn),
+                                                   pTxnPart->bMore);
+                TRACE0(pBusDrv->hReport, REPORT_SEVERITY_WARNING, "busDrv_SendTxnParts: SDIO Single-Step transaction failed once so try again");
+            }
         }
         else
         {
