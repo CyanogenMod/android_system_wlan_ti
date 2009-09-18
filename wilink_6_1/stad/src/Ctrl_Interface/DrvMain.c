@@ -1233,7 +1233,7 @@ TI_STATUS drvMain_InsertAction (TI_HANDLE hDrvMain, EActionType eAction)
     if (pDrvMain->eAction == eAction)
     {            
         TRACE0(pDrvMain->tStadHandles.hReport, REPORT_SEVERITY_CONSOLE, "Action is identical to last action!\n");
-        WLAN_OS_REPORT(("Action is identical to last action!\n"));
+        WLAN_OS_REPORT(("Action %d is identical to last action!\n", eAction));
         return TI_NOK;
     }
 
