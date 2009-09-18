@@ -600,13 +600,12 @@ int wlanDrvIf_Start (struct net_device *dev)
     TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
 
     ti_dprintf (TIWLAN_LOG_OTHER, "wlanDrvIf_Start()\n");
-
+    printk("%s\n", __func__);
     if (!drv->tCommon.hDrvMain)
     {
         ti_dprintf (TIWLAN_LOG_ERROR, "wlanDrvIf_Start() Driver not created!\n");
         return -ENODEV;
     }
-
 
     /*
      *  Insert Start command in DrvMain action queue, request driver scheduling 
@@ -622,7 +621,7 @@ int wlanDrvIf_Open (struct net_device *dev)
     TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
 
     ti_dprintf (TIWLAN_LOG_OTHER, "wlanDrvIf_Open()\n");
-
+    printk("%s\n", __func__);
     if (!drv->tCommon.hDrvMain)
     {
         ti_dprintf (TIWLAN_LOG_ERROR, "wlanDrvIf_Open() Driver not created!\n");
@@ -646,7 +645,6 @@ int wlanDrvIf_Open (struct net_device *dev)
     sdioDrv_register_pm(wlanDrvIf_pm_resume, wlanDrvIf_pm_suspend);
 #endif
 #endif
-
     return 0;
 }
 
@@ -668,6 +666,7 @@ int wlanDrvIf_Stop (struct net_device *dev)
     TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev);
 
     ti_dprintf (TIWLAN_LOG_OTHER, "wlanDrvIf_Stop()\n");
+    printk("%s\n", __func__);
     /* 
      *  Insert Stop command in DrvMain action queue, request driver scheduling 
      *      and wait for Stop process completion.
@@ -681,7 +680,7 @@ int wlanDrvIf_Release (struct net_device *dev)
     /* TWlanDrvIfObj *drv = (TWlanDrvIfObj *)NETDEV_GET_PRIVATE(dev); */
 
     ti_dprintf (TIWLAN_LOG_OTHER, "wlanDrvIf_Release()\n");
-
+    printk("%s\n", __func__);
     /* Disable network interface queue */
     netif_stop_queue (dev);
     return 0;
