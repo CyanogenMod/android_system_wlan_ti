@@ -2,9 +2,9 @@
  * SdioDrv.c
  *
  * Copyright (C) 2009 Texas Instruments, Inc. - http://www.ti.com/
- * 
+ *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as 
+ * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation version 2.
  *
  * This program is distributed "as is" WITHOUT ANY WARRANTY of any
@@ -31,7 +31,7 @@
 #include <mach/dma.h>
 #include <mach/io.h>
 #include <mach/resource.h>
-typedef void *	TI_HANDLE;
+typedef void *TI_HANDLE;
 #include "host_platform.h"
 #include "SdioDrvDbg.h"
 #include "SdioDrv.h"
@@ -87,70 +87,70 @@ static unsigned long OMAP_MMC_IRQ = INT_MMC3_IRQ;
 #define SDVSDET                        0x00000400
 #define SIDLE_MODE                     (0x2 << 3)
 #define AUTOIDLE                       0x1
-#define SDBP                           (1 << 8)     
-#define DTO                            0xE        
-#define ICE                            0x1        
-#define ICS                            0x2        
-#define CEN                            (1 << 2)     
-#define CLKD_MASK                      0x0000FFC0 
-#define IE_EN_MASK                     0x317F0137  
-#define INIT_STREAM                    (1 << 1)     
-#define DP_SELECT                      (1 << 21)    
-#define DDIR                           (1 << 4)     
-#define DMA_EN                         0x1        
+#define SDBP                           (1 << 8)
+#define DTO                            0xE
+#define ICE                            0x1
+#define ICS                            0x2
+#define CEN                            (1 << 2)
+#define CLKD_MASK                      0x0000FFC0
+#define IE_EN_MASK                     0x317F0137
+#define INIT_STREAM                    (1 << 1)
+#define DP_SELECT                      (1 << 21)
+#define DDIR                           (1 << 4)
+#define DMA_EN                         0x1
 #define MSBS                           (1 << 5)
-#define BCE                            (1 << 1)     
+#define BCE                            (1 << 1)
 #define ONE_BIT                        (~(0x2))
-#define EIGHT_BIT                      (~(0x20))   
-#define CC                             0x1        
-#define TC                             0x02       
-#define OD                             0x1        
-#define BRW                            0x400      
-#define BRR                            0x800      
-#define BRE                            (1 << 11)    
-#define BWE                            (1 << 10)    
-#define SBGR                           (1 << 16)    
-#define CT                             (1 << 17)    
-#define SDIO_READ                      (1 << 31)    
-#define SDIO_BLKMODE                   (1 << 27)    
+#define EIGHT_BIT                      (~(0x20))
+#define CC                             0x1
+#define TC                             0x02
+#define OD                             0x1
+#define BRW                            0x400
+#define BRR                            0x800
+#define BRE                            (1 << 11)
+#define BWE                            (1 << 10)
+#define SBGR                           (1 << 16)
+#define CT                             (1 << 17)
+#define SDIO_READ                      (1 << 31)
+#define SDIO_BLKMODE                   (1 << 27)
 #define OMAP_HSMMC_ERR                 (1 << 15)  /* Any error */
 #define OMAP_HSMMC_CMD_TIMEOUT         (1 << 16)  /* Com mand response time-out */
 #define OMAP_HSMMC_DATA_TIMEOUT        (1 << 20)  /* Data response time-out */
 #define OMAP_HSMMC_CMD_CRC             (1 << 17)  /* Command CRC error */
 #define OMAP_HSMMC_DATA_CRC            (1 << 21)  /* Date CRC error */
 #define OMAP_HSMMC_CARD_ERR            (1 << 28)  /* Card ERR */
-#define OMAP_HSMMC_STAT_CLEAR          0xFFFFFFFF 
-#define INIT_STREAM_CMD                0x00000000 
-#define INT_CLEAR                      0x00000000 
-#define BLK_CLEAR                      0x00000000 
+#define OMAP_HSMMC_STAT_CLEAR          0xFFFFFFFF
+#define INIT_STREAM_CMD                0x00000000
+#define INT_CLEAR                      0x00000000
+#define BLK_CLEAR                      0x00000000
 
 /* SCM CONTROL_DEVCONF1 MMC1 overwrite but */
 
-#define MMC1_ACTIVE_OVERWRITE          (1 << 31)                      
-                                                                    
-#define sdio_blkmode_regaddr           0x2000                       
-#define sdio_blkmode_mask              0xFF00                       
-                                                                    
-#define IO_RW_DIRECT_MASK              0xF000FF00                   
-#define IO_RW_DIRECT_ARG_MASK          0x80001A00                   
-                                                                    
-#define RMASK                          (MMC_RSP_MASK | MMC_RSP_CRC)   
+#define MMC1_ACTIVE_OVERWRITE          (1 << 31)
+
+#define sdio_blkmode_regaddr           0x2000
+#define sdio_blkmode_mask              0xFF00
+
+#define IO_RW_DIRECT_MASK              0xF000FF00
+#define IO_RW_DIRECT_ARG_MASK          0x80001A00
+
+#define RMASK                          (MMC_RSP_MASK | MMC_RSP_CRC)
 #define MMC_TIMEOUT_MS                 100 /*on the new 2430 it was 20, i changed back to 100*//* obc */
-#define MMCA_VSN_4                     4                            
-                                                                    
-#define VMMC1_DEV_GRP                  0x27                         
-#define P1_DEV_GRP                     0x20                         
-#define VMMC1_DEDICATED                0x2A                         
-#define VSEL_3V                        0x02                         
-#define VSEL_18V                       0x00                         
-#define PBIAS_3V                       0x03                         
-#define PBIAS_18V                      0x02                         
-#define PBIAS_LITE                     0x04A0                       
-#define PBIAS_CLR                      0x00                         
+#define MMCA_VSN_4                     4
+
+#define VMMC1_DEV_GRP                  0x27
+#define P1_DEV_GRP                     0x20
+#define VMMC1_DEDICATED                0x2A
+#define VSEL_3V                        0x02
+#define VSEL_18V                       0x00
+#define PBIAS_3V                       0x03
+#define PBIAS_18V                      0x02
+#define PBIAS_LITE                     0x04A0
+#define PBIAS_CLR                      0x00
 
 #define OMAP_MMC_REGS_BASE             IO_ADDRESS(TIWLAN_MMC_CONTROLLER_BASE_ADDR)
 
-/* 
+/*
  * MMC Host controller read/write API's.
  */
 #define OMAP_HSMMC_READ_OFFSET(offset) (__raw_readl((OMAP_MMC_REGS_BASE) + (offset)))
@@ -698,6 +698,7 @@ int sdioDrv_ConnectBus (void *       fCbFunc,
 
 int sdioDrv_DisconnectBus (void)
 {
+	sdioDrv_clk_disable(); /* To process Stop command properly */
 	return 0;
 }
 
