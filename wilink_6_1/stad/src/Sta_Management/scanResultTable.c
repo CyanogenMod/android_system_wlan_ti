@@ -260,6 +260,8 @@ TI_STATUS scanResultTable_UpdateEntry (TI_HANDLE hScanResultTable, TMacAddr *pBs
     }
 
     /* use temporary SSID structure */
+    if (NULL == pFrame->parsedIEs->content.iePacket.pSsid)
+        return TI_NOK;
     tTempSsid.len = pFrame->parsedIEs->content.iePacket.pSsid->hdr[1];
     os_memoryCopy(pScanResultTable->hOS, (void *)&(tTempSsid.str[ 0 ]), 
                   (void *)&(pFrame->parsedIEs->content.iePacket.pSsid->serviceSetId[ 0 ]),
