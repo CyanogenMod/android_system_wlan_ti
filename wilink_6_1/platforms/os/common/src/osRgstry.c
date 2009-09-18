@@ -1003,13 +1003,11 @@ regFillInitTable(
     static    TI_UINT8 defRxRssiAndProcessCompensation_2_4G[] = "ec,f6,00,0c,18,f8,fc,00,08,10,f0,f8,00,0a,14";
     static    TI_UINT8 tmpRssiTableSize = RSSI_AND_PROCESS_COMPENSATION_TABLE_SIZE;
     static    TI_UINT8 staRssiAndProcessCompensation[RSSI_AND_PROCESS_COMPENSATION_TABLE_SIZE] ;
-    static    TI_UINT8 RssiSize = 113;
+    static    TI_UINT8 RssiSize = 44;
 
     /* defaults values for CoexActivity table*/
     /* example: WLAN(0), BT_VOICE(0), defPrio(20), raisePrio(25), minServ(0), maxServ(1ms) */
     static    TI_UINT8 defCoexActivityTable[] = ""; /* Sample "01 00 14 19 0000 0001 " */
-    static    TI_UINT8 strCoexActivityTable[COEX_ACTIVITY_TABLE_MAX_NUM*COEX_ACTIVITY_TABLE_SIZE] ;
-    static    TI_UINT8 strCoexActivitySize = 0;
 
     static    TI_UINT32 filterOffset = 0;
     static    char filterMask[16];
@@ -1023,7 +1021,7 @@ regFillInitTable(
     static    TI_UINT8   ScanControlTable5Tmp[2 * NUM_OF_CHANNELS_5];
     static    TI_UINT8   ScanControlTable24Def[2* NUM_OF_CHANNELS_24] = "FFFFFFFFFFFFFFFFFFFFFFFFFFFF";
     static    TI_UINT8   ScanControlTable5Def[2 * NUM_OF_CHANNELS_5] = "FF000000FF000000FF000000FF000000FF000000FF000000FF000000FF0000000000000000000000000000000000000000000000000000000000000000000000FF000000FF000000FF000000FF000000FF000000FF000000FF000000FF000000FF000000FF000000FF0000000000000000FF000000FF000000FF000000FF000000FF000000000000000000000000000000";
-    static    TI_UINT8   reportSeverityTableDefaults[REPORT_SEVERITY_MAX] = "0001101";
+    static    TI_UINT8   reportSeverityTableDefaults[REPORT_SEVERITY_MAX+1] = "00001101";
     static    TI_UINT16  reportSeverityTableLen;
 
     static    TI_UINT32  uWiFiMode = 0;
@@ -2216,12 +2214,21 @@ regFillInitTable(
                             (TI_UINT8*)(&p->twdInitParams.tGeneral.halCoexActivityTable.numOfElements) );
 
     /* Read the CoexActivity table string */
-    regReadStringParameter(pAdapter, &STRCoexActivityTable ,
+    {
+        TI_UINT8 *strCoexActivityTable;
+        TI_UINT8 strCoexActivitySize = 0;
+
+        strCoexActivityTable = os_memoryAlloc(pAdapter, COEX_ACTIVITY_TABLE_MAX_NUM*COEX_ACTIVITY_TABLE_SIZE);
+        if (strCoexActivityTable) {
+            regReadStringParameter(pAdapter, &STRCoexActivityTable ,
                             (TI_INT8*)(defCoexActivityTable), strCoexActivitySize,
                             (TI_UINT8*)strCoexActivityTable, &strCoexActivitySize);
 
-    /* Convert the CoexActivity table string */
-    regConvertStringtoCoexActivityTable(strCoexActivityTable , p->twdInitParams.tGeneral.halCoexActivityTable.numOfElements, &p->twdInitParams.tGeneral.halCoexActivityTable.entry[0] , strCoexActivitySize);
+            /* Convert the CoexActivity table string */
+            regConvertStringtoCoexActivityTable(strCoexActivityTable , p->twdInitParams.tGeneral.halCoexActivityTable.numOfElements, &p->twdInitParams.tGeneral.halCoexActivityTable.entry[0] , strCoexActivitySize);
+            os_memoryFree(pAdapter, strCoexActivityTable, COEX_ACTIVITY_TABLE_MAX_NUM*COEX_ACTIVITY_TABLE_SIZE);
+        }
+    }
 
     /*
     Power Manager
@@ -4990,24 +4997,23 @@ regReadIntegerTable(
                      TI_UINT8               uParameterSize,
                      TI_BOOL                bHex)
 {
+    static CHAR Buffer[MAX_KEY_BUFFER_LEN];
     TI_UINT32 parameterIndex = 0;
     int myNumber;
 
     TI_UINT32 index;
     TI_UINT32 bufferSize = 0;
 
-    char tempBuffer[15];
+    char tempBuffer[16];
     char *pTempBuffer = tempBuffer;
     TI_UINT32 tempBufferIndex = 0;
 
     TI_BOOL isDigit;
     TI_BOOL numberReady;
     TI_BOOL isSign;
-    TI_BOOL    endOfLine;
+    TI_BOOL endOfLine;
 
     TI_UINT32 debugInfo = 0;
-
-    CHAR Buffer[MAX_KEY_BUFFER_LEN];
     TI_INT8* pBuffer = (TI_INT8*)&Buffer;
 
     regReadStringParameter(pAdapter,
@@ -5017,7 +5023,7 @@ regReadIntegerTable(
                            (TI_UINT8*)pBuffer,
                            &bufferSize);
 
-    index=0;
+    index = 0;
     do { /* Parsing one line */
 
         isSign = TI_FALSE;
