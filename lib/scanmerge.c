@@ -69,10 +69,31 @@ static int scan_equal( void *val,  void *idata )
     struct wpa_scan_result *lst_res =
                (struct wpa_scan_result *)(&(((scan_merge_t *)idata)->scanres));
     int ret;
+    size_t len;
 
-    ret = os_memcmp(new_res->bssid, lst_res->bssid, ETH_ALEN) ||
-          os_memcmp(new_res->ssid, lst_res->ssid, new_res->ssid_len);
+    len = ((new_res->ssid[0] == '\0') || (lst_res->ssid[0] == '\0')) ?
+          0 : new_res->ssid_len;
+    ret = ((lst_res->ssid_len != new_res->ssid_len) && (len != 0)) ||
+          (os_memcmp(new_res->bssid, lst_res->bssid, ETH_ALEN) ||
+           os_memcmp(new_res->ssid, lst_res->ssid, len));
     return !ret;
+}
+
+/*-----------------------------------------------------------------------------
+Routine Name: copy_scan_res
+Routine Description: copies scan result structure to scan merge list item
+Arguments:
+   dst - pointer to scan result structure in the list
+   src - source pointer to scan result structure
+Return Value: NONE
+-----------------------------------------------------------------------------*/
+void copy_scan_res( struct wpa_scan_result *dst, struct wpa_scan_result *src )
+{
+    if( src->ssid[0] == '\0' ) {
+        os_memcpy( src->ssid, dst->ssid, dst->ssid_len );
+        src->ssid_len = dst->ssid_len;
+    }
+    os_memcpy( dst, src, sizeof(struct wpa_scan_result) );
 }
 
 /*-----------------------------------------------------------------------------
@@ -137,41 +158,43 @@ unsigned int scan_merge( struct wpa_driver_ti_data *mydrv,
     unsigned int i;
 
     if( (mydrv->last_scan == SCAN_TYPE_NORMAL_PASSIVE) || force_flag ) { /* Merge results */
+        /* Prepare items for removal */
+        item = shListGetFirstItem( head );
+        while( item != NULL ) {
+            scan_ptr = (scan_merge_t *)(item->data);
+            if( scan_ptr->count != 0 )
+                scan_ptr->count--;
+            item = shListGetNextItem( head, item );
+        }
+
         for(i=0;( i < number_items );i++) { /* Find/Add new items */
             item = shListFindItem( head, &(results[i]), scan_equal );
             if( item ) {
                 scan_ptr = (scan_merge_t *)(item->data);
-                os_memcpy( &(scan_ptr->scanres), &(results[i]),
-                           sizeof(struct wpa_scan_result) );
+                copy_scan_res(&(scan_ptr->scanres), &(results[i]));
                 scan_ptr->count = SCAN_MERGE_COUNT;
             }
             else {
                 scan_add( head, &(results[i]) );
             }
         }
+
         item = shListGetFirstItem( head );  /* Add/Remove missing items */
-        if( item == NULL )
-            return( number_items );
-        do {
+        while( item != NULL ) {
             del_item = NULL;
             scan_ptr = (scan_merge_t *)(item->data);
-            if( !scan_find( scan_ptr, results, number_items ) ) {
-                if( !force_flag )
-                    scan_ptr->count--;
-                if( scan_ptr->count == 0 ) {
-                    del_item = item;
-                }
-                else {
-                    if( number_items < max_size ) {
-                        os_memcpy(&(results[number_items]),
+            if( (scan_ptr->count == 0) && !force_flag )
+                del_item = item;
+            else if( scan_ptr->count != SCAN_MERGE_COUNT ) {
+                if( number_items < max_size ) {
+                    os_memcpy(&(results[number_items]),
                           &(scan_ptr->scanres),sizeof(struct wpa_scan_result));
-                        number_items++;
-                    }
+                    number_items++;
                 }
             }
             item = shListGetNextItem( head, item );
             shListDelItem( head, del_item, scan_free );
-        } while( item != NULL );
+        }
     }
     else if( mydrv->last_scan == SCAN_TYPE_NORMAL_ACTIVE ) { /* Copy results */
         shListDelAllItems( head, scan_free );
@@ -204,8 +227,10 @@ struct wpa_scan_result *scan_get_by_bssid( struct wpa_driver_ti_data *mydrv,
     do {
         cur_res =
           (struct wpa_scan_result *)&(((scan_merge_t *)(item->data))->scanres);
-        if( !os_memcmp(cur_res->bssid, bssid, ETH_ALEN) )
+        if( (!os_memcmp(cur_res->bssid, bssid, ETH_ALEN)) &&
+            (cur_res->ssid[0] != '\0') ) {
             return( cur_res );
+        }
         item = shListGetNextItem( head, item );
     } while( item != NULL );
 
