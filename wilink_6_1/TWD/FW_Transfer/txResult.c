@@ -433,6 +433,7 @@ void txResult_RegisterCb (TI_HANDLE hTxResult, TI_UINT32 uCallBackId, void *CBFu
  ****************************************************************************/
 void txResult_PrintInfo (TI_HANDLE hTxResult)
 {
+#ifdef REPORT_LOG
     TTxResultObj* pTxResult = (TTxResultObj*)hTxResult;
 
     WLAN_OS_REPORT(("Tx-Result Module Information:\n"));
@@ -440,6 +441,7 @@ void txResult_PrintInfo (TI_HANDLE hTxResult)
     WLAN_OS_REPORT(("uInterruptsCounter:     %d\n", pTxResult->uInterruptsCounter));
     WLAN_OS_REPORT(("uHostResultsCounter:    %d\n", pTxResult->uHostResultsCounter));
     WLAN_OS_REPORT(("=============================\n"));
+#endif
 }
 
 

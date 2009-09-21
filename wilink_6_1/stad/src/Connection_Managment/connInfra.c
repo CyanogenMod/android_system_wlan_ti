@@ -663,8 +663,10 @@ static TI_STATUS configHW_to_connected(void *pData)
     TRACE0(pConn->hReport, REPORT_SEVERITY_CONSOLE, "************ NEW CONNECTION ************\n"); 
     WLAN_OS_REPORT(("************ NEW CONNECTION ************\n"));
     siteMgr_printPrimarySiteDesc(pConn->hSiteMgr);
-     TRACE0(pConn->hReport, REPORT_SEVERITY_CONSOLE, "****************************************\n"); 
+    TRACE0(pConn->hReport, REPORT_SEVERITY_CONSOLE, "****************************************\n"); 
     WLAN_OS_REPORT(("****************************************\n"));
+#else
+    os_printf("%s: *** NEW CONNECTION ***\n", __func__);
 #endif
 
     return TI_OK;

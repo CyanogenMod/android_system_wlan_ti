@@ -1130,14 +1130,14 @@ static TI_STATUS drvMain_ConfigFw (TI_HANDLE hDrvMain)
     TRACE0(pDrvMain->tStadHandles.hReport, REPORT_SEVERITY_INIT , "EXIT FROM INIT\n");
 
     /* Print the driver and firmware version and the mac address */
-    WLAN_OS_REPORT(("\n"));
-    WLAN_OS_REPORT(("--------------------------------------------------------------------\n"));
-    WLAN_OS_REPORT(("Driver Version  : %s\n", SW_VERSION_STR));
-    WLAN_OS_REPORT(("Firmware Version: %s\n", pFwInfo->fwVer));
-    WLAN_OS_REPORT(("Station ID      : %02X-%02X-%02X-%02X-%02X-%02X\n",
-                    pMacAddr[0], pMacAddr[1], pMacAddr[2], pMacAddr[3], pMacAddr[4], pMacAddr[5]));
-    WLAN_OS_REPORT(("--------------------------------------------------------------------\n"));
-    WLAN_OS_REPORT(("\n"));
+    os_printf("\n");
+    os_printf("-----------------------------------------------------\n");
+    os_printf("Driver Version  : %s\n", SW_VERSION_STR);
+    os_printf("Firmware Version: %s\n", pFwInfo->fwVer);
+    os_printf("Station ID      : %02X-%02X-%02X-%02X-%02X-%02X\n",
+              pMacAddr[0], pMacAddr[1], pMacAddr[2], pMacAddr[3], pMacAddr[4], pMacAddr[5]);
+    os_printf("-----------------------------------------------------\n");
+    os_printf("\n");
 
     return TI_OK;
 }

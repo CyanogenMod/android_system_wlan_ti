@@ -1444,6 +1444,7 @@ TI_STATUS currBSS_getParam(TI_HANDLE hCurrBSS, paramInfo_t *pParam)
 
 void currBss_DbgPrintTriggersTable(TI_HANDLE hCurrBSS)
 {
+#ifdef REPORT_LOG
     int i=0;
     currBSS_t *pCurrBSS = (currBSS_t *)hCurrBSS;
 
@@ -1458,4 +1459,5 @@ void currBss_DbgPrintTriggersTable(TI_HANDLE hCurrBSS)
                         pCurrBSS->aTriggersDesc[i].WasRegisteredByApp));
     }
     WLAN_OS_REPORT(("\n --------------------------------------------------------------- \n"));
+#endif
 }

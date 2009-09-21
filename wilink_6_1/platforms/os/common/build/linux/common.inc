@@ -94,6 +94,7 @@ ifeq ($(DEBUG),y)
     DK_DEFINES += -O2
     DK_DEFINES += -D PRINTF_ROLLBACK    
 else
+    DK_DEFINES += -D TI_DBG
     DK_DEFINES += -U REPORT_LOG
     DK_DEFINES += -O2
 endif

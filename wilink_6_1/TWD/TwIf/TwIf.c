@@ -674,16 +674,15 @@ ETxnStatus twIf_TransactReadFWStatus (TI_HANDLE hTwIf, TTxnStruct *pTxn)
 static ETxnStatus twIf_SendTransaction (TTwIfObj *pTwIf, TTxnStruct *pTxn)
 {
     ETxnStatus eStatus;
-	TI_UINT32  data=0;
-
 #ifdef TI_DBG
-    /* Verify that the Txn HW-Address is 4-bytes aligned */
-	if (pTxn->uHwAddr & 0x3)
-	{
-TRACE2(pTwIf->hReport, REPORT_SEVERITY_ERROR, "twIf_SendTransaction: Unaligned HwAddr! HwAddr=0x%x, Params=0x%x\n", pTxn->uHwAddr, pTxn->uTxnParams);
-		return TXN_STATUS_ERROR;
-	}	
+    TI_UINT32  data = 0;
 
+    /* Verify that the Txn HW-Address is 4-bytes aligned */
+    if (pTxn->uHwAddr & 0x3)
+    {
+        TRACE2(pTwIf->hReport, REPORT_SEVERITY_ERROR, "twIf_SendTransaction: Unaligned HwAddr! HwAddr=0x%x, Params=0x%x\n", pTxn->uHwAddr, pTxn->uTxnParams);
+		return TXN_STATUS_ERROR;
+    }	
 #endif
 
     context_EnterCriticalSection (pTwIf->hContext);
@@ -1029,7 +1028,8 @@ TI_BOOL	twIf_isValidRegAddr(TI_HANDLE hTwIf, TI_UINT32 Address, TI_UINT32 Length
  */ 
 void twIf_PrintModuleInfo (TI_HANDLE hTwIf) 
 {
-    TTwIfObj *pTwIf = (TTwIfObj*)hTwIf;
+#ifdef REPORT_LOG
+	TTwIfObj *pTwIf = (TTwIfObj*)hTwIf;
 	
 	WLAN_OS_REPORT(("-------------- TwIf Module Info-- ------------------------\n"));
 	WLAN_OS_REPORT(("==========================================================\n"));
@@ -1050,6 +1050,7 @@ void twIf_PrintModuleInfo (TI_HANDLE hTwIf)
 	WLAN_OS_REPORT(("uDbgCountTxnComplete = %d\n",   pTwIf->uDbgCountTxnComplete    ));
 	WLAN_OS_REPORT(("uDbgCountTxnDone     = %d\n",   pTwIf->uDbgCountTxnDoneCb      ));
 	WLAN_OS_REPORT(("==========================================================\n\n"));
+#endif
 } 
 
 
@@ -1060,9 +1061,4 @@ void twIf_PrintQueues (TI_HANDLE hTwIf)
     txnQ_PrintQueues(pTwIf->hTxnQ);
 }
 
-
 #endif /* TI_DBG */
-
-
-
-

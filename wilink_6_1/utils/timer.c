@@ -571,7 +571,7 @@ void tmr_HandleExpiry (TI_HANDLE hTimerModule)
 
 void tmr_PrintModule (TI_HANDLE hTimerModule)
 {
-	TTimerModule *pTimerModule = (TTimerModule *)hTimerModule;
+    TTimerModule *pTimerModule = (TTimerModule *)hTimerModule;
 
     /* Print module parameters */
     WLAN_OS_REPORT(("tmr_PrintModule(): uContextId=%d, bOperState=%d, uTwdInitCount=%d, uTimersCount=%d\n", 
@@ -589,11 +589,13 @@ void tmr_PrintModule (TI_HANDLE hTimerModule)
 
 void tmr_PrintTimer (TI_HANDLE hTimerInfo)
 {
+#ifdef REPORT_LOG
     TTimerInfo   *pTimerInfo   = (TTimerInfo *)hTimerInfo;                 /* The timer handle */     
 
     WLAN_OS_REPORT(("tmr_PrintTimer(): uIntervalMs=%d, bPeriodic=%d, bOperStateWhenStarted=%d, uTwdInitCountWhenStarted=%d, hOsTimerObj=0x%x, fExpiryCbFunc=0x%x\n", 
         pTimerInfo->uIntervalMsec, pTimerInfo->bPeriodic, pTimerInfo->bOperStateWhenStarted, 
         pTimerInfo->uTwdInitCountWhenStarted, pTimerInfo->hOsTimerObj, pTimerInfo->fExpiryCbFunc));
+#endif
 }
 
 #endif /* TI_DBG */
