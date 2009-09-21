@@ -504,34 +504,36 @@ void txDataQ_PrintModuleParams (TI_HANDLE hTxDataQ)
  */ 
 void txDataQ_PrintQueueStatistics (TI_HANDLE hTxDataQ)
 {
-	TTxDataQ *pTxDataQ = (TTxDataQ *)hTxDataQ;
-	TI_UINT32      qIndex;
+#ifdef REPORT_LOG
+    TTxDataQ *pTxDataQ = (TTxDataQ *)hTxDataQ;
+    TI_UINT32      qIndex;
 
-	WLAN_OS_REPORT(("-------------- txDataQueue_printStatistics -------\n\n"));
+    WLAN_OS_REPORT(("-------------- txDataQueue_printStatistics -------\n\n"));
 
-	WLAN_OS_REPORT(("-------------- Classifier Mismatches = %d  -------\n",pTxDataQ->uClsfrMismatchCount));
+    WLAN_OS_REPORT(("-------------- Classifier Mismatches = %d  -------\n",pTxDataQ->uClsfrMismatchCount));
 	
-	WLAN_OS_REPORT(("-------------- Enqueue to queues -----------------\n"));
+    WLAN_OS_REPORT(("-------------- Enqueue to queues -----------------\n"));
     for(qIndex = 0; qIndex < MAX_NUM_OF_AC; qIndex++)
         WLAN_OS_REPORT(("Que[%d]: = %d\n",qIndex, pTxDataQ->aQueueCounters[qIndex].uEnqueuePacket));
 	
-	WLAN_OS_REPORT(("-------------- Dequeue from queues ---------------\n"));
+    WLAN_OS_REPORT(("-------------- Dequeue from queues ---------------\n"));
     for(qIndex = 0; qIndex < MAX_NUM_OF_AC; qIndex++)
         WLAN_OS_REPORT(("Que[%d]: = %d\n",qIndex, pTxDataQ->aQueueCounters[qIndex].uDequeuePacket));
 
-	WLAN_OS_REPORT(("-------------- Requeue to queues -----------------\n"));
+    WLAN_OS_REPORT(("-------------- Requeue to queues -----------------\n"));
     for(qIndex = 0; qIndex < MAX_NUM_OF_AC; qIndex++)
         WLAN_OS_REPORT(("Que[%d]: = %d\n",qIndex, pTxDataQ->aQueueCounters[qIndex].uRequeuePacket));
 
-	WLAN_OS_REPORT(("-------------- Sent to TxCtrl --------------------\n"));
+    WLAN_OS_REPORT(("-------------- Sent to TxCtrl --------------------\n"));
     for(qIndex = 0; qIndex < MAX_NUM_OF_AC; qIndex++)
         WLAN_OS_REPORT(("Que[%d]: = %d\n",qIndex, pTxDataQ->aQueueCounters[qIndex].uXmittedPacket));
 
-	WLAN_OS_REPORT(("-------------- Dropped - Queue Full --------------\n"));
+    WLAN_OS_REPORT(("-------------- Dropped - Queue Full --------------\n"));
     for(qIndex = 0; qIndex < MAX_NUM_OF_AC; qIndex++)
         WLAN_OS_REPORT(("Que[%d]: = %d\n",qIndex, pTxDataQ->aQueueCounters[qIndex].uDroppedPacket));
 
-	WLAN_OS_REPORT(("--------------------------------------------------\n\n"));
+    WLAN_OS_REPORT(("--------------------------------------------------\n\n"));
+#endif
 }
 
 

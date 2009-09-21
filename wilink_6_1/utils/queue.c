@@ -401,11 +401,13 @@ TI_UINT32 que_Size (TI_HANDLE hQue)
 
 void que_Print(TI_HANDLE hQue)
 {
-	TQueue *pQue = (TQueue *)hQue;
+#ifdef REPORT_LOG
+    TQueue *pQue = (TQueue *)hQue;
 
     WLAN_OS_REPORT(("que_Print: Count=%u MaxCount=%u Limit=%u Overflow=%u NodeHeaderOffset=%u Next=0x%x Prev=0x%x\n",
                     pQue->uCount, pQue->uMaxCount, pQue->uLimit, pQue->uOverflow, 
                     pQue->uNodeHeaderOffset, pQue->tHead.pNext, pQue->tHead.pPrev));
+#endif
 }
 
 #endif /* TI_DBG */

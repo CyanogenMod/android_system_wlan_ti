@@ -1859,6 +1859,7 @@ void rxData_printRxCounters (TI_HANDLE hRxData)
 
 void rxData_printRxBlock(TI_HANDLE hRxData)
 {
+#ifdef REPORT_LOG
     rxData_t *pRxData = (rxData_t *)hRxData;
 
     WLAN_OS_REPORT(("hCtrlData = 0x%X\n", pRxData->hCtrlData));
@@ -1878,6 +1879,7 @@ void rxData_printRxBlock(TI_HANDLE hRxData)
     WLAN_OS_REPORT(("rxDataPortStatus = %d\n", pRxData->rxDataPortStatus));
     WLAN_OS_REPORT(("rxDataExcludeUnencrypted = %d\n", pRxData->rxDataExcludeUnencrypted));
     WLAN_OS_REPORT(("rxDataEapolDestination = %d\n", pRxData->rxDataEapolDestination));
+#endif
 }
 
 
