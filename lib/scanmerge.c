@@ -18,6 +18,7 @@
 #include "scanmerge.h"
 #include "shlist.h"
 
+#define IS_HIDDEN_AP(a)	(((a)->ssid_len == 0) || ((a)->ssid[0] == '\0'))
 /*-----------------------------------------------------------------------------
 Routine Name: scan_init
 Routine Description: Inits scan merge list
@@ -71,7 +72,7 @@ static int scan_equal( void *val,  void *idata )
     int ret;
     size_t len;
 
-    len = ((new_res->ssid[0] == '\0') || (lst_res->ssid[0] == '\0')) ?
+    len = (IS_HIDDEN_AP(new_res) || IS_HIDDEN_AP(lst_res)) ?
           0 : new_res->ssid_len;
     ret = ((lst_res->ssid_len != new_res->ssid_len) && (len != 0)) ||
           (os_memcmp(new_res->bssid, lst_res->bssid, ETH_ALEN) ||
@@ -89,7 +90,7 @@ Return Value: NONE
 -----------------------------------------------------------------------------*/
 void copy_scan_res( struct wpa_scan_result *dst, struct wpa_scan_result *src )
 {
-    if( src->ssid[0] == '\0' ) {
+    if( IS_HIDDEN_AP(src) ) {
         os_memcpy( src->ssid, dst->ssid, dst->ssid_len );
         src->ssid_len = dst->ssid_len;
     }
@@ -228,7 +229,7 @@ struct wpa_scan_result *scan_get_by_bssid( struct wpa_driver_ti_data *mydrv,
         cur_res =
           (struct wpa_scan_result *)&(((scan_merge_t *)(item->data))->scanres);
         if( (!os_memcmp(cur_res->bssid, bssid, ETH_ALEN)) &&
-            (cur_res->ssid[0] != '\0') ) {
+            (!IS_HIDDEN_AP(cur_res)) ) {
             return( cur_res );
         }
         item = shListGetNextItem( head, item );
