@@ -941,33 +941,35 @@ void txMgmtQ_PrintModuleParams (TI_HANDLE hTxMgmtQ)
  */ 
 void txMgmtQ_PrintQueueStatistics (TI_HANDLE hTxMgmtQ)
 {
-	TTxMgmtQ *pTxMgmtQ = (TTxMgmtQ *)hTxMgmtQ;
-	TI_UINT32 uQueId;
+#ifdef REPORT_LOG
+    TTxMgmtQ *pTxMgmtQ = (TTxMgmtQ *)hTxMgmtQ;
+    TI_UINT32 uQueId;
 
-	WLAN_OS_REPORT(("-------------- Mgmt Queues Statistics  -------------------\n"));
-	WLAN_OS_REPORT(("==========================================================\n"));
+    WLAN_OS_REPORT(("-------------- Mgmt Queues Statistics  -------------------\n"));
+    WLAN_OS_REPORT(("==========================================================\n"));
 
-	WLAN_OS_REPORT(("-------------- Enqueue Packets ---------------------------\n"));
+    WLAN_OS_REPORT(("-------------- Enqueue Packets ---------------------------\n"));
     for(uQueId = 0; uQueId < NUM_OF_MGMT_QUEUES; uQueId++)
         WLAN_OS_REPORT(("Que[%d]:  %d\n", uQueId, pTxMgmtQ->tDbgCounters.aEnqueuePackets[uQueId]));
 	
-	WLAN_OS_REPORT(("-------------- Dequeue Packets ---------------------------\n"));
+    WLAN_OS_REPORT(("-------------- Dequeue Packets ---------------------------\n"));
     for(uQueId = 0; uQueId < NUM_OF_MGMT_QUEUES; uQueId++)
         WLAN_OS_REPORT(("Que[%d]:  %d\n", uQueId, pTxMgmtQ->tDbgCounters.aDequeuePackets[uQueId]));
 
-	WLAN_OS_REPORT(("-------------- Requeue Packets ---------------------------\n"));
+    WLAN_OS_REPORT(("-------------- Requeue Packets ---------------------------\n"));
     for(uQueId = 0; uQueId < NUM_OF_MGMT_QUEUES; uQueId++)
         WLAN_OS_REPORT(("Que[%d]:  %d\n", uQueId, pTxMgmtQ->tDbgCounters.aRequeuePackets[uQueId]));
 
-	WLAN_OS_REPORT(("-------------- Xmitted Packets ---------------------------\n"));
+    WLAN_OS_REPORT(("-------------- Xmitted Packets ---------------------------\n"));
     for(uQueId = 0; uQueId < NUM_OF_MGMT_QUEUES; uQueId++)
         WLAN_OS_REPORT(("Que[%d]:  %d\n", uQueId, pTxMgmtQ->tDbgCounters.aXmittedPackets[uQueId]));
 
-	WLAN_OS_REPORT(("-------------- Dropped Packets (queue full) --------------\n"));
+    WLAN_OS_REPORT(("-------------- Dropped Packets (queue full) --------------\n"));
     for(uQueId = 0; uQueId < NUM_OF_MGMT_QUEUES; uQueId++)
         WLAN_OS_REPORT(("Que[%d]:  %d\n", uQueId, pTxMgmtQ->tDbgCounters.aDroppedPackets[uQueId]));
 
-	WLAN_OS_REPORT(("==========================================================\n\n"));
+    WLAN_OS_REPORT(("==========================================================\n\n"));
+#endif    
 }
 
 
@@ -989,6 +991,5 @@ void txMgmtQ_ResetQueueStatistics (TI_HANDLE hTxMgmtQ)
     os_memoryZero(pTxMgmtQ->hOs, (void *)&(pTxMgmtQ->tDbgCounters), sizeof(TDbgCount));
 }
 
-		
 #endif /* TI_DBG */
 	  

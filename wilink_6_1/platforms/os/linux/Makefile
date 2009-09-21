@@ -61,7 +61,7 @@ ETH_SUPPORT ?= n
 #
 # Debug
 #
-DEBUG ?= y
+DEBUG ?= n
 
 ##
 ##

@@ -617,9 +617,10 @@ void fwEvent_EnableInterrupts(TI_HANDLE hFwEvent)
 
 void fwEvent_PrintStat (TI_HANDLE hFwEvent)
 {
+#ifdef REPORT_LOG
     TfwEvent *pFwEvent = (TfwEvent *)hFwEvent;
     FwStatus_t *fwStat = &pFwEvent->tFwStatusTxn.tFwStatus; 
-	int i;
+    int i;
 
     WLAN_OS_REPORT(("Print FW event module info\n"));
     WLAN_OS_REPORT(("==========================\n"));
@@ -635,6 +636,7 @@ void fwEvent_PrintStat (TI_HANDLE hFwEvent)
 		WLAN_OS_REPORT(("txReleasedBlks[%1d] = 0x%08x\n", i, fwStat->txReleasedBlks[i]));
     }
     WLAN_OS_REPORT(("fwLocalTime = 0x%08x\n", fwStat->fwLocalTime));
+#endif
 }
 
 #endif  /* TI_DBG */

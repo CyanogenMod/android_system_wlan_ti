@@ -484,11 +484,13 @@ TI_STATUS conn_reportMlmeStatus(TI_HANDLE			hConn,
         TRACE0(pConn->hReport, REPORT_SEVERITY_CONSOLE,"               CONN LOST             \n");
         TRACE0(pConn->hReport, REPORT_SEVERITY_CONSOLE,"-------------------------------------\n");
 
-
+#ifdef REPORT_LOG
 		WLAN_OS_REPORT(("-------------------------------------\n"));
 		WLAN_OS_REPORT(("               CONN LOST             \n"));
 		WLAN_OS_REPORT(("-------------------------------------\n"));
-
+#else
+		os_printf("%s: *** CONN LOST ***\n", __func__);
+#endif
 		if( pConn->connType == CONN_TYPE_ROAM )
 			pConn->disConnType = DISCONNECT_IMMEDIATE;
 		else /* connType == CONN_TYPE_ESS */

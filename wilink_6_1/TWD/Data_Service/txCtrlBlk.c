@@ -255,6 +255,7 @@ TTxCtrlBlk *txCtrlBlk_GetPointer (TI_HANDLE hTxCtrlBlk, TI_UINT8 descId)
 #ifdef TI_DBG
 void txCtrlBlk_PrintTable (TI_HANDLE hTxCtrlBlk)
 {
+#ifdef REPORT_LOG
 	TTxCtrlBlkObj *pTxCtrlBlk = (TTxCtrlBlkObj *)hTxCtrlBlk;
 	TI_UINT8 entry;
 
@@ -274,6 +275,7 @@ void txCtrlBlk_PrintTable (TI_HANDLE hTxCtrlBlk)
             pTxCtrlBlk->aTxCtrlBlkTbl[entry].tTxDescriptor.totalMemBlks,
             pTxCtrlBlk->aTxCtrlBlkTbl[entry].tTxPktParams.uFlags));
 	}
+#endif
 }
 #endif /* TI_DBG */
 

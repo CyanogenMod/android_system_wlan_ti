@@ -54,13 +54,14 @@ static int wifi_probe( struct platform_device *pdev )
 {
 	struct wifi_platform_data *wifi_ctrl = (struct wifi_platform_data *)(pdev->dev.platform_data);
 
-	printk("%s\n", __FUNCTION__);
+	/* printk("%s\n", __FUNCTION__); */
 	wifi_irqres = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "device_wifi_irq");
+#if 0
 	if (wifi_irqres) {
 		printk("wifi_irqres->start = %lu\n", (unsigned long)(wifi_irqres->start));
 		printk("wifi_irqres->flags = %lx\n", wifi_irqres->flags);
 	}
-
+#endif
 	if( wifi_ctrl ) {
 		wifi_control_data = wifi_ctrl;
 #if 0
@@ -79,7 +80,7 @@ static int wifi_remove( struct platform_device *pdev )
 {
 	struct wifi_platform_data *wifi_ctrl = (struct wifi_platform_data *)(pdev->dev.platform_data);
 
-	printk("%s\n", __FUNCTION__);
+	/* printk("%s\n", __FUNCTION__); */
 	if( wifi_ctrl ) {
 		if( wifi_ctrl->set_carddetect )
 			wifi_ctrl->set_carddetect(0);	/* CardDetect (1->0) */
@@ -103,19 +104,19 @@ static struct platform_driver wifi_device = {
 
 static int wifi_add_dev( void )
 {
-	printk("%s\n", __FUNCTION__);
+	/* printk("%s\n", __FUNCTION__); */
 	return platform_driver_register( &wifi_device );
 }
 
 static void wifi_del_dev( void )
 {
-	printk("%s\n", __FUNCTION__);
+	/* printk("%s\n", __FUNCTION__); */
 	platform_driver_unregister( &wifi_device );
 }
 
 int wifi_set_carddetect( int on )
 {
-	printk("%s = %d\n", __FUNCTION__, on);
+	/* printk("%s = %d\n", __FUNCTION__, on); */
 	if( wifi_control_data && wifi_control_data->set_carddetect ) {
 		wifi_control_data->set_carddetect(on);
 	}
@@ -124,7 +125,7 @@ int wifi_set_carddetect( int on )
 
 int wifi_set_power( int on, unsigned long msec )
 {
-	printk("%s = %d\n", __FUNCTION__, on);
+	/* printk("%s = %d\n", __FUNCTION__, on); */
 	if( wifi_control_data && wifi_control_data->set_power ) {
 		wifi_control_data->set_power(on);
 	}
@@ -138,7 +139,7 @@ int wifi_set_power( int on, unsigned long msec )
 
 int wifi_set_reset( int on, unsigned long msec )
 {
-	printk("%s = %d\n", __FUNCTION__, on);
+	/* printk("%s = %d\n", __FUNCTION__, on); */
 	if( wifi_control_data && wifi_control_data->set_reset ) {
 		wifi_control_data->set_reset(on);
 	}

@@ -858,6 +858,7 @@ void rxXfer_ClearStats (TI_HANDLE hRxXfer)
  ****************************************************************************/
 void rxXfer_PrintStats (TI_HANDLE hRxXfer)
 {
+#ifdef REPORT_LOG
     TRxXfer *pRxXfer = (TRxXfer *)hRxXfer;
     
     WLAN_OS_REPORT(("Print RX Xfer module info\n"));
@@ -875,7 +876,6 @@ void rxXfer_PrintStats (TI_HANDLE hRxXfer)
     WLAN_OS_REPORT(("uCountPktAggreg-2  = %d\n", pRxXfer->tDbgStat.uCountPktAggreg[1]));
     WLAN_OS_REPORT(("uCountPktAggreg-3  = %d\n", pRxXfer->tDbgStat.uCountPktAggreg[2]));
     WLAN_OS_REPORT(("uCountPktAggreg-4  = %d\n", pRxXfer->tDbgStat.uCountPktAggreg[3]));
+#endif
 }
 #endif
-
-
