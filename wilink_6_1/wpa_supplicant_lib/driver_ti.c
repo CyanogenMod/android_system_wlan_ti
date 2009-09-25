@@ -401,8 +401,10 @@ static int wpa_driver_tista_enable_bt_coe(void *priv, u32 mode)
 	switch(mode_set)
 	{
 		case BLUETOOTH_COEXISTENCE_MODE_ENABLED:
-		case BLUETOOTH_COEXISTENCE_MODE_SENSE:
 			mode_set = SG_OPPORTUNISTIC;
+			break;
+		case BLUETOOTH_COEXISTENCE_MODE_SENSE:
+			mode_set = SG_PROTECTIVE;
 			break;
 		case BLUETOOTH_COEXISTENCE_MODE_DISABLED:
 			mode_set = SG_DISABLE;
