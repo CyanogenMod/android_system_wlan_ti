@@ -612,7 +612,7 @@ int wlanDrvIf_Start (struct net_device *dev)
      *      and wait for action completion (all init process).
      */
     drvMain_InsertAction (drv->tCommon.hDrvMain, ACTION_TYPE_START);
-
+    os_wake_lock_timeout_enable(drv);
     return 0;
 }
 
@@ -672,6 +672,7 @@ int wlanDrvIf_Stop (struct net_device *dev)
      *      and wait for Stop process completion.
      */
     drvMain_InsertAction (drv->tCommon.hDrvMain, ACTION_TYPE_STOP);
+    os_wake_lock_timeout_enable(drv);
     return 0;
 }
 
