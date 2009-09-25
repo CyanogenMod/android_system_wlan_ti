@@ -478,13 +478,9 @@ TI_BOOL os_receivePacket (TI_HANDLE OsContext, void* pPacket, TI_UINT16 Length)
     * it responsibly of the Linux kernel to free the skb
     */
    {
-       unsigned long flags;
-
        CL_TRACE_START_L1();
 
-       spin_lock_irqsave(&drv->lock, flags);
-       drv->wl_packet = 1;
-       spin_unlock_irqrestore(&drv->lock, flags);
+       os_wake_lock_timeout_enable(drv);
 
        netif_rx_ni(skb);
 
@@ -618,6 +614,27 @@ int os_wake_lock_timeout (TI_HANDLE OsContext)
 	}
 	spin_unlock_irqrestore(&drv->lock, flags);
 	/* printk("%s: %d\n", __func__, ret); */
+	return ret;
+}
+
+/*-----------------------------------------------------------------------------
+Routine Name:  os_wake_lock_timeout_enable
+
+Routine Description: Called to set flag for suspend prevention for some time
+
+Arguments:     OsContext - handle to OS context
+
+Return Value:  packet counter
+-----------------------------------------------------------------------------*/
+int os_wake_lock_timeout_enable (TI_HANDLE OsContext)
+{
+	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
+	unsigned long flags;
+	int ret;
+
+	spin_lock_irqsave(&drv->lock, flags);
+	ret = drv->wl_packet = 1;
+	spin_unlock_irqrestore(&drv->lock, flags);
 	return ret;
 }
 
