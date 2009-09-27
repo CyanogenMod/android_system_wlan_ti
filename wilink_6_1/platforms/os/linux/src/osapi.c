@@ -188,13 +188,13 @@ NOTES:         	1) The user's callback is called directly from OS timer context 
 *****************************************************************************************/
 TI_HANDLE os_timerCreate (TI_HANDLE OsContext, fTimerFunction pRoutine, TI_HANDLE hFuncHandle)
 {
-    TOsTimer *pOsTimer = os_memoryAlloc (OsContext, sizeof(TOsTimer));
+	TOsTimer *pOsTimer = os_memoryAlloc (OsContext, sizeof(TOsTimer));
 
-    init_timer (pOsTimer);
-    pOsTimer->function = (void *)pRoutine;
-    pOsTimer->data     = (int)hFuncHandle;
+	init_timer (pOsTimer);
+	pOsTimer->function = (void *)pRoutine;
+	pOsTimer->data     = (int)hFuncHandle;
 
-    return (TI_HANDLE)pOsTimer;
+	return (TI_HANDLE)pOsTimer;
 }
 
 
@@ -211,8 +211,8 @@ NOTES:
 *****************************************************************************************/
 void os_timerDestroy (TI_HANDLE OsContext, TI_HANDLE TimerHandle)
 {
-    os_timerStop (OsContext, TimerHandle);
-    os_memoryFree (OsContext, TimerHandle, sizeof(TOsTimer));
+	os_timerStop (OsContext, TimerHandle);
+	os_memoryFree (OsContext, TimerHandle, sizeof(TOsTimer));
 }
 
 
@@ -229,9 +229,9 @@ NOTES:
 *****************************************************************************************/
 void os_timerStart (TI_HANDLE OsContext, TI_HANDLE TimerHandle, TI_UINT32 DelayMs)
 {
-    TI_UINT32 jiffie_cnt = msecs_to_jiffies (DelayMs);
+	TI_UINT32 jiffie_cnt = msecs_to_jiffies (DelayMs);
 
-    mod_timer ((TOsTimer *)TimerHandle, jiffies + jiffie_cnt);
+	mod_timer ((TOsTimer *)TimerHandle, jiffies + jiffie_cnt);
 }
 
 
@@ -248,7 +248,7 @@ NOTES:
 *****************************************************************************************/
 void os_timerStop (TI_HANDLE OsContext, TI_HANDLE TimerHandle)
 {
-    del_timer_sync((TOsTimer *)TimerHandle);
+	del_timer_sync((TOsTimer *)TimerHandle);
 }
 
 
@@ -289,9 +289,9 @@ NOTES:
 *****************************************************************************************/
 TI_UINT32 os_timeStampMs (TI_HANDLE OsContext)
 {
-   struct timeval tv;
-   do_gettimeofday(&tv);
-   return tv.tv_sec*1000 + tv.tv_usec/1000;
+	struct timeval tv;
+	do_gettimeofday(&tv);
+	return tv.tv_sec*1000 + tv.tv_usec/1000;
 }
 
 
@@ -310,9 +310,9 @@ NOTES:
 *****************************************************************************************/
 TI_UINT32 os_timeStampUs (TI_HANDLE OsContext)
 {
-   struct timeval tv;
-   do_gettimeofday(&tv);
-   return tv.tv_sec*1000000 + tv.tv_usec;
+	struct timeval tv;
+	do_gettimeofday(&tv);
+	return tv.tv_sec*1000000 + tv.tv_usec;
 }
 
 
@@ -330,7 +330,7 @@ NOTES:
 *****************************************************************************************/
 void os_StalluSec (TI_HANDLE OsContext, TI_UINT32 uSec)
 {
-    udelay (uSec);
+	udelay (uSec);
 }
 
 
@@ -358,7 +358,7 @@ NOTES:
 *****************************************************************************************/
 TI_HANDLE os_protectCreate (TI_HANDLE OsContext)
 {
-    return NULL;
+	return NULL;
 }
 
 
@@ -391,9 +391,9 @@ NOTES:
 *****************************************************************************************/
 void os_protectLock (TI_HANDLE OsContext, TI_HANDLE ProtectContext)
 {
-    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
+	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
 
-    spin_lock_irqsave (&drv->lock, drv->flags);
+	spin_lock_irqsave (&drv->lock, drv->flags);
 }
 
 
@@ -566,14 +566,14 @@ TI_INT32 os_IndicateEvent (TI_HANDLE OsContext, IPC_EV_DATA* pData)
 
 void os_disableIrq (TI_HANDLE OsContext)
 {
-    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
-    disable_irq (drv->irq);
+	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
+	disable_irq (drv->irq);
 }
 
 void os_enableIrq (TI_HANDLE OsContext)
 {
-    TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
-    enable_irq (drv->irq);
+	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
+	enable_irq (drv->irq);
 }
 
 /*-----------------------------------------------------------------------------
@@ -698,10 +698,8 @@ int os_RequestSchedule (TI_HANDLE OsContext)
 	CL_TRACE_START_L3();
 	CL_TRACE_END_L3("tiwlan_drv.ko", "OS", "TASK", "");
 
-	os_wake_lock(drv);
 	if( !queue_work(drv->tiwlan_wq, &drv->tWork) ) {
 		/* printk("%s: Fail\n",__func__); */
-		os_wake_unlock(drv);
 		return TI_NOK;
 	}
 
@@ -720,10 +718,10 @@ Return Value: TI_OK
 -----------------------------------------------------------------------------*/
 void *os_SignalObjectCreate (TI_HANDLE OsContext)
 {
-   struct completion *myPtr;
-   myPtr = os_memoryAlloc(OsContext, sizeof(struct completion));
-   init_completion (myPtr);
-   return (myPtr);
+	struct completion *myPtr;
+	myPtr = os_memoryAlloc(OsContext, sizeof(struct completion));
+	init_completion (myPtr);
+	return (myPtr);
 }
 
 
@@ -738,8 +736,8 @@ Return Value: TI_OK
 -----------------------------------------------------------------------------*/
 int os_SignalObjectWait (TI_HANDLE OsContext, void *signalObject)
 {
-   wait_for_completion ((struct completion *)signalObject);
-   return TI_OK;
+	wait_for_completion ((struct completion *)signalObject);
+	return TI_OK;
 }
 
 
@@ -754,8 +752,8 @@ Return Value: TI_OK
 -----------------------------------------------------------------------------*/
 int os_SignalObjectSet (TI_HANDLE OsContext, void *signalObject)
 {
-   complete ((struct completion *)signalObject);
-   return TI_OK;
+	complete ((struct completion *)signalObject);
+	return TI_OK;
 }
 
 
@@ -770,8 +768,8 @@ Return Value: TI_OK
 -----------------------------------------------------------------------------*/
 int os_SignalObjectFree (TI_HANDLE OsContext, void *signalObject)
 {
-   os_memoryFree(OsContext, signalObject, sizeof(struct completion));
-   return TI_OK;
+	os_memoryFree(OsContext, signalObject, sizeof(struct completion));
+	return TI_OK;
 }
 
 
@@ -795,21 +793,21 @@ void os_Trace (TI_HANDLE OsContext, TI_UINT32 uLevel, TI_UINT32 uFileId, TI_UINT
 	TI_UINT32	uMaxParamValue = 0;
 	TI_UINT32	uMsgLen	= TRACE_MSG_MIN_LENGTH;
 	TI_UINT8    aMsg[TRACE_MSG_MAX_LENGTH] = {0};
-    TTraceMsg   *pMsgHdr  = (TTraceMsg *)&aMsg[0];
+	TTraceMsg   *pMsgHdr  = (TTraceMsg *)&aMsg[0];
 	TI_UINT8    *pMsgData = &aMsg[0] + sizeof(TTraceMsg);
 	va_list	    list;
 
-    if (!bRedirectOutputToLogger)
-    {
-        return;
-    }
+	if (!bRedirectOutputToLogger)
+	{
+		return;
+	}
 
 	if (uParamsNum > TRACE_MSG_MAX_PARAMS)
 	{
 		uParamsNum = TRACE_MSG_MAX_PARAMS;
 	}
 
-    /* sync on the parameters */
+	/* sync on the parameters */
 	va_start(list, uParamsNum);
 
 	/* find the longest parameter */
@@ -831,7 +829,7 @@ void os_Trace (TI_HANDLE OsContext, TI_UINT32 uLevel, TI_UINT32 uFileId, TI_UINT
         }
 	}
 
-    /* Set msg length and format according to the biggest parameter value (8/16/32 bits) */
+	/* Set msg length and format according to the biggest parameter value (8/16/32 bits) */
 	if (uMaxParamValue > UINT16_MAX_VAL)		
 	{
 		pMsgHdr->uFormat = TRACE_FORMAT_32_BITS_PARAMS;
@@ -848,11 +846,11 @@ void os_Trace (TI_HANDLE OsContext, TI_UINT32 uLevel, TI_UINT32 uFileId, TI_UINT
 		uMsgLen += uParamsNum;
 	}
 
-    /* Fill all other header information */
-    pMsgHdr->uLevel     = (TI_UINT8)uLevel;
-    pMsgHdr->uParamsNum = (TI_UINT8)uParamsNum;
-    pMsgHdr->uFileId    = (TI_UINT16)uFileId;
-    pMsgHdr->uLineNum   = (TI_UINT16)uLineNum;
+	/* Fill all other header information */
+	pMsgHdr->uLevel     = (TI_UINT8)uLevel;
+	pMsgHdr->uParamsNum = (TI_UINT8)uParamsNum;
+	pMsgHdr->uFileId    = (TI_UINT16)uFileId;
+	pMsgHdr->uLineNum   = (TI_UINT16)uLineNum;
 
 	/* re-sync on the parameters */
 	va_start(list, uParamsNum);
@@ -886,7 +884,7 @@ void os_Trace (TI_HANDLE OsContext, TI_UINT32 uLevel, TI_UINT32 uFileId, TI_UINT
 
 	va_end(list);
 
-    /* Send the trace message to the logger */
+	/* Send the trace message to the logger */
 	SendLoggerData(OsContext, aMsg, (TI_UINT16)uMsgLen);
 }
 

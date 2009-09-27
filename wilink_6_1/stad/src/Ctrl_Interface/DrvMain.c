@@ -1230,8 +1230,10 @@ TI_STATUS drvMain_InsertAction (TI_HANDLE hDrvMain, EActionType eAction)
 {
     TDrvMain *pDrvMain = (TDrvMain *) hDrvMain;
 
+    context_EnterCriticalSection(pDrvMain->tStadHandles.hContext);
     if (pDrvMain->eAction == eAction)
-    {            
+    {
+        context_LeaveCriticalSection(pDrvMain->tStadHandles.hContext);
         TRACE0(pDrvMain->tStadHandles.hReport, REPORT_SEVERITY_CONSOLE, "Action is identical to last action!\n");
         WLAN_OS_REPORT(("Action %d is identical to last action!\n", eAction));
         return TI_NOK;
@@ -1239,6 +1241,7 @@ TI_STATUS drvMain_InsertAction (TI_HANDLE hDrvMain, EActionType eAction)
 
     /* Save the requested action */
     pDrvMain->eAction = eAction;
+    context_LeaveCriticalSection(pDrvMain->tStadHandles.hContext);
 
     /* Create signal object */
     /* 
