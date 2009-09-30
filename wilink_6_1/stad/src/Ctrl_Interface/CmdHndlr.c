@@ -274,14 +274,14 @@ TI_STATUS cmdHndlr_InsertCommand (TI_HANDLE     hCmdHndlr,
     /* Enter critical section to protect queue access */
     context_EnterCriticalSection (pCmdHndlr->hContext);
 
-	/* Enqueue the command (if failed, release memory and return NOK) */
+    /* Enqueue the command (if failed, release memory and return NOK) */
     eStatus = que_Enqueue (pCmdHndlr->hCmdQueue, (TI_HANDLE)pNewCmd);
     if (eStatus != TI_OK) 
-	{
-		os_printf("cmdPerform: Failed to enqueue new command\n");
-		os_SignalObjectFree (pCmdHndlr->hOs, pNewCmd->pSignalObject);
-		os_memoryFree (pCmdHndlr->hOs, pNewCmd, sizeof (TConfigCommand));
+    {
         context_LeaveCriticalSection (pCmdHndlr->hContext);  /* Leave critical section */
+        os_printf("cmdPerform: Failed to enqueue new command\n");
+        os_SignalObjectFree (pCmdHndlr->hOs, pNewCmd->pSignalObject);
+        os_memoryFree (pCmdHndlr->hOs, pNewCmd, sizeof (TConfigCommand));
         return TI_NOK;
     }
 
