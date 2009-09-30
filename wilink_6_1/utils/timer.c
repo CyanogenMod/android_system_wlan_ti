@@ -52,9 +52,9 @@
 /* The timer module structure (common to all timers) */
 typedef struct 
 {
-	TI_HANDLE   hOs;
-	TI_HANDLE   hReport;
-	TI_HANDLE   hContext;
+    TI_HANDLE   hOs;
+    TI_HANDLE   hReport;
+    TI_HANDLE   hContext;
     TI_UINT32   uContextId;     /* The ID allocated to this module on registration to context module */
     TI_HANDLE   hInitQueue;     /* Handle of the Init-Queue */
     TI_HANDLE   hOperQueue;     /* Handle of the Operational-Queue */
@@ -93,20 +93,20 @@ typedef struct
  */ 
 TI_HANDLE tmr_Create (TI_HANDLE hOs)
 {
-	TI_HANDLE hTimerModule;
+    TI_HANDLE hTimerModule;
 
-	/* allocate module object */
-	hTimerModule = os_memoryAlloc (hOs, sizeof(TTimerModule));
+    /* allocate module object */
+    hTimerModule = os_memoryAlloc (hOs, sizeof(TTimerModule));
 	
-	if (!hTimerModule)
-	{
-		WLAN_OS_REPORT (("tmr_Create():  Allocation failed!!\n"));
-		return NULL;
-	}
+    if (!hTimerModule)
+    {
+        WLAN_OS_REPORT (("tmr_Create():  Allocation failed!!\n"));
+        return NULL;
+    }
 	
     os_memoryZero (hOs, hTimerModule, (sizeof(TTimerModule)));
 
-	return (hTimerModule);
+    return (hTimerModule);
 }
 
 
@@ -128,7 +128,7 @@ TI_STATUS tmr_Destroy (TI_HANDLE hTimerModule)
     /* Alert if there are still timers that were not destroyed */
     if (pTimerModule->uTimersCount)
     {
-		WLAN_OS_REPORT (("tmr_Destroy():  ERROR - Destroying Timer module but not all timers were destroyed!!\n"));
+        WLAN_OS_REPORT (("tmr_Destroy():  ERROR - Destroying Timer module but not all timers were destroyed!!\n"));
     }
 
     /* Clear queues */
@@ -140,7 +140,7 @@ TI_STATUS tmr_Destroy (TI_HANDLE hTimerModule)
     que_Destroy (pTimerModule->hOperQueue);
 
     /* free module object */
-	os_memoryFree (pTimerModule->hOs, pTimerModule, sizeof(TTimerModule));
+    os_memoryFree (pTimerModule->hOs, pTimerModule, sizeof(TTimerModule));
 	
     return TI_OK;
 }
@@ -159,7 +159,7 @@ TI_STATUS tmr_Free(TI_HANDLE hTimerModule)
     TTimerModule *pTimerModule = (TTimerModule *)hTimerModule;
 
     /* free module object */
-	os_memoryFree (pTimerModule->hOs, pTimerModule, sizeof(TTimerModule));
+    os_memoryFree (pTimerModule->hOs, pTimerModule, sizeof(TTimerModule));
 	
     return TI_OK;
 }
@@ -179,19 +179,25 @@ TI_STATUS tmr_Free(TI_HANDLE hTimerModule)
 void tmr_ClearInitQueue (TI_HANDLE hTimerModule)
 {
     TTimerModule *pTimerModule = (TTimerModule *)hTimerModule;
+    TTimerInfo   *pTimerInfo;      /* The timer handle */
 
-    context_EnterCriticalSection (pTimerModule->hContext);
-    while (que_Dequeue (pTimerModule->hInitQueue) != NULL) {}
-    context_LeaveCriticalSection (pTimerModule->hContext);
+    do {
+        context_EnterCriticalSection (pTimerModule->hContext);
+        pTimerInfo = que_Dequeue (pTimerModule->hInitQueue);
+        context_LeaveCriticalSection (pTimerModule->hContext);
+    } while (pTimerInfo != NULL);
 }
 
 void tmr_ClearOperQueue (TI_HANDLE hTimerModule)
 {
     TTimerModule *pTimerModule = (TTimerModule *)hTimerModule;
+    TTimerInfo   *pTimerInfo;      /* The timer handle */
 
-    context_EnterCriticalSection (pTimerModule->hContext);
-    while (que_Dequeue (pTimerModule->hOperQueue) != NULL) {}
-    context_LeaveCriticalSection (pTimerModule->hContext);
+    do {
+        context_EnterCriticalSection (pTimerModule->hContext);
+        pTimerInfo = que_Dequeue (pTimerModule->hOperQueue);
+        context_LeaveCriticalSection (pTimerModule->hContext);
+    } while (pTimerInfo != NULL);
 }
 
 
@@ -212,7 +218,7 @@ void tmr_ClearOperQueue (TI_HANDLE hTimerModule)
  */ 
 void tmr_Init (TI_HANDLE hTimerModule, TI_HANDLE hOs, TI_HANDLE hReport, TI_HANDLE hContext)
 {
-	TTimerModule *pTimerModule = (TTimerModule *)hTimerModule;
+    TTimerModule *pTimerModule = (TTimerModule *)hTimerModule;
     TI_UINT32     uNodeHeaderOffset;
 
     pTimerModule->hOs           = hOs;
@@ -263,16 +269,18 @@ void tmr_Init (TI_HANDLE hTimerModule, TI_HANDLE hOs, TI_HANDLE hReport, TI_HAND
  */ 
 void tmr_UpdateDriverState (TI_HANDLE hTimerModule, TI_BOOL bOperState)
 {
-	TTimerModule *pTimerModule = (TTimerModule *)hTimerModule;
-
-    if (bOperState == pTimerModule->bOperState) 
-    {
-        TRACE1(pTimerModule->hReport, REPORT_SEVERITY_ERROR, "tmr_UpdateDriverState(): New bOperState (%d) is as current!\n", bOperState);
-        return;
-    }
+    TTimerModule *pTimerModule = (TTimerModule *)hTimerModule;
+    TTimerInfo   *pTimerInfo;      /* The timer handle */
 
     /* Enter critical section */
     context_EnterCriticalSection (pTimerModule->hContext);
+
+    if (bOperState == pTimerModule->bOperState) 
+    {
+        context_LeaveCriticalSection (pTimerModule->hContext);
+        TRACE1(pTimerModule->hReport, REPORT_SEVERITY_ERROR, "tmr_UpdateDriverState(): New bOperState (%d) is as current!\n", bOperState);
+        return;
+    }
 
     /* Save new state (TRUE means operational). */
     pTimerModule->bOperState = bOperState;
@@ -282,13 +290,21 @@ void tmr_UpdateDriverState (TI_HANDLE hTimerModule, TI_BOOL bOperState)
     {
         /* Increment the TWD initializations counter (for detecting recovery events). */
         pTimerModule->uTwdInitCount++;
-
-        /* Empty the init queue (obsolete). */
-        while (que_Dequeue (pTimerModule->hInitQueue) != NULL) {}
     }
-	
+
     /* Leave critical section */
     context_LeaveCriticalSection (pTimerModule->hContext);
+
+    /* If new state is operational */
+    if (bOperState) 
+    {
+        /* Empty the init queue (obsolete). */
+        do {
+            context_EnterCriticalSection (pTimerModule->hContext);
+            pTimerInfo = que_Dequeue (pTimerModule->hInitQueue);
+            context_LeaveCriticalSection (pTimerModule->hContext);
+        } while (pTimerInfo != NULL);
+    }
 
     /* If new state is operational, request switch to driver context for handling timer events */
     if (bOperState) 
@@ -296,7 +312,6 @@ void tmr_UpdateDriverState (TI_HANDLE hTimerModule, TI_BOOL bOperState)
         context_RequestSchedule (pTimerModule->hContext, pTimerModule->uContextId);
     }
 }
-
 
 
 
@@ -313,27 +328,27 @@ void tmr_UpdateDriverState (TI_HANDLE hTimerModule, TI_BOOL bOperState)
  */ 
 TI_HANDLE tmr_CreateTimer (TI_HANDLE hTimerModule)
 {
-	TTimerModule *pTimerModule = (TTimerModule *)hTimerModule; /* The timer module handle */
+    TTimerModule *pTimerModule = (TTimerModule *)hTimerModule; /* The timer module handle */
     TTimerInfo   *pTimerInfo;  /* The created timer handle */
 
-	/* Allocate timer object */
-	pTimerInfo = os_memoryAlloc (pTimerModule->hOs, sizeof(TTimerInfo));
-	if (!pTimerInfo)
-	{
-		WLAN_OS_REPORT (("tmr_CreateTimer():  Timer allocation failed!!\n"));
-		return NULL;
-	}
+    /* Allocate timer object */
+    pTimerInfo = os_memoryAlloc (pTimerModule->hOs, sizeof(TTimerInfo));
+    if (!pTimerInfo)
+    {
+        WLAN_OS_REPORT (("tmr_CreateTimer():  Timer allocation failed!!\n"));
+        return NULL;
+    }
     os_memoryZero (pTimerModule->hOs, pTimerInfo, (sizeof(TTimerInfo)));
 
     /* Allocate OS-API timer, providing the common expiry callback with the current timer handle */
     pTimerInfo->hOsTimerObj = os_timerCreate(pTimerModule->hOs, tmr_GetExpiry, (TI_HANDLE)pTimerInfo);
-	if (!pTimerInfo->hOsTimerObj)
-	{
+    if (!pTimerInfo->hOsTimerObj)
+    {
         TRACE0(pTimerModule->hReport, REPORT_SEVERITY_CONSOLE ,"tmr_CreateTimer():  OS-API Timer allocation failed!!\n");
         os_memoryFree (pTimerModule->hOs, pTimerInfo, sizeof(TTimerInfo));
         WLAN_OS_REPORT (("tmr_CreateTimer():  OS-API Timer allocation failed!!\n"));
-		return NULL;
-	}
+        return NULL;
+    }
 
     /* Save the timer module handle in the created timer object (needed for the expiry callback) */
     pTimerInfo->hTimerModule = hTimerModule;
@@ -401,7 +416,7 @@ void tmr_StartTimer (TI_HANDLE     hTimerInfo,
                      TI_BOOL       bPeriodic)
 {
     TTimerInfo   *pTimerInfo   = (TTimerInfo *)hTimerInfo;                 /* The timer handle */     
-	TTimerModule *pTimerModule = (TTimerModule *)pTimerInfo->hTimerModule; /* The timer module handle */
+    TTimerModule *pTimerModule = (TTimerModule *)pTimerInfo->hTimerModule; /* The timer module handle */
 
     /* Save the timer parameters. */
     pTimerInfo->fExpiryCbFunc            = fExpiryCbFunc;
@@ -432,7 +447,7 @@ void tmr_StartTimer (TI_HANDLE     hTimerInfo,
 void tmr_StopTimer (TI_HANDLE hTimerInfo)
 {
     TTimerInfo   *pTimerInfo   = (TTimerInfo *)hTimerInfo;                 /* The timer handle */     
-	TTimerModule *pTimerModule = (TTimerModule *)pTimerInfo->hTimerModule; /* The timer module handle */
+    TTimerModule *pTimerModule = (TTimerModule *)pTimerInfo->hTimerModule; /* The timer module handle */
 
     /* Stop OS-API timer running */
     os_timerStop(pTimerModule->hOs, pTimerInfo->hOsTimerObj);
@@ -506,7 +521,7 @@ void tmr_GetExpiry (TI_HANDLE hTimerInfo)
  */ 
 void tmr_HandleExpiry (TI_HANDLE hTimerModule)
 {
-	TTimerModule *pTimerModule = (TTimerModule *)hTimerModule; /* The timer module handle */
+    TTimerModule *pTimerModule = (TTimerModule *)hTimerModule; /* The timer module handle */
     TTimerInfo   *pTimerInfo;      /* The timer handle */     
     TI_BOOL       bTwdInitOccured; /* Indicates if TWD init occured since timer start */
 
@@ -575,8 +590,8 @@ void tmr_PrintModule (TI_HANDLE hTimerModule)
 
     /* Print module parameters */
     WLAN_OS_REPORT(("tmr_PrintModule(): uContextId=%d, bOperState=%d, uTwdInitCount=%d, uTimersCount=%d\n", 
-        pTimerModule->uContextId, pTimerModule->bOperState, 
-        pTimerModule->uTwdInitCount, pTimerModule->uTimersCount));
+    pTimerModule->uContextId, pTimerModule->bOperState, 
+    pTimerModule->uTwdInitCount, pTimerModule->uTimersCount));
 
     /* Print Init Queue Info */
     WLAN_OS_REPORT(("tmr_PrintModule(): Init-Queue:\n")); 
@@ -593,10 +608,9 @@ void tmr_PrintTimer (TI_HANDLE hTimerInfo)
     TTimerInfo   *pTimerInfo   = (TTimerInfo *)hTimerInfo;                 /* The timer handle */     
 
     WLAN_OS_REPORT(("tmr_PrintTimer(): uIntervalMs=%d, bPeriodic=%d, bOperStateWhenStarted=%d, uTwdInitCountWhenStarted=%d, hOsTimerObj=0x%x, fExpiryCbFunc=0x%x\n", 
-        pTimerInfo->uIntervalMsec, pTimerInfo->bPeriodic, pTimerInfo->bOperStateWhenStarted, 
-        pTimerInfo->uTwdInitCountWhenStarted, pTimerInfo->hOsTimerObj, pTimerInfo->fExpiryCbFunc));
+    pTimerInfo->uIntervalMsec, pTimerInfo->bPeriodic, pTimerInfo->bOperStateWhenStarted, 
+    pTimerInfo->uTwdInitCountWhenStarted, pTimerInfo->hOsTimerObj, pTimerInfo->fExpiryCbFunc));
 #endif
 }
 
 #endif /* TI_DBG */
-

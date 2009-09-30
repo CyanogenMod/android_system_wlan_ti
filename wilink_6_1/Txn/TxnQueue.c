@@ -361,10 +361,10 @@ ETxnStatus txnQ_Restart (TI_HANDLE hTxnQ, TI_UINT32 uFuncId)
         }
     }
 
+    context_LeaveCriticalSection (pTxnQ->hContext);
+
     /* Clear the calling function's queues (call function CB with status=RECOVERY) */
     txnQ_ClearQueues (pTxnQ, uFuncId);
-
-    context_LeaveCriticalSection (pTxnQ->hContext);
 
     /* Return COMPLETE to indicate that the restart was completed */
     return TXN_STATUS_COMPLETE;
@@ -486,9 +486,7 @@ static void txnQ_TxnDoneCb (TI_HANDLE hTxnQ, void *hTxn)
         TRACE0(pTxnQ->hReport, REPORT_SEVERITY_INFORMATION, "txnQ_TxnDoneCb(): Handling restart\n");
 
         /* First, Clear the restarted function queues  */
-        context_EnterCriticalSection (pTxnQ->hContext);
         txnQ_ClearQueues (pTxnQ, uFuncId);
-        context_LeaveCriticalSection (pTxnQ->hContext);
 
         /* Call function CB for current Txn with restart indication */
         TXN_PARAM_SET_STATUS(pTxn, TXN_PARAM_STATUS_RECOVERY);
@@ -769,22 +767,18 @@ static void txnQ_ClearQueues (TTxnQObj *pTxnQ, TI_UINT32 uFuncId)
     /* For all function priorities */
     for (uPrio = 0; uPrio < pTxnQ->aFuncInfo[uFuncId].uNumPrios; uPrio++)
     {
-        while (1) 
+        do
         {
+            context_EnterCriticalSection (pTxnQ->hContext);
             /* Dequeue Txn from current priority queue */
             pTxn = (TTxnStruct *) que_Dequeue (pTxnQ->aTxnQueues[uFuncId][uPrio]);
-
-            /* If NULL Txn (queue empty), exit while loop */
-            if (pTxn == NULL)
-            {
-                break;
-            }
+            context_LeaveCriticalSection (pTxnQ->hContext);
 
             /* 
              * Drop on Restart 
              * do not call fTxnQueueDoneCb (hCbHandle, pTxn) callback 
              */
-        }
+        } while (pTxn != NULL);
     }
 
     /* Clear state - for restart (doesn't call txnQ_Open) */
@@ -802,5 +796,3 @@ void txnQ_PrintQueues (TI_HANDLE hTxnQ)
     que_Print(pTxnQ->aTxnQueues[TXN_FUNC_ID_WLAN][TXN_HIGH_PRIORITY]);
 }
 #endif /* TI_DBG */
-
-
