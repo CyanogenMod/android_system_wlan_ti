@@ -270,12 +270,6 @@ static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 				scan_probe_flag);
 
 	drv->force_merge_flag = 0; /* Set merge flag */
-	for(issid = wpa_s->conf->ssid;( issid );issid = issid->next) {
-		if (!issid->disabled && issid->scan_ssid) {
-			drv->force_merge_flag = 1;
-			break;
-		}
-	}
 
 	if ((scan_probe_flag && ssid) &&
 	    (ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.str))) {
