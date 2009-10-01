@@ -1547,7 +1547,8 @@ static TI_STATUS rxData_ConvertAmsduToEthPackets (TI_HANDLE hRxData, void *pBuff
         lengthDelta = ETHERNET_HDR_LEN + uDataLen;
 
         /* copy the packet payload */
-        os_memoryCopy (pRxData->hOs, 
+        if (uDataLen > WLAN_SNAP_HDR_LEN)
+            os_memoryCopy (pRxData->hOs,
                        (((TI_UINT8*)pEthHeader) + ETHERNET_HDR_LEN), 
                        ((TI_UINT8*)pMsduEthHeader) + ETHERNET_HDR_LEN + WLAN_SNAP_HDR_LEN, 
                        uDataLen - WLAN_SNAP_HDR_LEN);
@@ -1594,6 +1595,7 @@ static TI_STATUS rxData_ConvertAmsduToEthPackets (TI_HANDLE hRxData, void *pBuff
         {
             /* no more MSDU */
             uAmsduDataLen = 0;
+            break;
         }
 
 
@@ -1730,7 +1732,7 @@ static void rxData_ReceivePacket (TI_HANDLE   hRxData,
                             RADIO_BAND_5_0_GHZ : RADIO_BAND_2_4_GHZ ;
         RxAttr.eScanTag   = pRxParams->proccess_id_tag;
         /* timestamp is 32 bit so do bytes copy to avoid exception in case the RxInfo is in 2 bytes offset */
-        os_memoryCopy (pRxData->hOs, 
+        os_memoryCopy (pRxData->hOs,
                        (void *)&(RxAttr.TimeStamp), 
                        (void *)&(pRxParams->timestamp), 
                        sizeof(pRxParams->timestamp) );
@@ -1835,6 +1837,7 @@ void rxData_resetDbgCounters(TI_HANDLE hRxData)
 ***************************************************************************/
 void rxData_printRxCounters (TI_HANDLE hRxData)
 {
+#ifdef REPORT_LOG
     rxData_t *pRxData = (rxData_t *)hRxData;
 
     if (pRxData) 
@@ -1854,6 +1857,7 @@ void rxData_printRxCounters (TI_HANDLE hRxData)
         WLAN_OS_REPORT(("rxWrongBssIdCounter = %d\n", pRxData->rxDataDbgCounters.rxWrongBssIdCounter));
         WLAN_OS_REPORT(("rcvUnicastFrameInOpenNotify = %d\n", pRxData->rxDataDbgCounters.rcvUnicastFrameInOpenNotify));        
     }
+#endif
 }
 
 
