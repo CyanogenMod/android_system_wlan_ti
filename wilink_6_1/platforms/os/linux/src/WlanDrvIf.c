@@ -611,8 +611,8 @@ int wlanDrvIf_Start (struct net_device *dev)
      *  Insert Start command in DrvMain action queue, request driver scheduling 
      *      and wait for action completion (all init process).
      */
-    drvMain_InsertAction (drv->tCommon.hDrvMain, ACTION_TYPE_START);
     os_wake_lock_timeout_enable(drv);
+    drvMain_InsertAction (drv->tCommon.hDrvMain, ACTION_TYPE_START);
     return 0;
 }
 
@@ -671,8 +671,8 @@ int wlanDrvIf_Stop (struct net_device *dev)
      *  Insert Stop command in DrvMain action queue, request driver scheduling 
      *      and wait for Stop process completion.
      */
-    drvMain_InsertAction (drv->tCommon.hDrvMain, ACTION_TYPE_STOP);
     os_wake_lock_timeout_enable(drv);
+    drvMain_InsertAction (drv->tCommon.hDrvMain, ACTION_TYPE_STOP);
     return 0;
 }
 
