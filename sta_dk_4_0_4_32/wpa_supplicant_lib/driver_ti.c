@@ -910,12 +910,6 @@ static int wpa_driver_tista_scan( void *priv, const UINT8 *ssid, size_t ssid_len
     ti_init_scan_params( &scanParams, &scanPolicy, scan_type, myDrv );
 
     myDrv->force_merge_flag = 0; /* Set merge flag */
-    for(issid = wpa_s->conf->ssid;( issid );issid = issid->next) {
-        if (!issid->disabled && issid->scan_ssid) {
-            myDrv->force_merge_flag = 1;
-            break;
-        }
-    }
 
     if ((scan_probe_flag && ssid) &&
         (ssid_len > 0 && ssid_len <= sizeof(scanParams.desiredSsid.ssidString))) {
