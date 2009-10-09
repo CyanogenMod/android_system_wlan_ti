@@ -53,6 +53,8 @@
 #define RX_IPV4_MULTICAST_FILTER	2
 #define RX_IPV6_MULTICAST_FILTER	3
 
+#define MAX_NUMBER_SEQUENTIAL_ERRORS	4
+
 typedef enum {
 	BLUETOOTH_COEXISTENCE_MODE_ENABLED = 0,
 	BLUETOOTH_COEXISTENCE_MODE_DISABLED,
@@ -73,5 +75,6 @@ struct wpa_driver_ti_data {
 	u32 btcoex_mode;		/* BtCoex Mode */
 	int last_scan;			/* Last scan type */
 	SHLIST scan_merge_list;		/* Previous scan list */
+	int errors;			/* Number of sequential errors */
 };
 #endif
