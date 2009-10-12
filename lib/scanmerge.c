@@ -158,52 +158,47 @@ unsigned int scan_merge( struct wpa_driver_ti_data *mydrv,
     scan_merge_t *scan_ptr;
     unsigned int i;
 
-    if( (mydrv->last_scan == SCAN_TYPE_NORMAL_PASSIVE) || force_flag ) { /* Merge results */
-        /* Prepare items for removal */
-        item = shListGetFirstItem( head );
-        while( item != NULL ) {
-            scan_ptr = (scan_merge_t *)(item->data);
-            if( scan_ptr->count != 0 )
-                scan_ptr->count--;
-            item = shListGetNextItem( head, item );
-        }
+    /* Prepare items for removal */
+    item = shListGetFirstItem( head );
+    while( item != NULL ) {
+        scan_ptr = (scan_merge_t *)(item->data);
+        if( scan_ptr->count != 0 )
+            scan_ptr->count--;
+        item = shListGetNextItem( head, item );
+    }
 
-        for(i=0;( i < number_items );i++) { /* Find/Add new items */
-            item = shListFindItem( head, &(results[i]), scan_equal );
-            if( item ) {
-                scan_ptr = (scan_merge_t *)(item->data);
-                copy_scan_res(&(scan_ptr->scanres), &(results[i]));
-                scan_ptr->count = SCAN_MERGE_COUNT;
-            }
-            else {
-                scan_add( head, &(results[i]) );
-            }
-        }
-
-        item = shListGetFirstItem( head );  /* Add/Remove missing items */
-        while( item != NULL ) {
-            del_item = NULL;
+    for(i=0;( i < number_items );i++) { /* Find/Add new items */
+        item = shListFindItem( head, &(results[i]), scan_equal );
+        if( item ) {
             scan_ptr = (scan_merge_t *)(item->data);
-            if( (scan_ptr->count == 0) && !force_flag )
+            copy_scan_res(&(scan_ptr->scanres), &(results[i]));
+            scan_ptr->count = SCAN_MERGE_COUNT;
+        }
+        else {
+            scan_add( head, &(results[i]) );
+        }
+    }
+
+    item = shListGetFirstItem( head );  /* Add/Remove missing items */
+    while( item != NULL ) {
+        del_item = NULL;
+        scan_ptr = (scan_merge_t *)(item->data);
+        if( scan_ptr->count != SCAN_MERGE_COUNT ) {
+            if( !force_flag && ((scan_ptr->count == 0) ||
+                (mydrv->last_scan == SCAN_TYPE_NORMAL_ACTIVE)) )
                 del_item = item;
-            else if( scan_ptr->count != SCAN_MERGE_COUNT ) {
+            else {
                 if( number_items < max_size ) {
                     os_memcpy(&(results[number_items]),
                           &(scan_ptr->scanres),sizeof(struct wpa_scan_result));
                     number_items++;
                 }
             }
-            item = shListGetNextItem( head, item );
-            shListDelItem( head, del_item, scan_free );
         }
+        item = shListGetNextItem( head, item );
+        shListDelItem( head, del_item, scan_free );
     }
-    else if( mydrv->last_scan == SCAN_TYPE_NORMAL_ACTIVE ) { /* Copy results */
-        shListDelAllItems( head, scan_free );
-        for(i=0;( i < number_items );i++) {
-            if( scan_add( head, &(results[i]) ) == NULL )
-                return( i );
-        }
-    }
+
     return( number_items );
 }
 
