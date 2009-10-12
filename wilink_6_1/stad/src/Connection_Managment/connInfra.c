@@ -856,7 +856,7 @@ static TI_STATUS prepare_send_disconnect(void *pData)
 
     /* Start the disconnect complete time out timer. 
        Disconect Complete event, which stops the timer. */
-    tmr_StartTimer (pConn->hConnTimer, conn_timeout, (TI_HANDLE)pConn, DISCONNECT_TIMEOUT_MSEC * 4, TI_FALSE);
+    tmr_StartTimer (pConn->hConnTimer, conn_timeout, (TI_HANDLE)pConn, DISCONNECT_TIMEOUT_MSEC, TI_FALSE);
 
     /* FW will send the disconn frame according to disConnType */ 
     TWD_CmdFwDisconnect (pConn->hTWD, pConn->disConnType, pConn->disConnReasonToAP); 
