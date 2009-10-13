@@ -1251,7 +1251,8 @@ TI_STATUS admCtrlWpa_parseIe(admCtrl_t *pAdmCtrl, TI_UINT8 *pWpaIe, wpaIeData_t 
             curWpaIe +=4; 
 
             /* Include all AP key management supported suites in the wpaData structure */
-            pWpaData->KeyMngSuite[index+1] = curKeyMngSuite;
+	    if ((index+1) < MAX_WPA_KEY_MNG_SUITES)
+                pWpaData->KeyMngSuite[index+1] = curKeyMngSuite;
 
         }
         pWpaData->KeyMngSuite[0] = maxKeyMngSuite;

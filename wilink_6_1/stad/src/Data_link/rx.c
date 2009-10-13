@@ -39,28 +39,28 @@
 /***************************************************************************/
 #define __FILE_ID__  FILE_ID_54
 #include "tidef.h"
-#include "paramOut.h" 
+#include "paramOut.h"
 #include "rx.h"
 #include "osApi.h"
 #include "timer.h"
 #include "DataCtrl_Api.h"
 #include "Ctrl.h"
 #include "802_11Defs.h"
-#include "Ethernet.h" 
+#include "Ethernet.h"
 #include "report.h"
 #include "rate.h"
 #include "mlmeApi.h"
 #include "rsnApi.h"
 #include "smeApi.h"
 #include "siteMgrApi.h"
-#include "GeneralUtil.h"   
+#include "GeneralUtil.h"
 #include "EvHandler.h"
 #ifdef XCC_MODULE_INCLUDED
 #include "XCCMngr.h"
 #endif
 #include "TWDriver.h"
 #include "RxBuf.h"
-#include "DrvMainModules.h" 
+#include "DrvMainModules.h"
 #include "bmtrace_api.h"
 #include "PowerMgr_API.h"
 
@@ -184,7 +184,7 @@ void rxData_init (TStadHandlesList *pStadHandles)
     pRxData->hEvHandler = pStadHandles->hEvHandler;
     pRxData->hTimer     = pStadHandles->hTimer;
     pRxData->hPowerMgr  = pStadHandles->hPowerMgr;
-    
+
     pRxData->rxDataExcludeUnencrypted = DEF_EXCLUDE_UNENCYPTED; 
     pRxData->rxDataExludeBroadcastUnencrypted = DEF_EXCLUDE_UNENCYPTED;
     pRxData->rxDataEapolDestination = DEF_EAPOL_DESTINATION;
@@ -239,7 +239,7 @@ TI_STATUS rxData_SetDefaults (TI_HANDLE hRxData, rxDataInitParams_t * rxDataInit
 {
     rxData_t *pRxData = (rxData_t *)hRxData;
     int i;
-    
+
     /* init rx data filters */
     pRxData->filteringEnabled = rxDataInitParams->rxDataFiltersEnabled;
     pRxData->filteringDefaultAction = rxDataInitParams->rxDataFiltersDefaultAction;
@@ -814,7 +814,6 @@ static TI_STATUS rxData_addRxDataFilter (TI_HANDLE hRxData, TRxDataFilterRequest
                                 lenFieldPatterns, 
                                 fieldPatterns);
 
-    return TI_OK;
 }
 
 /***************************************************************************
