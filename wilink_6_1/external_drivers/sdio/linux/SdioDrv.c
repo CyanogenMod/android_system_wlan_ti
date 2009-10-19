@@ -39,6 +39,9 @@ typedef void *TI_HANDLE;
 /* #define TI_SDIO_DEBUG */
 
 #ifndef CONFIG_MMC_EMBEDDED_SDIO
+
+#define SDIOWQ_NAME			"sdio_wq"
+
 /*
  * HSMMC Address and DMA Settings
  */
@@ -212,6 +215,8 @@ typedef struct OMAP3430_sdiodrv
 	size_t dma_read_size;
 	dma_addr_t dma_write_addr;
 	size_t dma_write_size;
+	struct workqueue_struct *sdio_wq; /* Work Queue */
+	struct work_struct sdiodrv_work;
 } OMAP3430_sdiodrv_t;
 
 struct omap_hsmmc_regs {
@@ -230,11 +235,9 @@ static struct omap_hsmmc_regs hsmmc_ctx;
 module_param(g_sdio_debug_level, int, 0644);
 MODULE_PARM_DESC(g_sdio_debug_level, "debug level");
 int g_sdio_debug_level = SDIO_DEBUGLEVEL_ERR;
-EXPORT_SYMBOL( g_sdio_debug_level);
+EXPORT_SYMBOL(g_sdio_debug_level);
 
 OMAP3430_sdiodrv_t g_drv;
-
-struct work_struct sdiodrv_work;
 
 static int sdiodrv_dma_on = 0;
 static int sdiodrv_irq_requested = 0;
@@ -332,8 +335,7 @@ irqreturn_t sdiodrv_irq(int irq, void *drv)
 	if (g_drv.async_status) {
 		PERR("sdiodrv_irq: ERROR in STAT = 0x%x\n", status);
 	}
-	schedule_work(&sdiodrv_work);
-
+	queue_work(g_drv.sdio_wq, &g_drv.sdiodrv_work);
 	return IRQ_HANDLED;
 }
 
@@ -343,7 +345,7 @@ void sdiodrv_dma_read_cb(int lch, u16 ch_status, void *data)
 
 	g_drv.async_status = ch_status & (1 << 7);
 
-	schedule_work(&sdiodrv_work);
+	queue_work(g_drv.sdio_wq, &g_drv.sdiodrv_work);
 }
 
 void sdiodrv_dma_write_cb(int lch, u16 ch_status, void *data)
@@ -451,7 +453,6 @@ static int sdiodrv_send_command(u32 cmdreg, u32 cmdarg)
 	OMAP_HSMMC_SEND_COMMAND(cmdreg, cmdarg);
 
 	return sdiodrv_poll_status(OMAP_HSMMC_STAT, CC, MMC_TIMEOUT_MS);
-
 } /* sdiodrv_send_command() */
 
 /*
@@ -685,7 +686,7 @@ int sdioDrv_ConnectBus (void *       fCbFunc,
 	g_drv.uBlkSizeShift = uBlkSizeShift;  
 	g_drv.uBlkSize      = 1 << uBlkSizeShift;
 
-	INIT_WORK(&sdiodrv_work, sdiodrv_task);
+	INIT_WORK(&g_drv.sdiodrv_work, sdiodrv_task);
 
 	/* Provide the DMA buffer address to the upper layer so it will use it 
 	   as the transactions host buffer. */
@@ -1275,6 +1276,11 @@ int __init sdioDrv_init(int sdcnum)
 #ifndef TI_SDIO_STANDALONE
 	sdio_init( sdcnum );
 #endif
+	g_drv.sdio_wq = create_freezeable_workqueue(SDIOWQ_NAME);
+	if (!g_drv.sdio_wq) {
+		printk("TISDIO: Fail to create SDIO WQ\n");
+		return -EINVAL;
+	}
 	/* Register the sdio driver */
 	return platform_driver_register(&sdioDrv_struct);
 }
@@ -1286,6 +1292,8 @@ void __exit sdioDrv_exit(void)
 {
 	/* Unregister sdio driver */
 	platform_driver_unregister(&sdioDrv_struct);
+	if (g_drv.sdio_wq)
+		destroy_workqueue(g_drv.sdio_wq);
 }
 
 #ifdef TI_SDIO_STANDALONE
