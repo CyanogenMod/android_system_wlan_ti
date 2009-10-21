@@ -737,7 +737,8 @@ void *os_SignalObjectCreate (TI_HANDLE OsContext)
 {
 	struct completion *myPtr;
 	myPtr = os_memoryAlloc(OsContext, sizeof(struct completion));
-	init_completion (myPtr);
+	if (myPtr)
+		init_completion (myPtr);
 	return (myPtr);
 }
 
@@ -753,6 +754,8 @@ Return Value: TI_OK
 -----------------------------------------------------------------------------*/
 int os_SignalObjectWait (TI_HANDLE OsContext, void *signalObject)
 {
+	if (!signalObject)
+		return TI_NOK;
 	wait_for_completion ((struct completion *)signalObject);
 	return TI_OK;
 }
@@ -769,6 +772,8 @@ Return Value: TI_OK
 -----------------------------------------------------------------------------*/
 int os_SignalObjectSet (TI_HANDLE OsContext, void *signalObject)
 {
+	if (!signalObject)
+		return TI_NOK;
 	complete ((struct completion *)signalObject);
 	return TI_OK;
 }
@@ -785,6 +790,8 @@ Return Value: TI_OK
 -----------------------------------------------------------------------------*/
 int os_SignalObjectFree (TI_HANDLE OsContext, void *signalObject)
 {
+	if (!signalObject)
+		return TI_NOK;
 	os_memoryFree(OsContext, signalObject, sizeof(struct completion));
 	return TI_OK;
 }
