@@ -661,14 +661,13 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 				os_memcpy( (void *)buf, (void *)(cur_res->ssid), len );
 				ret = len;
 				ret += snprintf(&buf[ret], buf_len-len, " rssi %d\n", rssi);
-				if (ret < (int)buf_len) {
-					return( ret );
-				}
 			}
 		}
 	}
 	else if( os_strcasecmp(cmd, "rssi") == 0 ) {
 		u8 ssid[MAX_SSID_LEN];
+		struct wpa_scan_result *cur_res;
+		struct wpa_supplicant *wpa_s = (struct wpa_supplicant *)(drv->ctx);
 		int rssi_data, rssi_beacon, len;
 
 		wpa_printf(MSG_DEBUG,"rssi command");
@@ -682,6 +681,12 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 				ret = len;
 				ret += sprintf(&buf[ret], " rssi %d\n", rssi_beacon);
 				wpa_printf(MSG_DEBUG, "buf %s", buf);
+				/* Update cached value */
+				if( !wpa_s )
+					return( ret );
+				cur_res = scan_get_by_bssid( drv, wpa_s->bssid );
+				if( cur_res )
+					cur_res->level = rssi_beacon;
 			}
 			else
 			{
