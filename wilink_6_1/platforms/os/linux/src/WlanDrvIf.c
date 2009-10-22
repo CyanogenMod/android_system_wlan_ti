@@ -823,9 +823,9 @@ static int wlanDrvIf_Create (void)
 
 	drv->tiwlan_wq = create_freezeable_workqueue(DRIVERWQ_NAME);
 	if (!drv->tiwlan_wq) {
-		kfree (drv);
 		ti_dprintf (TIWLAN_LOG_ERROR, "wlanDrvIf_Create(): Failed to create workQ!\n");
-		return TI_NOK;
+		rc = -EINVAL;
+		goto drv_create_end_1;
 	}
 	drv->wl_packet = 0;
 	drv->wl_count = 0;
@@ -843,8 +843,7 @@ static int wlanDrvIf_Create (void)
 	/* Setup driver network interface. */
 	rc = wlanDrvIf_SetupNetif (drv);
 	if (rc)	{
-		kfree (drv);
-		return rc;
+		goto drv_create_end_2;
 	}
 
 	/* Create the events socket interface */
@@ -855,11 +854,12 @@ static int wlanDrvIf_Create (void)
 #endif
 	if (drv->wl_sock == NULL) {
 	        ti_dprintf (TIWLAN_LOG_ERROR, "netlink_kernel_create() failed !\n");
-	        return -EINVAL;
+		rc = -EINVAL;
+		goto drv_create_end_3;
 	}
 
 	/* Create all driver modules and link their handles */
-	drvMain_Create (drv,
+	rc = drvMain_Create (drv,
 			&drv->tCommon.hDrvMain,
 			&drv->tCommon.hCmdHndlr,
 			&drv->tCommon.hContext,
@@ -868,7 +868,11 @@ static int wlanDrvIf_Create (void)
 			&drv->tCommon.hTxCtrl,
 			&drv->tCommon.hTWD,
 			&drv->tCommon.hEvHandler);
-
+	if (rc != TI_OK) {
+		ti_dprintf (TIWLAN_LOG_ERROR, "%s: Failed to dvrMain_Create!\n", __func__);
+		rc = -EINVAL;
+		goto drv_create_end_4;
+	}
 	/*
 	 *  Initialize interrupts (or polling mode for debug):
 	 */
@@ -880,10 +884,39 @@ static int wlanDrvIf_Create (void)
 	rc = hPlatform_initInterrupt (drv, (void*)wlanDrvIf_HandleInterrupt);
 	if (rc)	{
 		ti_dprintf (TIWLAN_LOG_ERROR, "wlanDrvIf_Create(): Failed to register interrupt handler!\n");
-		return rc;
+		goto drv_create_end_5;
 	}
 #endif  /* PRIODIC_INTERRUPT */
 	return 0;
+drv_create_end_5:
+	/* Destroy all driver modules */
+	if (drv->tCommon.hDrvMain) {
+		drvMain_Destroy (drv->tCommon.hDrvMain);
+	}
+drv_create_end_4:
+	if (drv->wl_sock) {
+		sock_release (drv->wl_sock->sk_socket);
+	}
+
+drv_create_end_3:
+	/* Release the driver network interface */
+	if (drv->netdev) {
+		unregister_netdev (drv->netdev);
+		free_netdev (drv->netdev);
+	}
+
+drv_create_end_2:
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock_destroy(&drv->wl_wifi);
+	wake_lock_destroy(&drv->wl_rxwake);
+#endif
+	if (drv->tiwlan_wq)
+		destroy_workqueue(drv->tiwlan_wq);
+
+drv_create_end_1:
+	kfree(drv);
+	printk("%s: Fail\n", __func__);
+	return rc;
 }
 
 
@@ -909,6 +942,7 @@ static void wlanDrvIf_Destroy (TWlanDrvIfObj *drv)
 		netif_stop_queue  (drv->netdev);
 		wlanDrvIf_Stop    (drv->netdev);
 		unregister_netdev (drv->netdev);
+		free_netdev (drv->netdev);
 	}
 	/* Destroy all driver modules */
 	if (drv->tCommon.hDrvMain) {
