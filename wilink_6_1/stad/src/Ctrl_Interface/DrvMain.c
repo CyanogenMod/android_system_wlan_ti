@@ -1266,6 +1266,7 @@ TI_STATUS drvMain_InsertAction (TI_HANDLE hDrvMain, EActionType eAction)
 
     /* Free signalling object */
     os_SignalObjectFree (pDrvMain->tStadHandles.hOs, pDrvMain->hSignalObj);
+    pDrvMain->hSignalObj = NULL;
 
     if (pDrvMain->eSmState == SM_STATE_FAILED)
     return TI_NOK;
@@ -1292,7 +1293,11 @@ TI_STATUS drvMain_Recovery (TI_HANDLE hDrvMain)
     if (!pDrvMain->bRecovery)
     {
         TRACE1(pDrvMain->tStadHandles.hReport, REPORT_SEVERITY_CONSOLE,".....drvMain_Recovery, ts=%d\n", os_timeStampMs(pDrvMain->tStadHandles.hOs));
+#ifdef REPORT_LOG
         WLAN_OS_REPORT((".....drvMain_Recovery, ts=%d\n", os_timeStampMs(pDrvMain->tStadHandles.hOs)));
+#else
+        printk("%s\n",__func__);
+#endif
         pDrvMain->bRecovery = TI_TRUE;
         drvMain_SmEvent (hDrvMain, SM_EVENT_RECOVERY);
         return TI_OK;
