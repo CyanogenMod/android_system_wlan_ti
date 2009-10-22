@@ -602,8 +602,8 @@ int os_wake_lock_timeout (TI_HANDLE OsContext)
 	int ret = 0;
 	unsigned long flags;
 
-	spin_lock_irqsave(&drv->lock, flags);
 	if (drv) {
+		spin_lock_irqsave(&drv->lock, flags);
 		ret = drv->wl_packet;
 		if (drv->wl_packet) {
 			drv->wl_packet = 0;
@@ -611,8 +611,8 @@ int os_wake_lock_timeout (TI_HANDLE OsContext)
 			wake_lock_timeout(&drv->wl_rxwake, (HZ >> 1));
 #endif
 		}
+		spin_unlock_irqrestore(&drv->lock, flags);
 	}
-	spin_unlock_irqrestore(&drv->lock, flags);
 	/* printk("%s: %d\n", __func__, ret); */
 	return ret;
 }
@@ -630,11 +630,13 @@ int os_wake_lock_timeout_enable (TI_HANDLE OsContext)
 {
 	TWlanDrvIfObj *drv = (TWlanDrvIfObj *)OsContext;
 	unsigned long flags;
-	int ret;
+	int ret = 0;
 
-	spin_lock_irqsave(&drv->lock, flags);
-	ret = drv->wl_packet = 1;
-	spin_unlock_irqrestore(&drv->lock, flags);
+	if (drv) {
+		spin_lock_irqsave(&drv->lock, flags);
+		ret = drv->wl_packet = 1;
+		spin_unlock_irqrestore(&drv->lock, flags);
+	}
 	return ret;
 }
 
@@ -653,16 +655,16 @@ int os_wake_lock (TI_HANDLE OsContext)
 	int ret = 0;
 	unsigned long flags;
 
-	spin_lock_irqsave(&drv->lock, flags);
 	if (drv) {
+		spin_lock_irqsave(&drv->lock, flags);
 #ifdef CONFIG_HAS_WAKELOCK
 		if (!drv->wl_count)
 			wake_lock(&drv->wl_wifi);
 #endif
 		drv->wl_count++;
 		ret = drv->wl_count;
+		spin_unlock_irqrestore(&drv->lock, flags);
 	}
-	spin_unlock_irqrestore(&drv->lock, flags);
 	/* printk("%s: %d\n", __func__, ret); */
 	return ret;
 }
@@ -682,16 +684,18 @@ int os_wake_unlock (TI_HANDLE OsContext)
 	int ret = 0;
 	unsigned long flags;
 
-	spin_lock_irqsave(&drv->lock, flags);
-	if (drv && drv->wl_count) {
-		drv->wl_count--;
+	if (drv) {
+		spin_lock_irqsave(&drv->lock, flags);
+		if (drv->wl_count) {
+			drv->wl_count--;
 #ifdef CONFIG_HAS_WAKELOCK
-		if (!drv->wl_count)
-			wake_unlock(&drv->wl_wifi);
+			if (!drv->wl_count)
+				wake_unlock(&drv->wl_wifi);
 #endif
-		ret = drv->wl_count;
+			ret = drv->wl_count;
+		}
+		spin_unlock_irqrestore(&drv->lock, flags);
 	}
-	spin_unlock_irqrestore(&drv->lock, flags);
 	/* printk("%s: %d\n", __func__, ret); */
 	return ret;
 }
