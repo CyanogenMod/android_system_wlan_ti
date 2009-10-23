@@ -1814,10 +1814,12 @@ int omap1610_drv_create(void)
 
 #define TROUT_IRQ MSM_GPIO_TO_INT(29)
 
+#ifdef SDIO_INTERRUPT_HANDLING_ON
 static void tiwlan_sdio_irq(struct sdio_func *func)
 {
     printk("%s:\n", __FUNCTION__);
 }
+#endif
 
 static const struct sdio_device_id tiwlan_sdio_ids[] = {
     { SDIO_DEVICE_CLASS(SDIO_CLASS_WLAN)    },
@@ -1865,11 +1867,11 @@ static int tiwlan_sdio_probe(struct sdio_func *func, const struct sdio_device_id
     rc = tiwlan_sdio_init(func);
     if (rc)
         goto err2;
-
+#ifdef SDIO_INTERRUPT_HANDLING_ON
     rc = sdio_claim_irq(func, tiwlan_sdio_irq);
     if (rc)
         goto err1;
-
+#endif
     SDIO_SetFunc( func );
 
     rc = tiwlan_create_drv(0, 0, 0, 0, 0, TROUT_IRQ, NULL, NULL);
@@ -1877,8 +1879,10 @@ static int tiwlan_sdio_probe(struct sdio_func *func, const struct sdio_device_id
     printk(KERN_INFO "TIWLAN: Driver initialized (rc %d)\n", rc);
     complete(&sdio_wait);
     return rc;
+#ifdef SDIO_INTERRUPT_HANDLING_ON
 err1:
     sdio_disable_func(func);
+#endif
 err2:
     sdio_release_host(func);
     complete(&sdio_wait);
@@ -1889,7 +1893,9 @@ err2:
 static void tiwlan_sdio_remove(struct sdio_func *func)
 {
     printk(KERN_DEBUG "TIWLAN: Releasing SDIO resources\n");
+#ifdef SDIO_INTERRUPT_HANDLING_ON
     sdio_release_irq(func);
+#endif
     sdio_disable_func(func);
     sdio_release_host(func);
     printk(KERN_DEBUG "TIWLAN: SDIO resources released\n");
