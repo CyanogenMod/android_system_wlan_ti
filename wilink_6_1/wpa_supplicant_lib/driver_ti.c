@@ -158,8 +158,10 @@ static int wpa_driver_tista_driver_start( void *priv )
 
 	res = wpa_driver_tista_private_send(priv, DRIVER_START_PARAM, &uDummyBuf, sizeof(uDummyBuf), NULL, 0);
 
-	if (0 != res)
+	if (0 != res) {
 		wpa_printf(MSG_ERROR, "ERROR - Failed to start driver!");
+		wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "HANGED");
+	}
 	else {
 		os_sleep(0, WPA_DRIVER_WEXT_WAIT_US); /* delay 400 ms */
 		wpa_printf(MSG_DEBUG, "wpa_driver_tista_driver_start success");
@@ -175,8 +177,10 @@ static int wpa_driver_tista_driver_stop( void *priv )
 
 	res = wpa_driver_tista_private_send(priv, DRIVER_STOP_PARAM, &uDummyBuf, sizeof(uDummyBuf), NULL, 0);
 
-	if(0 != res)
+	if (0 != res) {
 		wpa_printf(MSG_ERROR, "ERROR - Failed to stop driver!");
+		wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "HANGED");
+	}
 	else
 		wpa_printf(MSG_DEBUG, "wpa_driver_tista_driver_stop success");
 
