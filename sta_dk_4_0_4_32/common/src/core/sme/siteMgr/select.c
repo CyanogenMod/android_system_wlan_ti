@@ -253,19 +253,18 @@ siteEntry_t* siteMgr_selectSiteFromTable(TI_HANDLE	hSiteMgr)
 	UINT32		prevMatchingLevel = 0;		
 	UINT8		siteIndex, tableIndex, numberOfSites = 0;
 	siteMgr_t	*pSiteMgr = (siteMgr_t *)hSiteMgr;
-	siteEntry_t *pSiteEntry, *pLastMatchSite = NULL;	
+	siteEntry_t	*pSiteEntry, *pLastMatchSite = NULL;
 	rsnData_t	rsnData;
-    dot11_RSN_t *pRsnIe;
-    UINT8       rsnIECount=0;
-    UINT8       curRsnData[255];
-    UINT8       length=0;
+	dot11_RSN_t	*pRsnIe;
+	UINT8		rsnIECount=0;
+	UINT8       	length=0;
 	paramInfo_t	param;
-    radioBand_e radioBand;
+	radioBand_e	radioBand;
 	BOOL		bRegulatoryDomainEnabled;
 
 	siteTablesParams_t* currTable = pSiteMgr->pSitesMgmtParams->pCurrentSiteTable;
 
-	WLAN_REPORT_INFORMATION(pSiteMgr->hReport, SITE_MGR_MODULE_LOG,  
+	WLAN_REPORT_INFORMATION(pSiteMgr->hReport, SITE_MGR_MODULE_LOG,
 							("SITE MATCH , Desired ssid (%s) len= (%d)\n\n", 
 							 pSiteMgr->pDesiredParams->siteMgrDesiredSSID.ssidString, 
 							 pSiteMgr->pDesiredParams->siteMgrDesiredSSID.len));
@@ -1438,4 +1437,3 @@ TI_STATUS systemConfig(siteMgr_t *pSiteMgr)
     
 	return OK;
 }
-
