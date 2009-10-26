@@ -1588,10 +1588,6 @@ static void drvMain_Sm (TI_HANDLE hDrvMain, ESmEvent eEvent)
         if (eEvent == SM_EVENT_FW_INIT_COMPLETE)
         {
             pDrvMain->eSmState = SM_STATE_FW_CONFIG;
-            if (!pDrvMain->bRecovery)
-            {
-                os_SignalObjectSet(hOs, pDrvMain->hSignalObj);
-            }
             TWD_EnableInterrupts(pDrvMain->tStadHandles.hTWD);
           #ifdef PRIODIC_INTERRUPT
             /* Start periodic interrupts. It means that every period of time the FwEvent SM will be called */
@@ -1632,6 +1628,10 @@ static void drvMain_Sm (TI_HANDLE hDrvMain, ESmEvent eEvent)
             context_EnableClient (pDrvMain->tStadHandles.hContext, pDrvMain->uContextId);
             eStatus = TI_OK;
            
+        }
+        if (!pDrvMain->bRecovery)
+        {
+            os_SignalObjectSet(hOs, pDrvMain->hSignalObj);
         }
         break;
     case SM_STATE_OPERATIONAL:
