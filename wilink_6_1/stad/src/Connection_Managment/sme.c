@@ -39,6 +39,7 @@
 
 
 #define __FILE_ID__  FILE_ID_41
+#include <linux/kernel.h>
 #include "smePrivate.h"
 #include "GenSM.h"
 #include "scanResultTable.h"
@@ -353,6 +354,12 @@ TI_STATUS sme_SetParam (TI_HANDLE hSme, paramInfo_t *pParam)
         break;
 
     case SME_DESIRED_SSID_ACT_PARAM:
+        if (pParam->content.smeDesiredSSID.len > MAX_SSID_LEN)
+        {
+            printk("SSID length(%d) is out of range. Discard it.\n", pParam->content.smeDesiredSSID.len);
+            return PARAM_VALUE_NOT_VALID; /* ssid length is out of range */
+        }
+
         pSme->bRadioOn = TI_TRUE;
 
         /* if new value is different than current one */
@@ -387,6 +394,9 @@ TI_STATUS sme_SetParam (TI_HANDLE hSme, paramInfo_t *pParam)
         {
             pSme->bConstantScan = TI_FALSE;
         }
+
+        /* printk("SME_DESIRED_SSID_ACT_PARAM: bRadioOn = %d, bRunning = %d\n", pSme->bRadioOn, pSme->bRunning); */
+        pSme->bRunning = TI_TRUE; /* set it to TRUE in case it's accidentally altered. */
 
         /* now send a disconnect event */
         genSM_Event (pSme->hSmeSm, SME_SM_EVENT_DISCONNECT, hSme);
