@@ -82,7 +82,7 @@ OS_OBJS = $(patsubst %.c, %.o, $(OS_SRCS))
 #
 # Remove debug info
 #
-EXTRA_LDFLAGS += --strip-debug 
+EXTRA_LDFLAGS += --strip-debug
 
 ##
 ##

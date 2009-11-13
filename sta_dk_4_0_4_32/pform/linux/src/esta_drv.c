@@ -1534,7 +1534,14 @@ static void tiwlan_destroy_drv(tiwlan_net_dev_t *drv)
         }
         else
             del_timer_sync(&drv->poll_timer);
-
+#ifdef DM_USE_WORKQUEUE
+        flush_work(&drv->tirq);
+        flush_work(&drv->tw);
+        flush_work(&drv->txmit);
+#if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
+        cancel_delayed_work_sync(&drv->trxw);
+#endif
+#endif
         /* Unload all modules (free memory) & destroy timers */
         configMgr_UnloadModules (drv->adapter.CoreHalCtx);
 
@@ -2022,18 +2029,16 @@ static int __init tiwlan_module_init(void)
     /* rc = tiwlan_create_drv(0, 0, 0, 0, 0, TROUT_IRQ, NULL, NULL); -- Called in probe */
 
     tiwlan_calibration = create_proc_entry("calibration", 0644, NULL);
-    if (tiwlan_calibration == NULL) {
-        remove_proc_entry(TIWLAN_DBG_PROC, NULL);
-        return -EINVAL;
+    if (tiwlan_calibration) {
+        tiwlan_calibration->size = tiwlan_get_nvs_size();
+        tiwlan_calibration->read_proc = tiwlan_calibration_read_proc;
+        tiwlan_calibration->write_proc = tiwlan_calibration_write_proc;
     }
-    tiwlan_calibration->size = tiwlan_get_nvs_size();
-    tiwlan_calibration->read_proc = tiwlan_calibration_read_proc;
-    tiwlan_calibration->write_proc = tiwlan_calibration_write_proc;
-
     if (!wait_for_completion_timeout(&sdio_wait, msecs_to_jiffies(10000))) {
         printk(KERN_ERR "%s: Timed out waiting for device detect\n", __func__);
         remove_proc_entry(TIWLAN_DBG_PROC, NULL);
-        remove_proc_entry("calibration", NULL);
+	if (tiwlan_calibration)
+            remove_proc_entry("calibration", NULL);
         sdio_unregister_driver(&tiwlan_sdio_drv);
 #ifdef CONFIG_WIFI_CONTROL_FUNC
         wifi_del_dev();
@@ -2072,7 +2077,8 @@ static void __exit tiwlan_module_cleanup(void)
     }
     remove_proc_entry(TIWLAN_DBG_PROC, NULL);
 #ifdef TIWLAN_MSM7000
-    remove_proc_entry("calibration", NULL);
+    if(tiwlan_calibration)
+        remove_proc_entry("calibration", NULL);
     sdio_unregister_driver(&tiwlan_sdio_drv);
 #ifdef CONFIG_WIFI_CONTROL_FUNC
     wifi_del_dev();
