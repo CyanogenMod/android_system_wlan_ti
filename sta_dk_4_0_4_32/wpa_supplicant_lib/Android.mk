@@ -29,6 +29,7 @@ OS_ROOT = $(BOARD_WLAN_TI_STA_DK_ROOT)/pform
 COMMON  = $(DK_ROOT)/common
 COMSRC  = $(COMMON)/src
 CUDK_ROOT = $(DK_ROOT)/CUDK
+LIB	= ../../lib
 
 include external/wpa_supplicant/.config
 
@@ -125,13 +126,13 @@ INCLUDES = $(COMMON)/inc \
 	$(CUDK_ROOT)/UtilityAdapter \
 	external/openssl/include \
 	external/wpa_supplicant \
-	system/core/adb
+	$(DK_ROOT)/../lib
   
 L_CFLAGS += -DCONFIG_DRIVER_CUSTOM -DHOST_COMPILE
 ifeq ($(notdir $(BOARD_WLAN_TI_STA_DK_ROOT)),sta_dk_5_0_0_94)
 L_CFLAGS += -DSTA_DK_VER_5_0_0_94 
 endif
-OBJS = driver_ti.c scanmerge.c ../../../../core/adb/shlist.c
+OBJS = driver_ti.c $(LIB)/scanmerge.c $(LIB)/shlist.c
 
 ifdef CONFIG_NO_STDOUT_DEBUG
 L_CFLAGS += -DCONFIG_NO_STDOUT_DEBUG

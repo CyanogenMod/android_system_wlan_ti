@@ -82,7 +82,7 @@ OS_OBJS = $(patsubst %.c, %.o, $(OS_SRCS))
 #
 # Remove debug info
 #
-EXTRA_LDFLAGS += --strip-debug 
+EXTRA_LDFLAGS += --strip-debug
 
 ##
 ##
@@ -113,7 +113,7 @@ ifneq ($(KERNELRELEASE),)
 	#
 	# List of object files the kernel makefile needs to compile.
 	#
-	wlan-y := $(DK_OBJS) $(OS_OBJS)
+	wlan-objs := $(DK_OBJS) $(OS_OBJS)
 
 	
 else	# ifneq ($(KERNELRELEASE),)
