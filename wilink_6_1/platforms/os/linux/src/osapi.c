@@ -760,7 +760,10 @@ int os_SignalObjectWait (TI_HANDLE OsContext, void *signalObject)
 {
 	if (!signalObject)
 		return TI_NOK;
-	wait_for_completion ((struct completion *)signalObject);
+	if (!wait_for_completion_timeout((struct completion *)signalObject,
+					msecs_to_jiffies(10000))) {
+		printk("tiwlan: 10 sec %s timeout\n", __func__);
+	}
 	return TI_OK;
 }
 
