@@ -260,7 +260,7 @@ static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 	struct wpa_supplicant *wpa_s = (struct wpa_supplicant *)(drv->ctx);
 	struct wpa_ssid *issid;
 	scan_Params_t scanParams;
-	int scan_type, res, scan_probe_flag = 0;
+	int scan_type, res, timeout, scan_probe_flag = 0;
 
 	wpa_printf(MSG_DEBUG, "%s", __func__);
         TI_CHECK_DRIVER( drv->driver_is_loaded, -1 );
@@ -298,6 +298,12 @@ static int wpa_driver_tista_scan( void *priv, const u8 *ssid, size_t ssid_len )
 	else
 		wpa_printf(MSG_DEBUG, "wpa_driver_tista_scan success");
 
+	timeout = 30;
+	wpa_printf(MSG_DEBUG, "Scan requested (ret=%d) - scan timeout %d sec",
+			res, timeout);
+	eloop_cancel_timeout(wpa_driver_wext_scan_timeout, drv->wext, drv->ctx);
+	eloop_register_timeout(timeout, 0, wpa_driver_wext_scan_timeout,
+				drv->wext, drv->ctx);
 	return res;
 #else
 	return wpa_driver_wext_scan(drv->wext, ssid, ssid_len);
