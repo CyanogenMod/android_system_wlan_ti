@@ -584,7 +584,7 @@ Return Value: actual buffer length - success, -1 - failure
 static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_len )
 {
 	struct wpa_driver_ti_data *drv = (struct wpa_driver_ti_data *)priv;
-	int ret = -1, prev_events;
+	int ret = -1, prev_events, flags;
 
 	wpa_printf(MSG_DEBUG, "%s %s", __func__, cmd);
 
@@ -602,6 +602,11 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 
 	if( os_strcasecmp(cmd, "stop") == 0 ) {
 		wpa_printf(MSG_DEBUG,"Stop command");
+		if ((wpa_driver_wext_get_ifflags(drv->wext, &flags) == 0) &&
+		    (flags & IFF_UP)) {
+			wpa_printf(MSG_ERROR, "TI: %s when iface is UP", cmd);
+			wpa_driver_wext_set_ifflags(drv->wext, flags & ~IFF_UP);
+		}
 		ret = wpa_driver_tista_driver_stop(priv);
 		if( ret == 0 ) {
 			drv->driver_is_loaded = FALSE;
