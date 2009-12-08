@@ -134,12 +134,17 @@ static int wpa_driver_tista_private_send( void *priv, u32 ioctl_cmd, void *bufIn
 	iwr.u.data.flags = 0;
 
 	res = ioctl(drv->ioctl_sock, SIOCIWFIRSTPRIV, &iwr);
-	if(res != 0)
+	if (0 != res)
 	{
 		wpa_printf(MSG_ERROR, "ERROR - wpa_driver_tista_private_send - error sending Wext private IOCTL to STA driver (ioctl_cmd = %x,  res = %d, errno = %d)", ioctl_cmd, res, errno);
+		drv->errors++;
+		if (drv->errors > MAX_NUMBER_SEQUENTIAL_ERRORS) {
+			drv->errors = 0;
+			wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "HANGED");
+		}
 		return -1;
 	}
-
+	drv->errors = 0;
 	wpa_printf(MSG_DEBUG, "wpa_driver_tista_private_send ioctl_cmd = %x  res = %d", ioctl_cmd, res);
 
 	return 0;
@@ -153,8 +158,10 @@ static int wpa_driver_tista_driver_start( void *priv )
 
 	res = wpa_driver_tista_private_send(priv, DRIVER_START_PARAM, &uDummyBuf, sizeof(uDummyBuf), NULL, 0);
 
-	if(0 != res)
+	if (0 != res) {
 		wpa_printf(MSG_ERROR, "ERROR - Failed to start driver!");
+		wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "HANGED");
+	}
 	else {
 		os_sleep(0, WPA_DRIVER_WEXT_WAIT_US); /* delay 400 ms */
 		wpa_printf(MSG_DEBUG, "wpa_driver_tista_driver_start success");
@@ -170,8 +177,10 @@ static int wpa_driver_tista_driver_stop( void *priv )
 
 	res = wpa_driver_tista_private_send(priv, DRIVER_STOP_PARAM, &uDummyBuf, sizeof(uDummyBuf), NULL, 0);
 
-	if(0 != res)
+	if (0 != res) {
 		wpa_printf(MSG_ERROR, "ERROR - Failed to stop driver!");
+		wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "HANGED");
+	}
 	else
 		wpa_printf(MSG_DEBUG, "wpa_driver_tista_driver_stop success");
 
@@ -593,6 +602,11 @@ static int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t
 			wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "STOPPED");
 		}
 	}
+	if( os_strcasecmp(cmd, "reload") == 0 ) {
+		wpa_printf(MSG_DEBUG,"Reload command");
+		ret = 0;
+		wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "HANGED");
+	}
 	else if( os_strcasecmp(cmd, "macaddr") == 0 ) {
 		wpa_driver_tista_get_mac_addr(priv);
 		wpa_printf(MSG_DEBUG, "Macaddr command");
@@ -834,6 +848,9 @@ void * wpa_driver_tista_init(void *ctx, const char *ifname)
 
 	/* BtCoex mode is read from tiwlan.ini file */
 	drv->btcoex_mode = 0; /* SG_DISABLE */
+
+	/* Number of sequential errors */
+	drv->errors = 0;
 	return drv;
 }
 
