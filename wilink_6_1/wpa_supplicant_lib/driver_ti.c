@@ -53,7 +53,7 @@ static int check_and_get_build_channels( void )
 #ifdef ANDROID
     char prop_status[PROPERTY_VALUE_MAX];
     char *prop_name = "ro.wifi.channels";
-    int i, default_channels = NUMBER_SCAN_CHANNELS_ETSI;
+    int i, default_channels = NUMBER_SCAN_CHANNELS_FCC;
 
     if( property_get(prop_name, prop_status, NULL) ) {
         i = atoi(prop_status);
