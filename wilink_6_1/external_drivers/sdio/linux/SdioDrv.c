@@ -15,6 +15,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/version.h>
 #include <linux/moduleparam.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -22,15 +23,25 @@
 #include <linux/types.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
-#include <mach/hardware.h>
 #include <linux/i2c/twl4030.h>
-#include <mach/board.h>
 #include <linux/errno.h>
 #include <linux/clk.h>
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 31))
+#include <plat/hardware.h>
+#include <plat/board.h>
+#include <plat/clock.h>
+#include <plat/dma.h>
+#include <plat/io.h>
+#include <plat/resource.h>
+#define IO_ADDRESS(pa)	OMAP2_L4_IO_ADDRESS(pa)
+#else
+#include <mach/hardware.h>
+#include <mach/board.h>
 #include <mach/clock.h>
 #include <mach/dma.h>
 #include <mach/io.h>
 #include <mach/resource.h>
+#endif
 typedef void *TI_HANDLE;
 #include "host_platform.h"
 #include "SdioDrvDbg.h"
@@ -229,6 +240,14 @@ struct omap_hsmmc_regs {
         u32 sysctl;
 };
 static struct omap_hsmmc_regs hsmmc_ctx;
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 31))
+static struct platform_device dummy_pdev = {
+	.dev = {
+		.bus = &platform_bus_type,
+	},
+};
+#endif
 
 #define SDIO_DRIVER_NAME 			"TIWLAN_SDIO"
 
@@ -1075,8 +1094,14 @@ static int sdioDrv_probe(struct platform_device *pdev)
         sdiodrv_dma_on = 1;
 
 	spin_lock_init(&g_drv.clk_lock);
-	
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 31))
+	dummy_pdev.id = TIWLAN_MMC_CONTROLLER;
+	dev_set_name(&dummy_pdev.dev, "mmci-omap-hs.%lu", TIWLAN_MMC_CONTROLLER);
+	g_drv.fclk = clk_get(&dummy_pdev.dev, "fck");
+#else
 	g_drv.fclk = clk_get(&pdev->dev, "mmchs_fck");
+#endif
 	if (IS_ERR(g_drv.fclk)) {
 		rc = PTR_ERR(g_drv.fclk);
 		PERR("clk_get(fclk) FAILED !!!\n");
@@ -1084,7 +1109,11 @@ static int sdioDrv_probe(struct platform_device *pdev)
 	}
 	sdiodrv_fclk_got = 1;
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 31))
+	g_drv.iclk = clk_get(&dummy_pdev.dev, "ick");
+#else
 	g_drv.iclk = clk_get(&pdev->dev, "mmchs_ick");
+#endif
 	if (IS_ERR(g_drv.iclk)) {
 		rc = PTR_ERR(g_drv.iclk);
 		PERR("clk_get(iclk) FAILED !!!\n");
