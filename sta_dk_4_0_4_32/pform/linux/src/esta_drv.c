@@ -150,7 +150,27 @@ typedef void (* tiwlan_drv_isr_t)(int, void *, struct pt_regs *);
 static int tiwlan_drv_net_open(struct net_device * dev);
 static int tiwlan_drv_net_stop(struct net_device * dev);
 static int tiwlan_drv_net_xmit(struct sk_buff * skb, struct net_device * dev);
+static int tiwlan_drv_dummy_net_xmit(struct sk_buff * skb, struct net_device * dev);
 static struct net_device_stats * tiwlan_drv_net_get_stats(struct net_device * dev);
+int ti1610_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 31))
+static struct net_device_ops tiwlan_ops_pri = {
+	.ndo_open = tiwlan_drv_net_open,
+	.ndo_stop = tiwlan_drv_net_stop,
+	.ndo_get_stats = tiwlan_drv_net_get_stats,
+	.ndo_do_ioctl = ti1610_do_ioctl,
+	.ndo_start_xmit = tiwlan_drv_net_xmit,
+};
+
+static struct net_device_ops tiwlan_ops_dummy = {
+	.ndo_open = tiwlan_drv_net_open,
+	.ndo_stop = tiwlan_drv_net_stop,
+	.ndo_get_stats = tiwlan_drv_net_get_stats,
+	.ndo_do_ioctl = ti1610_do_ioctl,
+	.ndo_start_xmit = tiwlan_drv_dummy_net_xmit,
+};
+#endif
 
 #define OS_WRITE_REG(drv,reg,val)   \
     os_hwWriteMemRegisterUINT32(drv, (UINT32 *)((unsigned long)drv->acx_reg.va + reg), (__u32)(val))
@@ -763,10 +783,14 @@ static int setup_netif(tiwlan_net_dev_t *drv)
     drv->netdev = dev;
     strcpy(dev->name, TIWLAN_DRV_IF_NAME);
     netif_carrier_off(dev);
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 31))
     dev->open = tiwlan_drv_net_open;
     dev->stop = tiwlan_drv_net_stop;
     dev->hard_start_xmit = tiwlan_drv_dummy_net_xmit;
     dev->get_stats = tiwlan_drv_net_get_stats;
+#else
+    dev->netdev_ops = &tiwlan_ops_dummy;
+#endif
     dev->tx_queue_len = 100;
 
     res = tiwlan_ioctl_init(dev);
@@ -1412,7 +1436,11 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
         }
 
         /* Finalize network interface setup */
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 31))
         drv->netdev->hard_start_xmit = tiwlan_drv_net_xmit;
+#else
+        drv->netdev->netdev_ops = &tiwlan_ops_pri;
+#endif
         memcpy (drv->netdev->dev_addr, drv->adapter.CurrentAddr, MAC_ADDR_LEN);
         drv->netdev->addr_len = MAC_ADDR_LEN;
 
