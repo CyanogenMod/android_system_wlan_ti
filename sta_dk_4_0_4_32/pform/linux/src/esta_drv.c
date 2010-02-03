@@ -114,7 +114,9 @@ static unsigned long num_rx_pkt_last = 0;
 #ifdef TIWLAN_MSM7000
 extern unsigned char *get_wifi_nvs_ram(void);
 extern void SDIO_SetFunc( struct sdio_func * );
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 29))
 static struct proc_dir_entry *tiwlan_calibration;
+#endif
 static struct completion sdio_wait;
 #ifdef CONFIG_WIFI_CONTROL_FUNC
 static struct wifi_platform_data *wifi_control_data = NULL;
@@ -466,6 +468,7 @@ static int tiwlan_deb_write_proc(struct file *file, const char *buffer,
 }
 
 #ifdef TIWLAN_MSM7000
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 29))
 #define WIFI_NVS_LEN_OFFSET     0x0C
 #define WIFI_NVS_DATA_OFFSET    0x40
 #define WIFI_NVS_MAX_SIZE       0x800UL
@@ -506,6 +509,7 @@ static int tiwlan_calibration_write_proc(struct file *file, const char *buffer,
 {
     return 0;
 }
+#endif
 #endif
 
 /*********************************************************************************************/
@@ -2061,18 +2065,21 @@ static int __init tiwlan_module_init(void)
         return rc;
     }
     /* rc = tiwlan_create_drv(0, 0, 0, 0, 0, TROUT_IRQ, NULL, NULL); -- Called in probe */
-
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 29))
     tiwlan_calibration = create_proc_entry("calibration", 0644, NULL);
     if (tiwlan_calibration) {
         tiwlan_calibration->size = tiwlan_get_nvs_size();
         tiwlan_calibration->read_proc = tiwlan_calibration_read_proc;
         tiwlan_calibration->write_proc = tiwlan_calibration_write_proc;
     }
+#endif
     if (!wait_for_completion_timeout(&sdio_wait, msecs_to_jiffies(10000))) {
         printk(KERN_ERR "%s: Timed out waiting for device detect\n", __func__);
         remove_proc_entry(TIWLAN_DBG_PROC, NULL);
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 29))
 	if (tiwlan_calibration)
             remove_proc_entry("calibration", NULL);
+#endif
         sdio_unregister_driver(&tiwlan_sdio_drv);
 #ifdef CONFIG_WIFI_CONTROL_FUNC
         wifi_del_dev();
@@ -2111,8 +2118,10 @@ static void __exit tiwlan_module_cleanup(void)
     }
     remove_proc_entry(TIWLAN_DBG_PROC, NULL);
 #ifdef TIWLAN_MSM7000
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 29))
     if(tiwlan_calibration)
         remove_proc_entry("calibration", NULL);
+#endif
     sdio_unregister_driver(&tiwlan_sdio_drv);
 #ifdef CONFIG_WIFI_CONTROL_FUNC
     wifi_del_dev();
