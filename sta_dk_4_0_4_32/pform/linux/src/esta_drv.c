@@ -960,7 +960,7 @@ static void tiwlan_irq_handler( struct work_struct *work )
     if( drv->receive_packet ) {
         drv->receive_packet = 0;
         /* Keep awake for 500 ms to give a chance to network stack */
-        android_lock_suspend_auto_expire( &drv->rx_wake_lock, (HZ >> 1) );
+        android_lock_suspend_auto_expire( &drv->rx_wake_lock, HZ );
     }
     android_unlock_suspend( &drv->exec_wake_lock );
 #endif
