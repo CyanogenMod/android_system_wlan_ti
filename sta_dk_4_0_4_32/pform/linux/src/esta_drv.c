@@ -518,15 +518,6 @@ static int tiwlan_drv_net_stop(struct net_device * dev)
 }
 
 
-/* dummy send packet from Linux TCP/IP stack to WLAN
-   Used when driver is not initialized
- */
-static int tiwlan_drv_dummy_net_xmit(struct sk_buff *skb, struct net_device *dev)
-{
-   /* Network stack takes care of deallocation */
-   return -ENODEV;
-}
-
 void sendFreeFunc(TI_HANDLE pSkb, TI_HANDLE dummy1, TI_STATUS status)
 {
     struct sk_buff *skb = (struct sk_buff *) pSkb;
@@ -751,7 +742,7 @@ static const struct net_device_ops tiwlan_drv_net_dev_ops =
 {
     .ndo_open = tiwlan_drv_net_open,
     .ndo_stop = tiwlan_drv_net_stop,
-    .ndo_start_xmit = tiwlan_drv_dummy_net_xmit,
+    .ndo_start_xmit = tiwlan_drv_net_xmit,
     .ndo_get_stats = tiwlan_drv_net_get_stats,
     .ndo_do_ioctl = ti1610_do_ioctl
 };
