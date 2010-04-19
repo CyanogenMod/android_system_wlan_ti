@@ -254,10 +254,3 @@ int ti1610_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 }
 
 
-int tiwlan_ioctl_init( struct net_device *dev )
-{
-        dev->do_ioctl       = ti1610_do_ioctl;
-
-        return 0;
-}
-

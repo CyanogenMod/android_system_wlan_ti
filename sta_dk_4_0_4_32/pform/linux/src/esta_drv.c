@@ -104,6 +104,7 @@
 #include "802_11Defs.h"
 #include "Ethernet.h"
 #include "tiwlan_profile.h"
+#include "ioctl_utils.h"
 
 #if defined(CONFIG_TROUT_PWRSINK) || defined(CONFIG_HTC_PWRSINK)
 #define RX_RATE_INTERVAL_SEC 10
@@ -746,6 +747,14 @@ struct net_device_stats * tiwlan_drv_net_get_stats(struct net_device * dev)
     return &drv->stats;
 }
 
+static const struct net_device_ops tiwlan_drv_net_dev_ops =
+{
+    .ndo_open = tiwlan_drv_net_open,
+    .ndo_stop = tiwlan_drv_net_stop,
+    .ndo_start_xmit = tiwlan_drv_dummy_net_xmit,
+    .ndo_get_stats = tiwlan_drv_net_get_stats,
+    .ndo_do_ioctl = ti1610_do_ioctl
+};
 
 static int setup_netif(tiwlan_net_dev_t *drv)
 {
@@ -763,19 +772,8 @@ static int setup_netif(tiwlan_net_dev_t *drv)
     drv->netdev = dev;
     strcpy(dev->name, TIWLAN_DRV_IF_NAME);
     netif_carrier_off(dev);
-    dev->open = tiwlan_drv_net_open;
-    dev->stop = tiwlan_drv_net_stop;
-    dev->hard_start_xmit = tiwlan_drv_dummy_net_xmit;
-    dev->get_stats = tiwlan_drv_net_get_stats;
+    dev->netdev_ops = &tiwlan_drv_net_dev_ops;
     dev->tx_queue_len = 100;
-
-    res = tiwlan_ioctl_init(dev);
-    if( res < 0 )
-    {
-        ti_dprintf(TIWLAN_LOG_ERROR, "tiwlan_ioctl_init() failed : %d\n", res);
-        kfree(dev);
-        return res;
-    }
 
     res = register_netdev(dev);
     if (res != 0)
@@ -1412,7 +1410,6 @@ int tiwlan_init_drv (tiwlan_net_dev_t *drv, tiwlan_dev_init_t *init_info)
         }
 
         /* Finalize network interface setup */
-        drv->netdev->hard_start_xmit = tiwlan_drv_net_xmit;
         memcpy (drv->netdev->dev_addr, drv->adapter.CurrentAddr, MAC_ADDR_LEN);
         drv->netdev->addr_len = MAC_ADDR_LEN;
 
