@@ -65,6 +65,7 @@ LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/$(CUDK_ROOT)/configurationutility/inc
 
 LOCAL_MODULE := libtiOsLib
+LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_STATIC_LIBRARY)
 
