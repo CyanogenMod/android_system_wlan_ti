@@ -6,7 +6,7 @@ SG  ?= n
 
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
-
+LOCAL_MODULE_TAGS := optional
 TARGET = wlan_loader
 LOCAL_MODULE = $(TARGET)
 
