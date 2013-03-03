@@ -24,6 +24,13 @@ ifeq ($(TARGET_SIMULATOR),true)
   $(error This makefile must not be included when building the simulator)
 endif
 
+ifndef WPA_SUPPLICANT_VERSION
+WPA_SUPPLICANT_VERSION := VER_0_5_X
+endif
+ifneq ($(WPA_SUPPLICANT_VERSION),VER_0_5_X)
+  $(error This wlan can be used only with 0.5.X version of the wpa_supplicant)
+endif
+
 DK_ROOT = $(BOARD_WLAN_TI_STA_DK_ROOT)
 OS_ROOT = $(BOARD_WLAN_TI_STA_DK_ROOT)/pform
 COMMON  = $(DK_ROOT)/common
@@ -129,6 +136,7 @@ INCLUDES = $(COMMON)/inc \
 	$(DK_ROOT)/../lib
   
 L_CFLAGS += -DCONFIG_DRIVER_CUSTOM -DHOST_COMPILE
+L_CFLAGS += -DWPA_SUPPLICANT_VER=$(WPA_SUPPLICANT_VERSION)
 ifeq ($(notdir $(BOARD_WLAN_TI_STA_DK_ROOT)),sta_dk_5_0_0_94)
 L_CFLAGS += -DSTA_DK_VER_5_0_0_94 
 endif
@@ -150,6 +158,7 @@ endif
  
 include $(CLEAR_VARS)
 LOCAL_MODULE := libCustomWifi
+LOCAL_MODULE_TAGS := optional
 LOCAL_STATIC_LIBRARIES := libWifiApi
 LOCAL_SHARED_LIBRARIES := libc libcutils
 LOCAL_CFLAGS := $(L_CFLAGS)

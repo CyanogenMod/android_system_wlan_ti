@@ -33,7 +33,6 @@
 #include "tidef.h"
 #include <linux/kernel.h>
 #include <asm/io.h>
-#include <mach/tc.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/wifi_tiwlan.h>

@@ -76,7 +76,7 @@ static int check_and_get_build_channels( void )
 #ifdef ANDROID
     char prop_status[PROPERTY_VALUE_MAX];
     char *prop_name = "ro.wifi.channels";
-    int i, default_channels = NUMBER_SCAN_CHANNELS_ETSI;
+    int i, default_channels = NUMBER_SCAN_CHANNELS_FCC;
 
     if( property_get(prop_name, prop_status, NULL) ) {
         i = atoi(prop_status);
@@ -1677,6 +1677,8 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
     else if( os_strcasecmp(cmd, "rssi") == 0 ) {
 #if 1
         u8 ssid[MAX_SSID_LEN];
+        struct wpa_scan_result *cur_res;
+        struct wpa_supplicant *wpa_s = (struct wpa_supplicant *)(myDrv->hWpaSupplicant);
         int rssi, len;
 
         wpa_printf(MSG_DEBUG,"rssi command");
@@ -1688,9 +1690,12 @@ int wpa_driver_tista_driver_cmd( void *priv, char *cmd, char *buf, size_t buf_le
                 os_memcpy( (void *)buf, (void *)ssid, len );
                 ret = len;
                 ret += snprintf(&buf[ret], buf_len-len, " rssi %d\n", rssi);
-                if (ret < (int)buf_len) {
+                if( !wpa_s )
                     return( ret );
-                }
+                cur_res = scan_get_by_bssid( myDrv, wpa_s->bssid );
+                if( cur_res )
+                    cur_res->level = rssi;
+                return( ret );
             }
         }
 #else

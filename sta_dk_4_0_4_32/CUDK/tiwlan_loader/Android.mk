@@ -6,7 +6,7 @@ SG  ?= n
 
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
-
+LOCAL_MODULE_TAGS := optional
 TARGET = wlan_loader
 LOCAL_MODULE = $(TARGET)
 
@@ -79,7 +79,7 @@ LOCAL_STATIC_LIBRARIES := libWifiApi
 else
 LOCAL_SHARED_LIBRARIES := libWifiApi
 endif
-LOCAL_SHARED_LIBRARIES += libc libhardware_legacy
+LOCAL_SHARED_LIBRARIES += libcutils liblog libc libhardware_legacy
 
 INCLUDES = $(DK_INCS) $(CLI_STA_DK_ROOT)/pform/linux/inc \
 	$(CLI_CUDK_ROOT)/Inc                             \

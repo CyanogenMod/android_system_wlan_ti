@@ -109,7 +109,7 @@ TSiteEntry *sme_Select (TI_HANDLE hSme)
         TRACE6(pSme->hReport, REPORT_SEVERITY_INFORMATION , "sme_Select: considering BSSID: %02x:%02x:%02x:%02x:%02x:%02x for selection\n", pCurrentSite->bssid[ 0 ], pCurrentSite->bssid[ 1 ], pCurrentSite->bssid[ 2 ], pCurrentSite->bssid[ 3 ], pCurrentSite->bssid[ 4 ], pCurrentSite->bssid[ 5 ]);
 
         /* if this site was previously selected in the current SME connection attempt, and conn mode is auto */
-        if ((TI_TRUE == pCurrentSite->bConsideredForSelect) && (CONNECT_MODE_AUTO == pSme->eConnectMode))
+        if (TI_TRUE == pCurrentSite->bConsideredForSelect)
         {
             TRACE6(pSme->hReport, REPORT_SEVERITY_INFORMATION , "sme_Select: BSSID: %02x:%02x:%02x:%02x:%02x:%02x was selected previously\n", pCurrentSite->bssid[ 0 ], pCurrentSite->bssid[ 1 ], pCurrentSite->bssid[ 2 ], pCurrentSite->bssid[ 3 ], pCurrentSite->bssid[ 4 ], pCurrentSite->bssid[ 5 ]);
             /* get the next site and continue the loop */

@@ -49,7 +49,7 @@ LOCAL_STATIC_LIBRARIES := \
 	libtiOsLib
 
 LOCAL_SHARED_LIBRARIES := \
-	libc libhardware_legacy
+	libc libcutils libhardware_legacy
 
 LOCAL_MODULE:= wlan_loader
 
